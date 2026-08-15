@@ -1,14 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown,
   ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu, MoreHorizontal,
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp,
-  WalletCards, X,
+  WalletCards, X, LogOut, Cloud, CloudOff,
 } from 'lucide-react'
-import { assumptions, editableSections, seedProperties } from './data.js'
+import { assumptions, createBlankProperty, editableSections } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
+import AuthScreen from './AuthScreen.jsx'
+import { isSupabaseConfigured, supabase } from './supabase.js'
 
-const STORAGE_KEY = 'quark-finance-projections-v1'
 const defaultSettings = { ...assumptions, fullyManaged: false, extraction: true, vladLoan: true }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 
@@ -208,21 +209,54 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
   )
 }
 
-function App() {
-  const [state, setState] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
-      return saved ? { properties: saved.properties || seedProperties, settings: { ...defaultSettings, ...saved.settings } } : { properties: seedProperties, settings: defaultSettings }
-    } catch { return { properties: seedProperties, settings: defaultSettings } }
-  })
+function PortfolioApp({ user }) {
+  const [state, setState] = useState(null)
+  const [loadError, setLoadError] = useState('')
+  const [saveStatus, setSaveStatus] = useState('saved')
+  const loaded = useRef(false)
   const [editingId, setEditingId] = useState(null)
   const [pendingProperty, setPendingProperty] = useState(null)
   const [section, setSection] = useState('Overview')
   const [search, setSearch] = useState('')
-  const portfolio = useMemo(() => calculatePortfolio(state.properties, state.settings), [state])
-  const calculated = useMemo(() => state.properties.map((p) => calculateProperty(p, state.settings)), [state])
 
-  useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(state)), [state])
+  useEffect(() => {
+    let active = true
+    loaded.current = false
+    setState(null)
+    setLoadError('')
+    const loadPortfolio = async () => {
+      const { data, error } = await supabase.from('portfolio_states').select('portfolio').eq('user_id', user.id).maybeSingle()
+      if (!active) return
+      if (error) {
+        setLoadError(error.message)
+        return
+      }
+      const portfolioState = data?.portfolio || { properties: [], settings: {} }
+      loaded.current = true
+      setState({
+        properties: Array.isArray(portfolioState.properties) ? portfolioState.properties : [],
+        settings: { ...defaultSettings, ...(portfolioState.settings || {}) },
+      })
+    }
+    loadPortfolio()
+    return () => { active = false }
+  }, [user.id])
+
+  useEffect(() => {
+    if (!state || !loaded.current) return undefined
+    setSaveStatus('saving')
+    const timer = window.setTimeout(async () => {
+      const { error } = await supabase.from('portfolio_states').upsert({ user_id: user.id, portfolio: state }, { onConflict: 'user_id' })
+      setSaveStatus(error ? 'error' : 'saved')
+    }, 600)
+    return () => window.clearTimeout(timer)
+  }, [state, user.id])
+
+  if (loadError) return <div className="app-status-screen"><CloudOff size={32} /><h1>We couldn’t load your portfolio</h1><p>{loadError}</p><button className="primary-button" onClick={() => window.location.reload()}>Try again</button></div>
+  if (!state) return <div className="app-status-screen"><span className="loading-mark"><Building2 /></span><h1>Loading your private portfolio…</h1></div>
+
+  const portfolio = calculatePortfolio(state.properties, state.settings)
+  const calculated = state.properties.map((p) => calculateProperty(p, state.settings))
 
   const editing = pendingProperty || state.properties.find((p) => p.id === editingId)
   const closeEditor = () => { setEditingId(null); setPendingProperty(null) }
@@ -237,7 +271,7 @@ function App() {
     setEditingId(null)
   }
   const addProperty = () => {
-    const next = { ...seedProperties[1], id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: '', postcode: '', flatNumber: '', mortgageNumber: '', tenantName: '', tenantEmail: '', tenantPhone: '', active: true }
+    const next = createBlankProperty(`BTL${state.properties.length + 1}`)
     setPendingProperty(next)
     setEditingId(null)
   }
@@ -248,7 +282,10 @@ function App() {
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
   const updateSetting = (key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [key]: value } }))
   const updatePercentSetting = (key, value) => updateSetting(key, Number(value) / 100)
-  const reset = () => { if (window.confirm('Reset every local edit to the seeded Quark sheet data?')) setState({ properties: seedProperties, settings: defaultSettings }) }
+  const reset = () => { if (window.confirm('Reset the model inputs to their defaults? Your properties will be kept.')) setState((current) => ({ ...current, settings: defaultSettings })) }
+
+  const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Portfolio owner'
+  const initials = displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
 
@@ -270,13 +307,13 @@ function App() {
             <ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
           </section>
         </div>
-        <div className="sidebar-foot"><div className="avatar">QL</div><span><b>Quentin Lachaud</b><small>Portfolio owner</small></span><ChevronDown size={15} /></div>
+        <div className="sidebar-foot"><div className="avatar">{initials}</div><span><b>{displayName}</b><small>{user.email}</small></span><button className="sidebar-signout" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut size={16} /></button></div>
       </aside>
 
       <main>
         <header className="topbar">
           <div><button className="mobile-menu"><Menu /></button><span>Quark Holdings</span><b>/</b><strong>{section}</strong></div>
-          <div><button className="secondary-button small" onClick={reset}><RotateCcw size={15} /> Reset sheet data</button><button className="primary-button small" onClick={addProperty}><Plus size={16} /> Add BTL</button></div>
+          <div><span className={`save-status ${saveStatus}`} title={saveStatus === 'error' ? 'Could not save changes' : 'Your account data is saved securely'}>{saveStatus === 'error' ? <CloudOff size={15} /> : <Cloud size={15} />}{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved'}</span><button className="secondary-button small" onClick={reset}><RotateCcw size={15} /> Reset inputs</button><button className="primary-button small" onClick={addProperty}><Plus size={16} /> Add BTL</button></div>
         </header>
 
         <div className="content">
@@ -324,4 +361,20 @@ function App() {
   )
 }
 
-export default App
+export default function App() {
+  const [session, setSession] = useState(undefined)
+
+  useEffect(() => {
+    if (!supabase) {
+      setSession(null)
+      return undefined
+    }
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession))
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  if (!isSupabaseConfigured) return <div className="app-status-screen"><CloudOff size={32} /><h1>Authentication is not configured</h1><p>Add the Supabase project URL and publishable key to the deployment environment.</p></div>
+  if (session === undefined) return <div className="app-status-screen"><span className="loading-mark"><Building2 /></span><h1>Checking your session…</h1></div>
+  return session ? <PortfolioApp user={session.user} /> : <AuthScreen />
+}

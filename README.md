@@ -4,25 +4,29 @@ A responsive React dashboard that turns the Quark Holdings BTL spreadsheet into 
 
 ## What it includes
 
-- Three active BTLs seeded from the `Quark Holdings Asset Information` dashboard
+- Private, account-specific portfolios protected by database row-level security
+- Google authentication and email/password account creation
 - Property valuation, debt, equity, LTV, yield, ICR and remortgage calculations
 - Portfolio rent, cost, tax, cashflow, total-gain and safety-buffer scenarios
 - Editable assumptions for appreciation, rate shock, corporation tax, management fee and cash buffer
 - Add, edit, clone, include/exclude and delete BTLs
 - A spreadsheet-style comparison table and compliance/remortgage diary
-- Browser persistence through `localStorage`
+- Secure cloud persistence through Supabase
 - Responsive desktop and mobile layouts
 
-Tenant contact details and mortgage account references are intentionally blank in the committed seed data. The fields remain available for local use and are stored only in the browser.
+The application bundle contains no portfolio seed data. Each signed-in user can only read and update the portfolio row attached to their own account.
 
 ## Run locally
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
 Then open the local URL shown by Vite.
+
+Create a Supabase project, run `supabase/schema.sql`, and put its project URL and publishable key in `.env.local`. Configure the production and local redirect URLs in Supabase Auth before testing OAuth.
 
 ## Verify
 
