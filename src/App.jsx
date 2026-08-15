@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown,
-  ChevronUp, PoundSterling, Copy, Gauge, Home, Landmark, Menu, MoreHorizontal,
+  ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu, MoreHorizontal,
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp,
   WalletCards, X,
 } from 'lucide-react'
@@ -44,6 +44,18 @@ const scenarioMeta = [
   { name: 'No problems', note: 'Best case', colour: '#27795c' },
 ]
 
+const modelInputFields = [
+  ['appreciationRate', 'Annual appreciation', '%', 'percent'],
+  ['rateShock', 'Interest rate shock', '%', 'percent'],
+  ['corporationTaxRate', 'Corporation tax', '%', 'percent'],
+  ['managementRate', 'Management fee', '%', 'percent'],
+  ['cashHeld', 'Cash held', '£', 'number'],
+  ['bufferMonths', 'Target buffer', 'months', 'number'],
+  ['vladLoanValue', 'Vlad loan value', '£', 'number'],
+  ['vladLoanTermMonths', 'Vlad loan term', 'months', 'number'],
+  ['vladLoanRate', 'Vlad loan interest', '%', 'percent'],
+]
+
 function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral' }) {
   return (
     <article className={`metric-card ${tone}`}>
@@ -56,6 +68,8 @@ function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral' }) {
 
 function PropertyCard({ property, onEdit, onClone, onToggle }) {
   const equityPercent = property.latestValuation ? property.equity / property.latestValuation : 0
+  const mapQuery = [property.flatNumber, property.address, property.postcode, 'UK'].filter(Boolean).join(', ')
+  const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}`
   return (
     <article className={`property-card ${property.active ? '' : 'muted'}`}>
       <div className="property-card-head">
@@ -77,6 +91,10 @@ function PropertyCard({ property, onEdit, onClone, onToggle }) {
         <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
         <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
       </div>
+      <div className="property-map">
+        <iframe title={`${property.name} location on Google Maps`} src={`${mapUrl}&output=embed`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" allowFullScreen />
+        <a href={mapUrl} target="_blank" rel="noreferrer"><MapPin size={15} /><span>View location</span><ExternalLink size={13} /></a>
+      </div>
       <div className="property-actions">
         <label className="switch-label"><input type="checkbox" checked={property.active} onChange={() => onToggle(property.id)} /><i /><span>In totals</span></label>
         <button className="text-button" onClick={() => onClone(property.id)}><Copy size={15} /> Clone</button>
@@ -84,6 +102,10 @@ function PropertyCard({ property, onEdit, onClone, onToggle }) {
       </div>
     </article>
   )
+}
+
+function ModelInputFields({ settings, onSettingChange, onPercentChange, compact = false }) {
+  return <div className={compact ? 'sidebar-input-list' : 'assumptions-grid'}>{modelInputFields.map(([key, label, suffix, type]) => <label key={key}><span>{label}</span><div><input aria-label={label} type="number" step={type === 'percent' ? '0.1' : 'any'} value={type === 'percent' ? percentInputValue(settings[key]) : settings[key]} onChange={(event) => type === 'percent' ? onPercentChange(key, event.target.value) : onSettingChange(key, Number(event.target.value))} /><b>{suffix}</b></div></label>)}</div>
 }
 
 function AssetPositionChart({ properties }) {
@@ -234,14 +256,20 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand"><span><Building2 size={20} /></span><div><strong>QUARK</strong><small>HOLDINGS</small></div></div>
-        <nav>
-          <small>WORKSPACE</small>
-          {[
-            ['Overview', Gauge], ['Properties', Home], ['Projections', TrendingUp], ['Compliance', ShieldCheck],
-          ].map(([label, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => setSection(label)}><Icon size={18} />{label}</button>)}
-          <small>PORTFOLIO</small>
-          {calculated.map((p) => <button key={p.id} className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>)}
-        </nav>
+        <div className="sidebar-body">
+          <nav>
+            <small>WORKSPACE</small>
+            {[
+              ['Overview', Gauge], ['Properties', Home], ['Projections', TrendingUp], ['Compliance', ShieldCheck],
+            ].map(([label, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => setSection(label)}><Icon size={18} />{label}</button>)}
+            <small>PORTFOLIO</small>
+            {calculated.map((p) => <button key={p.id} className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>)}
+          </nav>
+          <section className="sidebar-model-inputs">
+            <header><Sparkles size={15} /><div><b>Model inputs</b><small>Portfolio assumptions</small></div></header>
+            <ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
+          </section>
+        </div>
         <div className="sidebar-foot"><div className="avatar">QL</div><span><b>Quentin Lachaud</b><small>Portfolio owner</small></span><ChevronDown size={15} /></div>
       </aside>
 
@@ -284,10 +312,7 @@ function App() {
             <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="VLAD REPAYMENT" value={state.settings.vladLoan ? currency(portfolio.vladLoanPayment) : 'Off'} delta={state.settings.vladLoan ? `${currency(state.settings.vladLoanValue)} over ${state.settings.vladLoanTermMonths} months` : 'Toggle it on above'} icon={WalletCards} /></section>
             <section className="panel scenarios-panel"><header><div><span className="kicker">SHEET-MATCHED MODEL</span><h2>Current monthly scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} vladLoanPayment={portfolio.vladLoanPayment} /></section>
             <ProjectionExplorer properties={state.properties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
-            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio & Vlad loan assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><div className="assumptions-grid">{[
-              ['appreciationRate','Annual appreciation','%','percent'], ['rateShock','Interest rate shock','%','percent'], ['corporationTaxRate','Corporation tax','%','percent'], ['managementRate','Management fee','%','percent'],
-              ['cashHeld','Cash held','£','number'], ['bufferMonths','Target buffer','months','number'], ['vladLoanValue','Vlad loan value','£','number'], ['vladLoanTermMonths','Vlad loan term','months','number'], ['vladLoanRate','Vlad loan interest','%','percent'],
-            ].map(([key,label,suffix,type]) => <label key={key}><span>{label}</span><div><input type="number" step={type === 'percent' ? '0.1' : 'any'} value={type === 'percent' ? percentInputValue(state.settings[key]) : state.settings[key]} onChange={(e) => type === 'percent' ? updatePercentSetting(key, e.target.value) : updateSetting(key, Number(e.target.value))} /><b>{suffix}</b></div></label>)}</div></section>
+            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio & Vlad loan assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /></section>
           </>}
 
           {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{calculated.flatMap((p) => [['Call broker',p.brokerDate],['Gas certificate',p.gasExpiry],['EICR',p.eicrExpiry],['PAT testing',p.patExpiry],['EPC',p.epcExpiry]].map(([label,date]) => ({ property:p.name,label,date:new Date(date instanceof Date ? date : `${date}T12:00:00`) }))).filter((item) => !Number.isNaN(item.date.getTime())).sort((a,b) => a.date-b.date).map((item, index) => <div key={`${item.property}-${item.label}`}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.property}</small></p><time>{shortDate(item.date)}</time></div>)}</div></section>}
