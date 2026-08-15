@@ -23,14 +23,22 @@ export const amortizingPayment = (principal, annualRate, months, dueAtStart = tr
 
 export function calculateProperty(property, settings, now = new Date()) {
   const currentRate = Number(property.baseRate) + Number(settings.rateShock)
-  const monthlyPayment = Number(property.loanAmount) * currentRate / 12
+  const calculatedMortgage = Number(property.loanAmount) * currentRate / 12
+  const monthlyPayment = property.mortgageOverride === '' || property.mortgageOverride == null
+    ? calculatedMortgage
+    : Number(property.mortgageOverride)
   const nextRemortgage = addMonths(property.latestRemortgage, property.fixedRateMonths)
   const brokerDate = nextRemortgage ? addMonths(nextRemortgage.toISOString().slice(0, 10), -3) : null
   const monthsToRemortgage = monthsBetween(now, nextRemortgage)
   const expectedRemortgageValue = Number(property.latestValuation) * ((1 + Number(settings.appreciationRate)) ** (monthsToRemortgage / 12))
   const equity = Number(property.latestValuation) - Number(property.loanAmount)
-  const fixedCosts = monthlyPayment + Number(property.factorsFees) + Number(property.legionella) + Number(property.gasCertificate) + Number(property.eicr) + (13 / Math.max(1, Number(property.fixedRateMonths)))
-  const voids = Number(property.rent) / 12
+  const mortgageAdmin = property.mortgageAdmin == null
+    ? 13 / Math.max(1, Number(property.fixedRateMonths))
+    : Number(property.mortgageAdmin)
+  const fixedCosts = monthlyPayment + Number(property.factorsFees) + Number(property.legionella) + Number(property.gasCertificate) + Number(property.eicr) + mortgageAdmin
+  const voids = property.voidsOverride === '' || property.voidsOverride == null
+    ? Number(property.rent) / 12
+    : Number(property.voidsOverride)
   const variableCosts = voids + Number(property.repairs) + Number(property.applianceReserve)
   const yearsOwned = property.purchaseDate ? Math.max(0, Math.floor((now - new Date(`${property.purchaseDate}T12:00:00`)) / MS_YEAR)) : 0
 
@@ -38,6 +46,8 @@ export function calculateProperty(property, settings, now = new Date()) {
     ...property,
     currentRate,
     monthlyPayment,
+    calculatedMortgage,
+    mortgageAdmin,
     nextRemortgage,
     brokerDate,
     monthsToRemortgage,
@@ -62,20 +72,20 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
   const sum = (key) => selected.reduce((total, property) => total + Number(property[key] || 0), 0)
   const rent = sum('rent')
   const management = settings.fullyManaged ? rent * Number(settings.managementRate) : 0
-  const companyFixed = 34 / 12 + 47 / 12 + 70.8 / 12
-  const vladLoanPayment = settings.vladLoan
-    ? amortizingPayment(settings.vladLoanValue, settings.vladLoanRate, settings.vladLoanTermMonths)
-    : 0
-  const fixedCosts = sum('fixedCosts') + companyFixed + management + vladLoanPayment
+  const enabledTotal = (items) => (Array.isArray(items) ? items : []).filter((item) => item.enabled !== false).reduce((total, item) => total + Number(item.amount || 0), 0)
+  const companyCosts = enabledTotal(settings.companyCosts)
+  const extractionCosts = enabledTotal(settings.extractions)
+  const propertyFixedCosts = sum('fixedCosts')
+  const fixedCosts = propertyFixedCosts + companyCosts + management
   const variableCosts = sum('variableCosts')
-  const engineeredCosts = settings.extraction ? sum('engineeredCost') : 0
+  const extractionTotal = extractionCosts
   const appreciation = sum('latestValuation') * Number(settings.appreciationRate) / 12
-  const taxableAll = rent - fixedCosts - variableCosts - engineeredCosts
+  const taxableAll = rent - fixedCosts - variableCosts - extractionTotal
   const taxableNoVoids = taxableAll + sum('voids')
-  const taxableNoProblems = rent - fixedCosts - engineeredCosts
+  const taxableNoProblems = rent - fixedCosts - extractionTotal
   const scenarios = [taxableAll, taxableNoVoids, taxableNoProblems].map((taxable, index) => {
     const tax = Math.max(0, taxable * Number(settings.corporationTaxRate))
-    const cashflow = taxable + engineeredCosts - tax
+    const cashflow = taxable + extractionTotal - tax
     const totalGain = cashflow + appreciation
     return { id: index + 1, taxable, tax, cashflow, totalGain }
   })
@@ -89,14 +99,16 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
     count: selected.length,
     rent,
     fixedCosts,
+    propertyFixedCosts,
+    companyCosts,
+    management,
     variableCosts,
-    engineeredCosts,
+    extractionTotal,
     appreciation,
     totalValue: sum('latestValuation'),
     totalLoans,
     totalEquity: sum('equity'),
     weightedRate,
-    vladLoanPayment,
     scenarios,
     safeCashNeeded,
     cashHeld: Number(settings.cashHeld),
@@ -115,9 +127,11 @@ export function projectPortfolio(properties, settings, months = settings.project
   return Array.from({ length: duration + 1 }, (_, month) => {
     if (month > 0) {
       const appreciation = portfolio.totalValue * monthlyAppreciationRate * ((1 + monthlyAppreciationRate) ** (month - 1))
-      const loanFinished = settings.vladLoan && month > Number(settings.vladLoanTermMonths || 0)
+      const expiringCompanyCosts = (Array.isArray(settings.companyCosts) ? settings.companyCosts : [])
+        .filter((item) => item.enabled !== false && Number(item.monthsRemaining || 0) > 0 && month > Number(item.monthsRemaining))
+        .reduce((total, item) => total + Number(item.amount || 0), 0)
       portfolio.scenarios.forEach((scenario, index) => {
-        const cashflow = scenario.cashflow + (loanFinished ? portfolio.vladLoanPayment : 0)
+        const cashflow = scenario.cashflow + expiringCompanyCosts
         accumulators[index].cashPot += cashflow
         accumulators[index].cashflow += cashflow
         accumulators[index].appreciation += appreciation

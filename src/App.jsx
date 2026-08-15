@@ -3,15 +3,16 @@ import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown,
   ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu, MoreHorizontal,
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp,
-  WalletCards, X, LogOut, Cloud, CloudOff,
+  WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText,
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
 import AuthScreen from './AuthScreen.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
-const defaultSettings = { ...assumptions, fullyManaged: false, extraction: true, vladLoan: true }
+const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [] }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
+const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 
 const propertyGroups = [
   { title: 'Property basics', description: 'Identity, location and physical details', tone: 'blue', rows: [
@@ -52,9 +53,6 @@ const modelInputFields = [
   ['managementRate', 'Management fee', '%', 'percent'],
   ['cashHeld', 'Cash held', '£', 'number'],
   ['bufferMonths', 'Target buffer', 'months', 'number'],
-  ['vladLoanValue', 'Vlad loan value', '£', 'number'],
-  ['vladLoanTermMonths', 'Vlad loan term', 'months', 'number'],
-  ['vladLoanRate', 'Vlad loan interest', '%', 'percent'],
 ]
 
 function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral' }) {
@@ -130,13 +128,13 @@ function AssetPositionChart({ properties }) {
 function ModelControls({ settings, onChange, compact = false }) {
   return (
     <div className={`model-controls ${compact ? 'compact' : ''}`}>
-      {[['extraction', 'Extraction'], ['fullyManaged', 'Fully managed'], ['vladLoan', 'Vlad loan']].map(([key, label]) => <label key={key} className={settings[key] ? 'selected' : ''}><input type="checkbox" checked={Boolean(settings[key])} onChange={(event) => onChange(key, event.target.checked)} /><i><Check size={12} /></i><span>{label}</span></label>)}
+      {[['fullyManaged', 'Fully managed']].map(([key, label]) => <label key={key} className={settings[key] ? 'selected' : ''}><input type="checkbox" checked={Boolean(settings[key])} onChange={(event) => onChange(key, event.target.checked)} /><i><Check size={12} /></i><span>{label}</span></label>)}
     </div>
   )
 }
 
-function ScenarioTable({ scenarios, count, vladLoanPayment }) {
-  return <div className="scenario-list">{scenarios.map((scenario, index) => <div className="scenario" key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Cashflow / mo</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>Total gain / yr</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div>{vladLoanPayment > 0 && <div><span>Vlad repayment / mo</span><b className="negative">{currency(vladLoanPayment)}</b></div>}</div>)}</div>
+function ScenarioTable({ scenarios, count }) {
+  return <div className="scenario-list">{scenarios.map((scenario, index) => <div className="scenario" key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Cashflow / mo</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>Total gain / yr</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div></div>)}</div>
 }
 
 function ProjectionChart({ points, metric, perFlat, count }) {
@@ -161,6 +159,56 @@ function ProjectionExplorer({ properties, settings, portfolio, onSettingChange }
   const metricLabels = { cashPot: 'Cash pot', totalGain: 'Total gain', cashflow: 'Cash flow', appreciation: 'Appreciation' }
   const divisor = perFlat ? Math.max(1, portfolio.count) : 1
   return <section className="panel projection-explorer"><header><div><span className="kicker">FORWARD VIEW</span><h2>Scenario accumulation over time</h2><p>Compare how cash and value build across the three sheet scenarios.</p></div><div className="projection-duration"><span>Horizon</span><select value={settings.projectionMonths} onChange={(event) => onSettingChange('projectionMonths', Number(event.target.value))}><option value={36}>3 years</option><option value={60}>5 years</option><option value={120}>10 years</option></select></div></header><div className="projection-toolbar"><div className="segmented">{Object.entries(metricLabels).map(([key, label]) => <button className={metric === key ? 'active' : ''} key={key} onClick={() => setMetric(key)}>{label}</button>)}</div><label className="per-flat-toggle"><input type="checkbox" checked={perFlat} onChange={(event) => setPerFlat(event.target.checked)} /><i /><span>Per flat</span></label></div><ProjectionChart points={points} metric={metric} perFlat={perFlat} count={portfolio.count} /><button className="projection-table-toggle" onClick={() => setTableOpen((open) => !open)}>{tableOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}<span><b>{tableOpen ? 'Hide' : 'Expand'} projection table</b><small>Annual snapshots · {metricLabels[metric]}{perFlat ? ' per flat' : ''}</small></span></button>{tableOpen && <div className="projection-table-wrap"><table className="projection-table"><thead><tr><th>Point in time</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{tablePoints.map((point) => <tr key={point.month}><th>{point.month / 12} year{point.month === 12 ? '' : 's'}<small>{shortDate(point.date)}</small></th>{point.scenarios.map((scenario, index) => <td key={index} style={{ '--scenario': scenarioMeta[index].colour }}><b>{currency(scenario[metric] / divisor)}</b><span className={scenario[metric] >= 0 ? 'positive' : 'negative'}>{scenario[metric] >= 0 ? 'Positive' : 'Negative'}</span></td>)}</tr>)}</tbody></table></div>}</section>
+}
+
+const propertyCostFields = [
+  ['factorsFees', 'Factors / service charge', 'fixed'],
+  ['legionella', 'Legionella reserve', 'fixed'],
+  ['gasCertificate', 'Gas certificate reserve', 'fixed'],
+  ['eicr', 'EICR reserve', 'fixed'],
+  ['mortgageAdmin', 'Mortgage filing reserve', 'fixed'],
+  ['repairs', 'Repairs reserve', 'variable'],
+  ['applianceReserve', 'Appliance reserve', 'variable'],
+]
+
+function LineItemsEditor({ title, description, items, onChange, onAdd, onRemove, timed = false, tone }) {
+  const total = items.filter((item) => item.enabled !== false).reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  return <section className={`panel cashflow-editor ${tone}`}><header><div><span className="kicker">{title}</span><h2>{currency(total)} <small>/ month</small></h2><p>{description}</p></div><button className="secondary-button small" onClick={onAdd}><Plus size={15} /> Add line</button></header><div className="cashflow-lines">{items.length === 0 && <div className="empty-cashflow"><ReceiptText size={22} /><b>No line items yet</b><span>Add one when this account has a recurring cash flow.</span></div>}{items.map((item) => <div className={`cashflow-line ${item.enabled === false ? 'disabled' : ''}`} key={item.id}><label className="cashflow-enabled"><input type="checkbox" checked={item.enabled !== false} onChange={(event) => onChange(item.id, 'enabled', event.target.checked)} /><i><Check size={12} /></i></label><label className="cashflow-name"><span>Description</span><input value={item.name} onChange={(event) => onChange(item.id, 'name', event.target.value)} placeholder="New monthly item" /></label><label><span>Monthly amount</span><div className="money-input"><b>£</b><input type="number" min="0" step="0.01" value={item.amount} onChange={(event) => onChange(item.id, 'amount', Number(event.target.value))} /></div></label>{timed && <label><span>Months remaining</span><input type="number" min="0" step="1" value={item.monthsRemaining || ''} onChange={(event) => onChange(item.id, 'monthsRemaining', Number(event.target.value))} placeholder="Ongoing" /></label>}<button className="icon-button cashflow-delete" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.name || 'line item'}`}><Trash2 size={16} /></button></div>)}</div></section>
+}
+
+function CostsWorkspace({ properties, calculated, settings, portfolio, onPropertyChange, onLineItemChange, onLineItemAdd, onLineItemRemove }) {
+  return <div className="costs-workspace">
+    <section className="metrics-grid">
+      <MetricCard eyebrow="PROPERTY FIXED COSTS" value={currency(portfolio.propertyFixedCosts)} delta="Mortgages, factors & compliance" icon={Home} tone="dark" />
+      <MetricCard eyebrow="PROPERTY VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} />
+      <MetricCard eyebrow="COMPANY COSTS" value={currency(portfolio.companyCosts)} delta="Editable recurring overheads" icon={Landmark} />
+      <MetricCard eyebrow="OWNER EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta="Editable tax-deductible value" icon={WalletCards} tone="green" />
+    </section>
+
+    <section className="panel property-cost-panel"><header><div><span className="kicker">PROPERTY CASH FLOWS</span><h2>Every property, line by line</h2><p>Income and monthly cost assumptions feed directly into all scenarios and projections.</p></div></header><div className="property-cost-grid">{calculated.map((property) => {
+      const source = properties.find((item) => item.id === property.id)
+      const mortgageAutomatic = source.mortgageOverride === '' || source.mortgageOverride == null
+      const voidsAutomatic = source.voidsOverride === '' || source.voidsOverride == null
+      return <article className="property-cost-card" key={property.id}><header><div><span>{property.name}</span><h3>{property.flatNumber}, {property.address}</h3></div><b>{currency(property.rent - property.fixedCosts - property.variableCosts)}<small> before company costs</small></b></header><div className="cost-category income"><span>Monthly income</span><label><b>Rent</b><div className="money-input"><i>£</i><input type="number" min="0" step="1" value={moneyInputValue(source.rent)} onChange={(event) => onPropertyChange(property.id, 'rent', Number(event.target.value))} /></div></label></div><div className="cost-category"><span>Fixed property costs</span><label><b>Mortgage payment {mortgageAutomatic && <small>calculated</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.monthlyPayment)} onChange={(event) => onPropertyChange(property.id, 'mortgageOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'fixed').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key] ?? property[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div><div className="cost-category variable"><span>Variable property costs</span><label><b>Void allowance {voidsAutomatic && <small>1/12 rent</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.voids)} onChange={(event) => onPropertyChange(property.id, 'voidsOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'variable').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div></article>
+    })}{calculated.length === 0 && <div className="empty-cashflow"><Home size={24} /><b>No properties yet</b><span>Add a BTL to start entering its income and costs.</span></div>}</div></section>
+
+    <div className="cashflow-editor-grid">
+      <LineItemsEditor title="COMPANY COSTS" description="Account-level overheads and finance payments. Set a remaining term for temporary costs." items={settings.companyCosts} timed tone="company" onChange={(id, key, value) => onLineItemChange('companyCosts', id, key, value)} onAdd={() => onLineItemAdd('companyCosts', 'New company cost')} onRemove={(id) => onLineItemRemove('companyCosts', id)} />
+      <LineItemsEditor title="EXTRACTIONS" description="Generic owner or employee value items. Add, rename, switch off or remove anything." items={settings.extractions} tone="extraction" onChange={(id, key, value) => onLineItemChange('extractions', id, key, value)} onAdd={() => onLineItemAdd('extractions', 'New extraction')} onRemove={(id) => onLineItemRemove('extractions', id)} />
+    </div>
+    <section className="panel cashflow-reconciliation"><header><div><span className="kicker">CASH-FLOW RECONCILIATION</span><h2>Where every pound goes</h2><p>Management is calculated from the model toggle and rate. Corporation tax changes with each scenario.</p></div></header><div className="reconciliation-wrap"><table><thead><tr><th>Monthly line</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{[
+      ['Rent received', () => portfolio.rent, 'income'],
+      ['Property fixed costs', () => -portfolio.propertyFixedCosts, 'cost'],
+      ['Company costs', () => -portfolio.companyCosts, 'cost'],
+      ['Management fee', () => -portfolio.management, 'cost'],
+      ['Variable property costs', (_, index) => index === 0 ? -portfolio.variableCosts : index === 1 ? -(portfolio.variableCosts - portfolio.selected.reduce((sum, property) => sum + property.voids, 0)) : 0, 'cost'],
+      ['Extraction deductions', () => -portfolio.extractionTotal, 'cost'],
+      ['Taxable profit', (scenario) => scenario.taxable, 'subtotal'],
+      ['Corporation tax', (scenario) => -scenario.tax, 'cost'],
+      ['Extractions returned as owner value', () => portfolio.extractionTotal, 'income'],
+      ['Net monthly owner value', (scenario) => scenario.cashflow, 'total'],
+    ].map(([label, getter, kind]) => <tr className={kind} key={label}><th>{label}</th>{portfolio.scenarios.map((scenario, index) => <td key={scenario.id}>{currency(getter(scenario, index))}</td>)}</tr>)}</tbody></table></div></section>
+  </div>
 }
 
 function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
@@ -235,7 +283,12 @@ function PortfolioApp({ user }) {
       loaded.current = true
       setState({
         properties: Array.isArray(portfolioState.properties) ? portfolioState.properties : [],
-        settings: { ...defaultSettings, ...(portfolioState.settings || {}) },
+        settings: {
+          ...defaultSettings,
+          ...(portfolioState.settings || {}),
+          companyCosts: Array.isArray(portfolioState.settings?.companyCosts) ? portfolioState.settings.companyCosts : [],
+          extractions: Array.isArray(portfolioState.settings?.extractions) ? portfolioState.settings.extractions : [],
+        },
       })
     }
     loadPortfolio()
@@ -280,9 +333,13 @@ function PortfolioApp({ user }) {
     closeEditor()
   }
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
+  const updatePropertyField = (id, key, value) => setState((current) => ({ ...current, properties: current.properties.map((property) => property.id === id ? { ...property, [key]: value } : property) }))
   const updateSetting = (key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [key]: value } }))
   const updatePercentSetting = (key, value) => updateSetting(key, Number(value) / 100)
-  const reset = () => { if (window.confirm('Reset the model inputs to their defaults? Your properties will be kept.')) setState((current) => ({ ...current, settings: defaultSettings })) }
+  const updateLineItem = (collection, id, key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].map((item) => item.id === id ? { ...item, [key]: value } : item) } }))
+  const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
+  const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
+  const reset = () => { if (window.confirm('Reset the model inputs to their defaults? Your properties and cash-flow lines will be kept.')) setState((current) => ({ ...current, settings: { ...current.settings, ...assumptions, fullyManaged: false } })) }
 
   const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Portfolio owner'
   const initials = displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
@@ -297,7 +354,7 @@ function PortfolioApp({ user }) {
           <nav>
             <small>WORKSPACE</small>
             {[
-              ['Overview', Gauge], ['Properties', Home], ['Projections', TrendingUp], ['Compliance', ShieldCheck],
+              ['Overview', Gauge], ['Properties', Home], ['Costs & Cash Flows', ReceiptText], ['Projections', TrendingUp], ['Compliance', ShieldCheck],
             ].map(([label, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => setSection(label)}><Icon size={18} />{label}</button>)}
             <small>PORTFOLIO</small>
             {calculated.map((p) => <button key={p.id} className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>)}
@@ -319,7 +376,6 @@ function PortfolioApp({ user }) {
         <div className="content">
           <section className="hero-row">
             <div><span className="eyebrow">LIVE PORTFOLIO MODEL</span><h1>{section === 'Overview' ? 'Portfolio overview' : section}</h1><p>{portfolio.count} active BTLs · Last calculated just now · GBP</p></div>
-            <div className="assumption-pill"><Sparkles size={16} /><span>Appreciation</span><input aria-label="Appreciation rate" type="number" step="0.1" value={percentInputValue(state.settings.appreciationRate)} onChange={(e) => updatePercentSetting('appreciationRate', e.target.value)} /><b>% per year</b></div>
           </section>
 
           {(section === 'Overview' || section === 'Projections') && <section className="global-model-strip"><div><span className="kicker">LIVE MODEL OPTIONS</span><p>Changes recalculate every overview, property metric and projection.</p></div><ModelControls settings={state.settings} onChange={updateSetting} /></section>}
@@ -340,16 +396,18 @@ function PortfolioApp({ user }) {
             <section className="properties-heading"><div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div><button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button></section>
             <section className="property-cards">{calculated.map((p) => <PropertyCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}<button className="add-property-card" onClick={addProperty}><span><Plus /></span><b>Add another BTL</b><small>Start blank or clone an existing property</small></button></section>
 
-            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} vladLoanPayment={portfolio.vladLoanPayment} /></section>
+            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} /></section>
           </>}
 
           {section === 'Properties' && <><section className="panel properties-toolbar"><div><span className="kicker">CLEAR COMPARISON VIEW</span><h2>Property information by section</h2><p>Basics, performance and dates are separated so each property is easier to scan.</p></div><div className="table-tools"><label><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label><button className="primary-button small" onClick={addProperty}><Plus size={16} /> New BTL</button></div></section><div className="property-group-stack">{propertyGroups.map((group) => <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}><header><div><span className="group-marker" /><div><h2>{group.title}</h2><p>{group.description}</p></div></div></header><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead><tbody>{group.rows.map(([label, getter, kind]) => <tr key={label}><th>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody></table></div></section>)}</div></>}
 
+          {section === 'Costs & Cash Flows' && <CostsWorkspace properties={state.properties} calculated={calculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} />}
+
           {section === 'Projections' && <>
-            <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="VLAD REPAYMENT" value={state.settings.vladLoan ? currency(portfolio.vladLoanPayment) : 'Off'} delta={state.settings.vladLoan ? `${currency(state.settings.vladLoanValue)} over ${state.settings.vladLoanTermMonths} months` : 'Toggle it on above'} icon={WalletCards} /></section>
-            <section className="panel scenarios-panel"><header><div><span className="kicker">SHEET-MATCHED MODEL</span><h2>Current monthly scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} vladLoanPayment={portfolio.vladLoanPayment} /></section>
+            <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta="Editable in Costs & Cash Flows" icon={WalletCards} /></section>
+            <section className="panel scenarios-panel"><header><div><span className="kicker">SHEET-MATCHED MODEL</span><h2>Current monthly scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} /></section>
             <ProjectionExplorer properties={state.properties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
-            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio & Vlad loan assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /></section>
+            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /></section>
           </>}
 
           {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{calculated.flatMap((p) => [['Call broker',p.brokerDate],['Gas certificate',p.gasExpiry],['EICR',p.eicrExpiry],['PAT testing',p.patExpiry],['EPC',p.epcExpiry]].map(([label,date]) => ({ property:p.name,label,date:new Date(date instanceof Date ? date : `${date}T12:00:00`) }))).filter((item) => !Number.isNaN(item.date.getTime())).sort((a,b) => a.date-b.date).map((item, index) => <div key={`${item.property}-${item.label}`}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.property}</small></p><time>{shortDate(item.date)}</time></div>)}</div></section>}

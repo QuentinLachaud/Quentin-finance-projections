@@ -6,18 +6,16 @@ export const assumptions = {
   cashHeld: 12700,
   bufferMonths: 6,
   projectionMonths: 60,
-  vladLoanValue: 49551,
-  vladLoanTermMonths: 120,
-  vladLoanRate: 0.06,
   landlordRegistration: '540076/260/18032',
 }
 
 const sharedCosts = {
-  legionella: 66 / 24,
-  gasCertificate: 100 / 12,
-  eicr: 150 / 60,
-  repairs: 50,
-  applianceReserve: (400 + 250 + 100 + 150) / 60,
+  legionella: 0,
+  gasCertificate: 0,
+  eicr: 0,
+  mortgageAdmin: 0,
+  repairs: 0,
+  applianceReserve: 0,
 }
 
 export const createBlankProperty = (name = 'BTL1') => ({
@@ -39,6 +37,8 @@ export const createBlankProperty = (name = 'BTL1') => ({
   mortgageNumber: '',
   baseRate: 0,
   fixedRateMonths: 24,
+  mortgageOverride: '',
+  voidsOverride: '',
   factorsFees: 0,
   tenantName: '',
   tenantEmail: '',
@@ -51,7 +51,6 @@ export const createBlankProperty = (name = 'BTL1') => ({
   eicrExpiry: '',
   epcExpiry: '',
   patExpiry: '',
-  engineeredCost: 0,
   active: true,
   ...sharedCosts,
 })
