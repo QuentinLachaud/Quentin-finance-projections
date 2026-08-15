@@ -5,6 +5,10 @@ export const assumptions = {
   managementRate: 0.12,
   cashHeld: 12700,
   bufferMonths: 6,
+  projectionMonths: 60,
+  vladLoanValue: 49551,
+  vladLoanTermMonths: 120,
+  vladLoanRate: 0.06,
   landlordRegistration: '540076/260/18032',
 }
 

@@ -12,6 +12,15 @@ export const monthsBetween = (from, to) => {
   return Math.max(0, (to.getFullYear() - from.getFullYear()) * 12 + to.getMonth() - from.getMonth())
 }
 
+export const amortizingPayment = (principal, annualRate, months, dueAtStart = true) => {
+  const value = Math.max(0, Number(principal || 0))
+  const term = Math.max(1, Number(months || 1))
+  const monthlyRate = Math.max(0, Number(annualRate || 0)) / 12
+  if (!monthlyRate) return value / term
+  const ordinaryPayment = value * monthlyRate / (1 - ((1 + monthlyRate) ** -term))
+  return dueAtStart ? ordinaryPayment / (1 + monthlyRate) : ordinaryPayment
+}
+
 export function calculateProperty(property, settings, now = new Date()) {
   const currentRate = Number(property.baseRate) + Number(settings.rateShock)
   const monthlyPayment = Number(property.loanAmount) * currentRate / 12
@@ -54,7 +63,10 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
   const rent = sum('rent')
   const management = settings.fullyManaged ? rent * Number(settings.managementRate) : 0
   const companyFixed = 34 / 12 + 47 / 12 + 70.8 / 12
-  const fixedCosts = sum('fixedCosts') + companyFixed + management
+  const vladLoanPayment = settings.vladLoan
+    ? amortizingPayment(settings.vladLoanValue, settings.vladLoanRate, settings.vladLoanTermMonths)
+    : 0
+  const fixedCosts = sum('fixedCosts') + companyFixed + management + vladLoanPayment
   const variableCosts = sum('variableCosts')
   const engineeredCosts = settings.extraction ? sum('engineeredCost') : 0
   const appreciation = sum('latestValuation') * Number(settings.appreciationRate) / 12
@@ -84,6 +96,7 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
     totalLoans,
     totalEquity: sum('equity'),
     weightedRate,
+    vladLoanPayment,
     scenarios,
     safeCashNeeded,
     cashHeld: Number(settings.cashHeld),
@@ -91,6 +104,29 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
     extraCashNeeded: Math.max(0, safeCashNeeded - Number(settings.cashHeld)),
     glideMonths: conservativeBurn < 0 ? Math.floor(Number(settings.cashHeld) / Math.abs(conservativeBurn)) : Infinity,
   }
+}
+
+export function projectPortfolio(properties, settings, months = settings.projectionMonths || 60, now = new Date()) {
+  const portfolio = calculatePortfolio(properties, settings, now)
+  const duration = Math.max(12, Number(months || 60))
+  const monthlyAppreciationRate = ((1 + Number(settings.appreciationRate || 0)) ** (1 / 12)) - 1
+  const accumulators = portfolio.scenarios.map(() => ({ cashPot: Number(settings.cashHeld || 0), cashflow: 0, totalGain: 0, appreciation: 0 }))
+
+  return Array.from({ length: duration + 1 }, (_, month) => {
+    if (month > 0) {
+      const appreciation = portfolio.totalValue * monthlyAppreciationRate * ((1 + monthlyAppreciationRate) ** (month - 1))
+      const loanFinished = settings.vladLoan && month > Number(settings.vladLoanTermMonths || 0)
+      portfolio.scenarios.forEach((scenario, index) => {
+        const cashflow = scenario.cashflow + (loanFinished ? portfolio.vladLoanPayment : 0)
+        accumulators[index].cashPot += cashflow
+        accumulators[index].cashflow += cashflow
+        accumulators[index].appreciation += appreciation
+        accumulators[index].totalGain += cashflow + appreciation
+      })
+    }
+    const date = new Date(now.getFullYear(), now.getMonth() + month, 1)
+    return { month, date, scenarios: accumulators.map((values) => ({ ...values })) }
+  })
 }
 
 export const currency = (value, digits = 0) => new Intl.NumberFormat('en-GB', {

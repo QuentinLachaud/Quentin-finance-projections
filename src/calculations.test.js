@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { assumptions, seedProperties } from './data.js'
-import { calculatePortfolio, calculateProperty } from './calculations.js'
+import { amortizingPayment, calculatePortfolio, calculateProperty, projectPortfolio } from './calculations.js'
 
 const fixedNow = new Date('2026-08-15T12:00:00')
 
@@ -20,5 +20,15 @@ describe('Quark sheet calculations', () => {
     expect(all.rent).toBe(3850)
     expect(two.count).toBe(2)
     expect(two.rent).toBe(2750)
+  })
+
+  it('matches the source Vlad loan repayment and projects cash accumulation', () => {
+    expect(amortizingPayment(49551, 0.06, 120)).toBeCloseTo(547, 0)
+    const settings = { ...assumptions, vladLoan: true, extraction: true, fullyManaged: false }
+    const portfolio = calculatePortfolio(seedProperties, settings, fixedNow)
+    const projection = projectPortfolio(seedProperties, settings, 60, fixedNow)
+    expect(portfolio.vladLoanPayment).toBeCloseTo(547, 0)
+    expect(projection).toHaveLength(61)
+    expect(projection[60].scenarios[2].cashPot).toBeGreaterThan(projection[60].scenarios[0].cashPot)
   })
 })
