@@ -55,6 +55,14 @@ const modelInputFields = [
   ['bufferMonths', 'Target buffer', 'months', 'number'],
 ]
 
+const workspaceNavigation = [
+  ['Overview', 'Overview', Gauge],
+  ['Properties', 'Properties', Home],
+  ['Costs & Cash Flows', 'Costs', ReceiptText],
+  ['Projections', 'Projections', TrendingUp],
+  ['Compliance', 'Compliance', ShieldCheck],
+]
+
 function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral' }) {
   return (
     <article className={`metric-card ${tone}`}>
@@ -266,6 +274,18 @@ function PortfolioApp({ user }) {
   const [pendingProperty, setPendingProperty] = useState(null)
   const [section, setSection] = useState('Overview')
   const [search, setSearch] = useState('')
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined
+    const closeOnEscape = (event) => event.key === 'Escape' && setMobileNavOpen(false)
+    document.addEventListener('keydown', closeOnEscape)
+    document.body.classList.add('mobile-nav-locked')
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape)
+      document.body.classList.remove('mobile-nav-locked')
+    }
+  }, [mobileNavOpen])
 
   useEffect(() => {
     let active = true
@@ -345,19 +365,23 @@ function PortfolioApp({ user }) {
   const initials = displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
+  const navigateMobile = (nextSection) => {
+    setSection(nextSection)
+    setMobileNavOpen(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand"><span><Building2 size={20} /></span><div><strong>QUARK</strong><small>HOLDINGS</small></div></div>
+      <button className={`mobile-nav-backdrop ${mobileNavOpen ? 'open' : ''}`} onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" tabIndex={mobileNavOpen ? 0 : -1} />
+      <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`} aria-label="Portfolio navigation">
+        <div className="brand"><span><Building2 size={20} /></span><div><strong>QUARK</strong><small>HOLDINGS</small></div><button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
         <div className="sidebar-body">
           <nav>
             <small>WORKSPACE</small>
-            {[
-              ['Overview', Gauge], ['Properties', Home], ['Costs & Cash Flows', ReceiptText], ['Projections', TrendingUp], ['Compliance', ShieldCheck],
-            ].map(([label, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => setSection(label)}><Icon size={18} />{label}</button>)}
+            {workspaceNavigation.map(([label, , Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => { setSection(label); setMobileNavOpen(false) }}><Icon size={18} />{label}</button>)}
             <small>PORTFOLIO</small>
-            {calculated.map((p) => <button key={p.id} className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>)}
+            {calculated.map((p) => <button key={p.id} className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name); setMobileNavOpen(false) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>)}
           </nav>
           <section className="sidebar-model-inputs">
             <header><Sparkles size={15} /><div><b>Model inputs</b><small>Portfolio assumptions</small></div></header>
@@ -369,7 +393,7 @@ function PortfolioApp({ user }) {
 
       <main>
         <header className="topbar">
-          <div><button className="mobile-menu"><Menu /></button><span>Quark Holdings</span><b>/</b><strong>{section}</strong></div>
+          <div><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span>Quark Holdings</span><b>/</b><strong>{section}</strong></div>
           <div><span className={`save-status ${saveStatus}`} title={saveStatus === 'error' ? 'Could not save changes' : 'Your account data is saved securely'}>{saveStatus === 'error' ? <CloudOff size={15} /> : <Cloud size={15} />}{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved'}</span><button className="secondary-button small" onClick={reset}><RotateCcw size={15} /> Reset inputs</button><button className="primary-button small" onClick={addProperty}><Plus size={16} /> Add BTL</button></div>
         </header>
 
@@ -413,6 +437,11 @@ function PortfolioApp({ user }) {
           {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{calculated.flatMap((p) => [['Call broker',p.brokerDate],['Gas certificate',p.gasExpiry],['EICR',p.eicrExpiry],['PAT testing',p.patExpiry],['EPC',p.epcExpiry]].map(([label,date]) => ({ property:p.name,label,date:new Date(date instanceof Date ? date : `${date}T12:00:00`) }))).filter((item) => !Number.isNaN(item.date.getTime())).sort((a,b) => a.date-b.date).map((item, index) => <div key={`${item.property}-${item.label}`}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.property}</small></p><time>{shortDate(item.date)}</time></div>)}</div></section>}
         </div>
       </main>
+
+      <nav className="mobile-bottom-nav" aria-label="Mobile workspace navigation">
+        {workspaceNavigation.slice(0, 4).map(([label, shortLabel, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => navigateMobile(label)}><Icon size={20} /><span>{shortLabel}</span></button>)}
+        <button className={section === 'Compliance' ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
+      </nav>
 
       {editing && <EditDrawer property={editing} isNew={!state.properties.some((p) => p.id === editing.id)} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
     </div>
