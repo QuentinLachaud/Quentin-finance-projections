@@ -1,4 +1,4 @@
-import { calculatePrivateLandlordTax } from './tax.js'
+import { calculateCorporationTax, calculatePrivateLandlordTax, taxYearForDate } from './tax.js'
 
 const MS_YEAR = 365.2425 * 24 * 60 * 60 * 1000
 
@@ -29,10 +29,21 @@ export const mortgageInterestPayment = (property, settings) => {
   return loanAmount * currentRate / 12
 }
 
+const qualifyingFinancePayment = (property, settings) => {
+  const loanAmount = Math.max(0, Number(property.loanAmount || 0))
+  const rawQualifyingBalance = property.qualifyingFinanceBalance
+  const qualifyingBalance = rawQualifyingBalance === '' || rawQualifyingBalance == null
+    ? loanAmount
+    : Math.min(loanAmount, Math.max(0, Number(rawQualifyingBalance || 0)))
+  const currentRate = Math.max(0, Number(property.baseRate || 0) + Number(settings.rateShock || 0))
+  return qualifyingBalance * currentRate / 12
+}
+
 export function calculateProperty(property, settings, now = new Date()) {
-  const currentRate = Number(property.baseRate) + Number(settings.rateShock)
-  const calculatedMortgage = Number(property.loanAmount) * currentRate / 12
+  const currentRate = Math.max(0, Number(property.baseRate || 0) + Number(settings.rateShock || 0))
+  const calculatedMortgage = Math.max(0, Number(property.loanAmount || 0)) * currentRate / 12
   const monthlyPayment = mortgageInterestPayment(property, settings)
+  const qualifyingFinanceCost = qualifyingFinancePayment(property, settings)
   const nextRemortgage = addMonths(property.latestRemortgage, property.fixedRateMonths)
   const brokerDate = nextRemortgage ? addMonths(nextRemortgage.toISOString().slice(0, 10), -3) : null
   const monthsToRemortgage = monthsBetween(now, nextRemortgage)
@@ -41,19 +52,26 @@ export function calculateProperty(property, settings, now = new Date()) {
   const mortgageAdmin = property.mortgageAdmin == null
     ? 13 / Math.max(1, Number(property.fixedRateMonths))
     : Number(property.mortgageAdmin)
-  const fixedCosts = monthlyPayment + Number(property.factorsFees) + Number(property.legionella) + Number(property.gasCertificate) + Number(property.eicr) + mortgageAdmin
+  const complianceBudget = Number(property.legionella) + Number(property.gasCertificate) + Number(property.eicr)
+  const financeAdminBudget = mortgageAdmin
+  const problemBudget = Number(property.repairs) + Number(property.applianceReserve)
+  const fixedCosts = monthlyPayment + Number(property.factorsFees) + complianceBudget + financeAdminBudget
   const voids = property.voidsOverride === '' || property.voidsOverride == null
     ? Number(property.rent) / 12
     : Number(property.voidsOverride)
-  const variableCosts = voids + Number(property.repairs) + Number(property.applianceReserve)
+  const variableCosts = voids + problemBudget
   const yearsOwned = property.purchaseDate ? Math.max(0, Math.floor((now - new Date(`${property.purchaseDate}T12:00:00`)) / MS_YEAR)) : 0
 
   return {
     ...property,
     currentRate,
     monthlyPayment,
+    qualifyingFinanceCost,
     calculatedMortgage,
     mortgageAdmin,
+    complianceBudget,
+    financeAdminBudget,
+    problemBudget,
     nextRemortgage,
     brokerDate,
     monthsToRemortgage,
@@ -63,7 +81,7 @@ export function calculateProperty(property, settings, now = new Date()) {
     currentLtv: Number(property.latestValuation) ? Number(property.loanAmount) / Number(property.latestValuation) : 0,
     grossYield: Number(property.homeReportPurchase) ? Number(property.rent) * 12 / Number(property.homeReportPurchase) : 0,
     netYield: Number(property.homeReportPurchase) ? (Number(property.rent) - monthlyPayment - Number(property.factorsFees)) * 12 / Number(property.homeReportPurchase) : 0,
-    appreciationAnnual: Number(property.homeReportPurchase) * Number(settings.appreciationRate),
+    appreciationAnnual: Number(property.latestValuation) * Number(settings.appreciationRate),
     yearsOwned,
     releasableEquity: equity - Number(property.latestValuation) * 0.25,
     icr: monthlyPayment ? Number(property.rent) / monthlyPayment : 0,
@@ -73,45 +91,109 @@ export function calculateProperty(property, settings, now = new Date()) {
   }
 }
 
+const enabledItems = (items) => (Array.isArray(items) ? items : []).filter((item) => item.enabled !== false)
+const itemTotal = (items) => enabledItems(items).reduce((total, item) => total + Number(item.amount || 0), 0)
+const deductibleItemTotal = (items) => enabledItems(items)
+  .filter((item) => item.taxDeductible === true)
+  .reduce((total, item) => total + Number(item.amount || 0), 0)
+
 export function calculatePortfolio(properties, settings, now = new Date()) {
   const selected = properties.filter((property) => property.active).map((property) => calculateProperty(property, settings, now))
   const isCompany = settings.accountType !== 'private'
   const sum = (key) => selected.reduce((total, property) => total + Number(property[key] || 0), 0)
   const rent = sum('rent')
-  const management = settings.fullyManaged ? rent * Number(settings.managementRate) : 0
-  const enabledTotal = (items) => (Array.isArray(items) ? items : []).filter((item) => item.enabled !== false).reduce((total, item) => total + Number(item.amount || 0), 0)
-  const companyCosts = isCompany ? enabledTotal(settings.companyCosts) : 0
-  const extractionCosts = enabledTotal(settings.extractions)
-  const propertyFixedCosts = sum('fixedCosts')
-  const fixedCosts = propertyFixedCosts + companyCosts + management
-  const variableCosts = sum('variableCosts')
-  const extractionTotal = extractionCosts
-  const appreciation = sum('latestValuation') * Number(settings.appreciationRate) / 12
+  const companyCosts = isCompany ? itemTotal(settings.companyCosts) : 0
+  const deductibleCompanyCosts = isCompany ? deductibleItemTotal(settings.companyCosts) : 0
+  const extractionTotal = isCompany ? itemTotal(settings.extractions) : 0
+  const deductibleExtractions = isCompany ? deductibleItemTotal(settings.extractions) : 0
   const financeCosts = sum('monthlyPayment')
-  const nonFinancePropertyCosts = propertyFixedCosts - financeCosts
-  const scenarioVariableCosts = [variableCosts, variableCosts - sum('voids'), 0]
-  const scenarios = scenarioVariableCosts.map((scenarioVariables, index) => {
-    const companyTaxable = rent - fixedCosts - scenarioVariables - extractionTotal
-    const propertyProfit = rent - nonFinancePropertyCosts - management - scenarioVariables
+  const qualifyingFinanceCosts = sum('qualifyingFinanceCost')
+  const factorsCosts = sum('factorsFees')
+  const complianceBudget = sum('complianceBudget')
+  const financeAdminBudget = sum('financeAdminBudget')
+  const problemBudget = sum('problemBudget')
+  const voids = sum('voids')
+  const propertyFixedCosts = financeCosts + factorsCosts + complianceBudget + financeAdminBudget
+  const management = settings.fullyManaged ? rent * Number(settings.managementRate) : 0
+  const fixedCosts = propertyFixedCosts + companyCosts + management
+  const variableCosts = voids + problemBudget
+  const appreciation = sum('latestValuation') * Number(settings.appreciationRate) / 12
+  const budgetTaxDeductible = Boolean(settings.budgetedPropertyCostsTaxDeductible)
+  const taxYear = taxYearForDate(now)
+
+  const scenarioInputs = [
+    { voidLoss: voids, problemBudget },
+    { voidLoss: 0, problemBudget },
+    { voidLoss: 0, problemBudget: 0 },
+  ]
+
+  const scenarios = scenarioInputs.map(({ voidLoss, problemBudget: scenarioProblemBudget }, index) => {
+    const collectedRent = Math.max(0, rent - voidLoss)
+    const scenarioManagement = settings.fullyManaged ? collectedRent * Number(settings.managementRate) : 0
+    const deductiblePropertyBudgets = budgetTaxDeductible ? complianceBudget + scenarioProblemBudget : 0
+    const deductibleFinanceAdmin = budgetTaxDeductible ? financeAdminBudget : 0
+    const propertyProfit = collectedRent - factorsCosts - scenarioManagement - deductiblePropertyBudgets
+    const scenarioTaxState = settings.privateTaxStates?.[index] || {}
     const privateTax = isCompany ? null : calculatePrivateLandlordTax({
       grossIncome: Number(settings.grossAnnualIncome || 0),
-      propertyProfit: Math.max(0, propertyProfit * 12),
-      financeCosts: financeCosts * 12,
+      propertyProfit: propertyProfit * 12,
+      financeCosts: (qualifyingFinanceCosts + deductibleFinanceAdmin) * 12,
+      propertyLossBroughtForward: scenarioTaxState.propertyLossBroughtForward ?? Number(settings.propertyLossBroughtForward || 0),
+      financeCostsBroughtForward: scenarioTaxState.financeCostsBroughtForward ?? Number(settings.financeCostsBroughtForward || 0),
       jurisdiction: settings.taxJurisdiction,
+      taxYear,
     })
+
+    const companyTaxable = collectedRent
+      - financeCosts
+      - factorsCosts
+      - scenarioManagement
+      - deductiblePropertyBudgets
+      - deductibleFinanceAdmin
+      - deductibleCompanyCosts
+      - deductibleExtractions
     const taxable = isCompany ? companyTaxable : propertyProfit
-    const tax = isCompany
-      ? Math.max(0, taxable * Number(settings.corporationTaxRate))
-      : privateTax.propertyIncomeTax / 12
-    const cashBeforeTax = isCompany ? taxable + extractionTotal : rent - propertyFixedCosts - management - scenarioVariables
-    const cashflow = cashBeforeTax - tax
+    const accountingPeriodMonths = Math.min(12, Math.max(1, Number(settings.accountingPeriodMonths || 12)))
+    const periodTaxableProfit = Math.max(0, companyTaxable * accountingPeriodMonths)
+    const corporationTax = isCompany ? calculateCorporationTax({
+      taxableProfit: periodTaxableProfit,
+      augmentedProfit: periodTaxableProfit + Math.max(0, Number(settings.augmentedProfitDistributions || 0)),
+      associatedCompanies: Number(settings.associatedCompanies || 0),
+      accountingPeriodMonths,
+      closeInvestmentHoldingCompany: Boolean(settings.closeInvestmentHoldingCompany),
+    }) : null
+    const tax = isCompany ? corporationTax.tax / accountingPeriodMonths : privateTax.propertyIncomeTax / 12
+
+    const bankCashBeforeTax = collectedRent
+      - propertyFixedCosts
+      - scenarioManagement
+      - scenarioProblemBudget
+      - companyCosts
+      - extractionTotal
+    const bankCashflow = bankCashBeforeTax - tax
+    const cashflow = isCompany ? bankCashflow + extractionTotal : bankCashflow
     const totalGain = cashflow + appreciation
-    return { id: index + 1, taxable, tax, cashflow, totalGain, privateTax }
+
+    return {
+      id: index + 1,
+      collectedRent,
+      voidLoss,
+      management: scenarioManagement,
+      problemBudget: scenarioProblemBudget,
+      taxable,
+      tax,
+      bankCashflow,
+      cashflow,
+      totalGain,
+      privateTax,
+      corporationTax,
+    }
   })
+
   const totalLoans = sum('loanAmount')
   const weightedRate = totalLoans ? selected.reduce((total, property) => total + property.currentRate * property.loanAmount, 0) / totalLoans : 0
   const safeCashNeeded = (fixedCosts + variableCosts) * Number(settings.bufferMonths)
-  const conservativeBurn = scenarios[0]?.cashflow || 0
+  const conservativeBurn = scenarios[0]?.bankCashflow || 0
 
   return {
     selected,
@@ -120,11 +202,19 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
     fixedCosts,
     propertyFixedCosts,
     companyCosts,
+    deductibleCompanyCosts,
     management,
     variableCosts,
+    voids,
+    problemBudget,
+    complianceBudget,
+    financeAdminBudget,
+    factorsCosts,
     financeCosts,
-    nonFinancePropertyCosts,
+    qualifyingFinanceCosts,
+    nonFinancePropertyCosts: factorsCosts + complianceBudget,
     extractionTotal,
+    deductibleExtractions,
     appreciation,
     totalValue: sum('latestValuation'),
     totalLoans,
@@ -136,31 +226,59 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
     bufferMonths: fixedCosts + variableCosts ? Number(settings.cashHeld) / (fixedCosts + variableCosts) : 0,
     extraCashNeeded: Math.max(0, safeCashNeeded - Number(settings.cashHeld)),
     glideMonths: conservativeBurn < 0 ? Math.floor(Number(settings.cashHeld) / Math.abs(conservativeBurn)) : Infinity,
+    taxYear,
   }
 }
 
+const activeCompanyCostsForMonth = (items, month) => (Array.isArray(items) ? items : []).map((item) => {
+  const monthsRemaining = Number(item.monthsRemaining || 0)
+  if (monthsRemaining <= 0 || month <= monthsRemaining) return item
+  return { ...item, enabled: false }
+})
+
 export function projectPortfolio(properties, settings, months = settings.projectionMonths || 60, now = new Date()) {
-  const portfolio = calculatePortfolio(properties, settings, now)
+  const basePortfolio = calculatePortfolio(properties, settings, now)
   const duration = Math.max(12, Number(months || 60))
   const monthlyAppreciationRate = ((1 + Number(settings.appreciationRate || 0)) ** (1 / 12)) - 1
-  const accumulators = portfolio.scenarios.map(() => ({ cashPot: Number(settings.cashHeld || 0), cashflow: 0, totalGain: 0, appreciation: 0 }))
+  const accumulators = basePortfolio.scenarios.map(() => ({ cashPot: Number(settings.cashHeld || 0), cashflow: 0, totalGain: 0, appreciation: 0 }))
+  let privateTaxStates = basePortfolio.scenarios.map(() => ({
+    propertyLossBroughtForward: Number(settings.propertyLossBroughtForward || 0),
+    financeCostsBroughtForward: Number(settings.financeCostsBroughtForward || 0),
+  }))
+  let previousTaxYear = basePortfolio.taxYear
+  let previousPortfolio = basePortfolio
 
   return Array.from({ length: duration + 1 }, (_, month) => {
+    const date = new Date(now.getFullYear(), now.getMonth() + month, 6, 12)
+    const currentTaxYear = taxYearForDate(date)
+
+    if (month > 0 && settings.accountType === 'private' && currentTaxYear !== previousTaxYear) {
+      privateTaxStates = previousPortfolio.scenarios.map((scenario) => ({
+        propertyLossBroughtForward: Number(scenario.privateTax?.propertyLossCarryForward || 0),
+        financeCostsBroughtForward: Number(scenario.privateTax?.financeCostsCarryForward || 0),
+      }))
+    }
+
+    const projectedSettings = {
+      ...settings,
+      companyCosts: activeCompanyCostsForMonth(settings.companyCosts, month),
+      privateTaxStates,
+    }
+    const monthlyPortfolio = month === 0 ? basePortfolio : calculatePortfolio(properties, projectedSettings, date)
+
     if (month > 0) {
-      const appreciation = portfolio.totalValue * monthlyAppreciationRate * ((1 + monthlyAppreciationRate) ** (month - 1))
-      const expiringCompanyCosts = settings.accountType === 'private' ? 0 : (Array.isArray(settings.companyCosts) ? settings.companyCosts : [])
-        .filter((item) => item.enabled !== false && Number(item.monthsRemaining || 0) > 0 && month > Number(item.monthsRemaining))
-        .reduce((total, item) => total + Number(item.amount || 0), 0)
-      portfolio.scenarios.forEach((scenario, index) => {
-        const cashflow = scenario.cashflow + expiringCompanyCosts
-        accumulators[index].cashPot += cashflow
-        accumulators[index].cashflow += cashflow
+      const appreciation = basePortfolio.totalValue * monthlyAppreciationRate * ((1 + monthlyAppreciationRate) ** (month - 1))
+      monthlyPortfolio.scenarios.forEach((scenario, index) => {
+        accumulators[index].cashPot += scenario.bankCashflow
+        accumulators[index].cashflow += scenario.cashflow
         accumulators[index].appreciation += appreciation
-        accumulators[index].totalGain += cashflow + appreciation
+        accumulators[index].totalGain += scenario.cashflow + appreciation
       })
     }
-    const date = new Date(now.getFullYear(), now.getMonth() + month, 1)
-    return { month, date, scenarios: accumulators.map((values) => ({ ...values })) }
+
+    previousTaxYear = currentTaxYear
+    previousPortfolio = monthlyPortfolio
+    return { month, date, taxYear: currentTaxYear, scenarios: accumulators.map((values) => ({ ...values })) }
   })
 }
 

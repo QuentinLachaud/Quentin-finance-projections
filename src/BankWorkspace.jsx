@@ -6,9 +6,13 @@ import {
 import { supabase } from './supabase.js'
 import {
   aggregateCashFlow, BANK_CATEGORIES, calculateBankMetrics, cashHeldFromAccounts,
-  detectInternalTransfers, reconstructBalanceSeries, transactionsToCsv,
+  detectInternalTransfers, reconstructBalanceSeries, reportingAccountIds, transactionsToCsv,
 } from './banking.js'
 import { currency, shortDate } from './calculations.js'
+
+const money = (value, currencyCode = 'GBP') => new Intl.NumberFormat('en-GB', {
+  style: 'currency', currency: currencyCode || 'GBP', maximumFractionDigits: 2,
+}).format(Number(value || 0))
 
 const apiRequest = async (action, body) => {
   const { data } = await supabase.auth.getSession()
@@ -237,6 +241,8 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
   }
 
   const selected = useMemo(() => accounts.filter((account) => selectedAccountIds.includes(account.id)), [accounts, selectedAccountIds])
+  const reportingIds = useMemo(() => reportingAccountIds(accounts, selectedAccountIds, 'GBP'), [accounts, selectedAccountIds])
+  const reportingSelected = useMemo(() => accounts.filter((account) => reportingIds.includes(account.id)), [accounts, reportingIds])
   const fromDate = useMemo(() => {
     if (range === 'all') return ''
     const date = new Date()
@@ -244,10 +250,11 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
     return date.toISOString().slice(0, 10)
   }, [range])
   const filteredTransactions = useMemo(() => transactions.filter((transaction) => selectedAccountIds.includes(transaction.accountId) && (!fromDate || transaction.bookedAt >= fromDate)), [transactions, selectedAccountIds, fromDate])
-  const balanceSeries = useMemo(() => reconstructBalanceSeries(selected, transactions, { accountIds: selectedAccountIds }), [selected, transactions, selectedAccountIds])
+  const balanceSeries = useMemo(() => reconstructBalanceSeries(reportingSelected, transactions, { accountIds: reportingIds }), [reportingSelected, transactions, reportingIds])
   const visibleBalanceSeries = useMemo(() => fromDate ? balanceSeries.filter((point) => point.date >= fromDate) : balanceSeries, [balanceSeries, fromDate])
-  const cashFlow = useMemo(() => aggregateCashFlow(filteredTransactions, { period, accountIds: selectedAccountIds, includeTransfers }), [filteredTransactions, period, selectedAccountIds, includeTransfers])
-  const metrics = useMemo(() => calculateBankMetrics(filteredTransactions, visibleBalanceSeries, { accountIds: selectedAccountIds, includeTransfers }), [filteredTransactions, visibleBalanceSeries, selectedAccountIds, includeTransfers])
+  const cashFlow = useMemo(() => aggregateCashFlow(transactions, { period, accountIds: reportingIds, includeTransfers, from: fromDate || undefined }), [transactions, period, reportingIds, includeTransfers, fromDate])
+  const metrics = useMemo(() => calculateBankMetrics(transactions, visibleBalanceSeries, { accountIds: reportingIds, includeTransfers, from: fromDate || undefined }), [transactions, visibleBalanceSeries, reportingIds, includeTransfers, fromDate])
+  const reportingBalance = reportingSelected.reduce((total, account) => total + account.currentBalance, 0)
 
   const exportCsv = () => downloadFile(`bank-transactions-${new Date().toISOString().slice(0, 10)}.csv`, transactionsToCsv(filteredTransactions), 'text/csv;charset=utf-8')
   const exportPdf = async () => {
@@ -255,7 +262,7 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
     const document = new jsPDF({ unit: 'pt', format: 'a4' })
     const lines = [
       `Accounts: ${selected.map((account) => `${account.institutionName} ${account.displayName}`).join(', ')}`,
-      `Current connected balance: ${currency(selected.reduce((total, account) => total + account.currentBalance, 0))}`,
+      `Current connected GBP balance: ${currency(reportingBalance)}`,
       `Net cash flow: ${currency(metrics.netCashFlow)}`,
       `12 month average inflow: ${currency(metrics.averages.twelveMonth.inflow)}`,
       `12 month average outflow: ${currency(metrics.averages.twelveMonth.outflow)}`,
@@ -267,7 +274,7 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
     lines.forEach((line) => { document.text(document.splitTextToSize(line, 500), 44, y); y += 20 })
     y += 10; document.setFont('helvetica', 'bold'); document.text('Recent transactions', 44, y); y += 18; document.setFont('helvetica', 'normal')
     filteredTransactions.slice().reverse().slice(0, 120).forEach((transaction) => {
-      const line = `${transaction.bookedAt || ''}  ${transaction.description || ''}  ${currency(transaction.amount)}  ${transaction.category}`
+      const line = `${transaction.bookedAt || ''}  ${transaction.description || ''}  ${money(transaction.amount, transaction.currency)}  ${transaction.category}`
       const wrapped = document.splitTextToSize(line, 500)
       if (y + wrapped.length * 12 > 790) { document.addPage(); y = 50 }
       document.text(wrapped, 44, y); y += wrapped.length * 12 + 4
@@ -284,9 +291,9 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
     {showConnect && <section className="panel bank-picker"><header><div><span className="kicker">AVAILABLE UK INSTITUTIONS</span><h2>Choose a bank</h2><p>Tide, Monzo, Revolut and Chase are prioritised when returned by GoCardless; all other supported UK providers remain searchable.</p></div><label><Search size={16} /><input aria-label="Search banks" placeholder="Search banks" value={search} onChange={(event) => setSearch(event.target.value)} /></label></header><div className="bank-picker-grid">{filteredInstitutions.map((institution) => <button key={institution.id} onClick={() => connect(institution.id)} disabled={status === 'connecting'}>{institution.logo ? <img src={institution.logo} alt="" /> : <Landmark />}<span><b>{institution.name}</b><small>Up to {Math.min(730, institution.transactionDays)} days history</small></span>{institution.preferred && <em>Priority</em>}<ExternalLink size={14} /></button>)}</div>{!institutions.length && status !== 'not-configured' && <div className="bank-empty-chart"><RefreshCw /><span>Loading live institution availability…</span></div>}</section>}
 
     {accounts.length > 0 && <>
-      <section className="bank-account-grid">{accounts.map((account) => <article className={`panel bank-account ${selectedAccountIds.includes(account.id) ? 'selected' : ''}`} key={account.id}><header><label><input type="checkbox" checked={selectedAccountIds.includes(account.id)} onChange={() => setSelectedAccountIds((current) => current.includes(account.id) ? current.filter((id) => id !== account.id) : [...current, account.id])} /><i />{account.institutionLogo ? <img src={account.institutionLogo} alt="" /> : <Building2 />}</label><button className="icon-button" aria-label={`Disconnect ${account.institutionName}`} onClick={() => deleteConnection(connections.find((connection) => connection.id === account.connectionId))}><Trash2 size={15} /></button></header><span>{account.institutionName}</span><h3>{account.displayName}</h3><strong>{currency(account.currentBalance)}</strong><small>{account.currency} · {account.ibanLast4 ? `ending ${account.ibanLast4}` : 'account details protected'}</small><footer><label className="switch-label"><input type="checkbox" checked={account.includeInCash} onChange={() => toggleAccount(account)} /><i /><span>Include in cash held</span></label></footer></article>)}</section>
+      <section className="bank-account-grid">{accounts.map((account) => <article className={`panel bank-account ${selectedAccountIds.includes(account.id) ? 'selected' : ''}`} key={account.id}><header><label><input type="checkbox" checked={selectedAccountIds.includes(account.id)} onChange={() => setSelectedAccountIds((current) => current.includes(account.id) ? current.filter((id) => id !== account.id) : [...current, account.id])} /><i />{account.institutionLogo ? <img src={account.institutionLogo} alt="" /> : <Building2 />}</label><button className="icon-button" aria-label={`Disconnect ${account.institutionName}`} onClick={() => deleteConnection(connections.find((connection) => connection.id === account.connectionId))}><Trash2 size={15} /></button></header><span>{account.institutionName}</span><h3>{account.displayName}</h3><strong>{money(account.currentBalance, account.currency)}</strong><small>{account.currency} · {account.ibanLast4 ? `ending ${account.ibanLast4}` : 'account details protected'}</small><footer><label className="switch-label"><input type="checkbox" checked={account.includeInCash} onChange={() => toggleAccount(account)} /><i /><span>Include in cash held</span></label></footer></article>)}</section>
 
-      <section className="bank-metrics-grid"><BankMetric label="Connected balance" value={currency(selected.reduce((total, account) => total + account.currentBalance, 0))} note={`${selected.length} selected account${selected.length === 1 ? '' : 's'}`} tone="dark" /><BankMetric label="Net cash flow" value={currency(metrics.netCashFlow)} note="Selected range" tone={metrics.netCashFlow >= 0 ? 'positive' : 'negative'} /><BankMetric label="Average monthly inflow" value={currency(metrics.averageMonthlyInflow)} note="Trailing 12 months" /><BankMetric label="Average monthly outflow" value={currency(metrics.averageMonthlyOutflow)} note="Trailing 12 months" /><BankMetric label="Lowest balance" value={currency(metrics.lowestBalance)} note="Selected range" /><BankMetric label="Highest balance" value={currency(metrics.highestBalance)} note="Selected range" /></section>
+      <section className="bank-metrics-grid"><BankMetric label="Connected GBP balance" value={currency(reportingBalance)} note={`${reportingIds.length} selected GBP account${reportingIds.length === 1 ? '' : 's'} · non-GBP excluded from aggregates`} tone="dark" /><BankMetric label="Net cash flow" value={currency(metrics.netCashFlow)} note="Selected range" tone={metrics.netCashFlow >= 0 ? 'positive' : 'negative'} /><BankMetric label="Average monthly inflow" value={currency(metrics.averageMonthlyInflow)} note={`Trailing up to 12 months · ${metrics.historyMonths || 0} month${metrics.historyMonths === 1 ? '' : 's'} available`} /><BankMetric label="Average monthly outflow" value={currency(metrics.averageMonthlyOutflow)} note={`Trailing up to 12 months · ${metrics.historyMonths || 0} month${metrics.historyMonths === 1 ? '' : 's'} available`} /><BankMetric label="Lowest balance" value={currency(metrics.lowestBalance)} note="Selected range" /><BankMetric label="Highest balance" value={currency(metrics.highestBalance)} note="Selected range" /></section>
 
       <section className="panel bank-toolbar"><div className="segmented">{[['3', '3M'], ['6', '6M'], ['12', '12M'], ['all', 'All']].map(([value, label]) => <button className={range === value ? 'active' : ''} key={value} onClick={() => setRange(value)}>{label}</button>)}</div><label className="switch-label"><input type="checkbox" checked={includeTransfers} onChange={(event) => setIncludeTransfers(event.target.checked)} /><i /><span>Include transfers</span></label><div className="bank-exports"><button className="secondary-button small" onClick={exportCsv}><Download size={14} /> CSV</button><button className="secondary-button small" onClick={exportPdf}><FileText size={14} /> PDF</button></div></section>
 
@@ -296,7 +303,7 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
 
       <section className="bank-average-grid">{[['3 month', metrics.averages.threeMonth], ['6 month', metrics.averages.sixMonth], ['12 month', metrics.averages.twelveMonth]].map(([label, average]) => <article className="panel" key={label}><span>{label} average</span><div><p><ArrowUpRight /> Inflow <b>{currency(average.inflow)}</b></p><p><ArrowDownRight /> Outflow <b>{currency(average.outflow)}</b></p><p className={average.net >= 0 ? 'positive' : 'negative'}><TrendingUp /> Net <b>{currency(average.net)}</b></p></div></article>)}</section>
 
-      <section className="panel bank-transactions"><header><div><span className="kicker">AUTOMATIC CLASSIFICATION</span><h2>Transactions</h2><p>Rules classify rent, mortgages, tax, salary, factors, director loans and common property costs. You can correct any result.</p></div></header><div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <tr key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{transaction.description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{currency(transaction.amount)}</td></tr>)}</tbody></table></div></section>
+      <section className="panel bank-transactions"><header><div><span className="kicker">AUTOMATIC CLASSIFICATION</span><h2>Transactions</h2><p>Rules classify rent, mortgages, tax, salary, factors, director loans and common property costs. You can correct any result.</p></div></header><div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <tr key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{transaction.description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</td></tr>)}</tbody></table></div></section>
     </>}
 
     {!accounts.length && status === 'ready' && !showConnect && <section className="panel bank-empty-state"><WalletCards /><h2>Connect the account that receives your property income</h2><p>Its opted-in GBP balances will update the portfolio’s cash-held figure. You can connect and compare multiple accounts.</p><button className="primary-button" onClick={openConnect}><Link2 size={16} /> Choose a bank</button></section>}

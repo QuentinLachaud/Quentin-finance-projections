@@ -67,7 +67,9 @@ const scenarioMeta = [
 const modelInputFields = [
   ['appreciationRate', 'Annual appreciation', '%', 'percent'],
   ['rateShock', 'Interest rate shock', '%', 'percent', null, 'Adds this many percentage points to every BTL mortgage rate throughout the model.'],
-  ['corporationTaxRate', 'Corporation tax', '%', 'percent', 'company'],
+  ['associatedCompanies', 'Associated companies', 'companies', 'number', 'company', 'Other companies associated for Corporation Tax threshold purposes. Enter the number of other associated companies.'],
+  ['accountingPeriodMonths', 'CT accounting period', 'months', 'number', 'company', 'Corporation Tax thresholds are reduced for accounting periods shorter than 12 months.'],
+  ['augmentedProfitDistributions', 'Qualifying distributions', '£ / period', 'number', 'company', 'Qualifying distributions included in augmented profits for Corporation Tax marginal-relief thresholds. Usually zero for a property SPV.'],
   ['managementRate', 'Management fee', '%', 'percent', null, 'Applied to monthly rent only when the Fully managed option is enabled.'],
   ['cashHeld', 'Cash held', '£', 'number'],
   ['bufferMonths', 'Target buffer', 'months', 'number', null, 'The target cash reserve expressed as months of fixed and variable property costs.'],
@@ -143,12 +145,14 @@ function ModelInputFields({ settings, onSettingChange, onPercentChange, compact 
 
 function PrivateLandlordInputs({ settings, onSettingChange, compact = false }) {
   if (settings.accountType !== 'private') return null
-  return <section className={`private-tax-inputs ${compact ? 'compact' : ''}`}><header><PoundSterling size={15} /><div><b>Private landlord tax</b><small>{TAX_YEAR} income-tax assumptions</small></div></header><label><span>Other gross annual income</span><div className="private-income-field"><b>£</b><input aria-label="Other gross annual income" type="number" min="0" step="100" value={Number(settings.grossAnnualIncome || 0)} onChange={(event) => onSettingChange('grossAnnualIncome', Number(event.target.value))} /></div><small>Before property income; excludes savings and dividends.</small>{!Number(settings.grossAnnualIncome) && <small className="tax-input-warning">Currently assumes you have no other taxable income.</small>}</label><div className="tax-jurisdiction"><span>Tax jurisdiction</span><div><button className={settings.taxJurisdiction !== 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'england')}>England</button><button className={settings.taxJurisdiction === 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'scotland')}>Scotland</button></div></div></section>
+  const moneyField = (key, label, note) => <label><span>{label}</span><div className="private-income-field"><b>£</b><input aria-label={label} type="number" min="0" step="100" value={Number(settings[key] || 0)} onChange={(event) => onSettingChange(key, Number(event.target.value))} /></div>{note && <small>{note}</small>}</label>
+  return <section className={`private-tax-inputs ${compact ? 'compact' : ''}`}><header><PoundSterling size={15} /><div><b>Private landlord tax</b><small>Tax-year-aware planning assumptions</small></div></header>{moneyField('grossAnnualIncome', 'Other gross annual income', 'Before property income; excludes savings and dividends.')}{!Number(settings.grossAnnualIncome) && <small className="tax-input-warning">Currently assumes you have no other taxable income.</small>}{moneyField('propertyLossBroughtForward', 'Property loss brought forward', 'Unused loss from the same property business.')}{moneyField('financeCostsBroughtForward', 'Finance costs brought forward', 'Unused restricted residential finance costs from earlier tax years.')}<div className="tax-jurisdiction"><span>Tax jurisdiction</span><div><button className={settings.taxJurisdiction !== 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'england')}>England / Wales / NI</button><button className={settings.taxJurisdiction === 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'scotland')}>Scotland</button></div></div></section>
 }
 
 function PrivateTaxSummary({ portfolio, settings }) {
   if (settings.accountType !== 'private') return null
-  return <section className="panel private-tax-summary"><header><div><span className="kicker">PRIVATE LANDLORD · {TAX_YEAR}</span><h2>Estimated property income tax</h2><p>Rental profit is stacked on your other gross income. Residential mortgage interest receives basic-rate relief instead of being deducted from profit.</p></div><span className="panel-stat">{settings.taxJurisdiction === 'scotland' ? 'Scotland' : 'England'}</span></header><div className="private-tax-scenarios">{portfolio.scenarios.map((scenario, index) => <article key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><span>{scenarioMeta[index].name}</span><strong>{currency(scenario.tax * 12)}</strong><small>estimated annual tax</small><dl><div><dt>Taxable property profit</dt><dd>{currency(scenario.privateTax?.propertyProfit)}</dd></div><div><dt>Finance-cost reduction</dt><dd>{currency(scenario.privateTax?.financeCostTaxReduction)}</dd></div><div><dt>Marginal income-tax rate</dt><dd>{percent(scenario.privateTax?.marginalRate, 0)}</dd></div></dl></article>)}</div><footer>Planning estimate only · excludes pension reliefs, losses brought forward, savings, dividends and unused finance costs carried forward.</footer></section>
+  const futureNote = portfolio.scenarios.find((scenario) => scenario.privateTax?.policyNote)?.privateTax?.policyNote
+  return <section className="panel private-tax-summary"><header><div><span className="kicker">PRIVATE LANDLORD · {portfolio.taxYear || TAX_YEAR}</span><h2>Estimated property income tax</h2><p>Rental profit is stacked on your other income. Restricted residential finance costs receive the applicable basic property-rate tax reduction rather than a profit deduction.</p></div><span className="panel-stat">{settings.taxJurisdiction === 'scotland' ? 'Scotland' : 'England / Wales / NI'}</span></header><div className="private-tax-scenarios">{portfolio.scenarios.map((scenario, index) => <article key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><span>{scenarioMeta[index].name}</span><strong>{currency(scenario.tax * 12)}</strong><small>estimated annual tax</small><dl><div><dt>Taxable property profit</dt><dd>{currency(scenario.privateTax?.propertyProfit)}</dd></div><div><dt>Finance-cost reduction</dt><dd>{currency(scenario.privateTax?.financeCostTaxReduction)}</dd></div><div><dt>Loss carried forward</dt><dd>{currency(scenario.privateTax?.propertyLossCarryForward)}</dd></div><div><dt>Finance costs carried forward</dt><dd>{currency(scenario.privateTax?.financeCostsCarryForward)}</dd></div><div><dt>Marginal property rate</dt><dd>{percent(scenario.privateTax?.marginalRate, 0)}</dd></div></dl></article>)}</div>{futureNote && <p className="tax-input-warning">{futureNote}</p>}<footer>Planning estimate only · excludes pension reliefs, savings, dividends and tax circumstances not represented by these inputs.</footer></section>
 }
 
 const companiesHouseRequest = async (params) => {
@@ -266,15 +270,21 @@ function AssetPositionChart({ properties }) {
 }
 
 function ModelControls({ settings, onChange, compact = false }) {
+  const controls = [
+    ['fullyManaged', 'Fully managed', false, 'Charge the management percentage on rent actually collected in each scenario.'],
+    ['budgetedPropertyCostsTaxDeductible', 'Budgets tax-deductible', false, 'Planning approximation only: enable only when the monthly budgets represent qualifying expenditure actually incurred/accrued, not money merely reserved for future work.'],
+    ['closeInvestmentHoldingCompany', 'CIHC main-rate treatment', settings.accountType === 'private', 'Enable only if the company is a close investment-holding company for Corporation Tax; this forces the main rate.'],
+  ]
   return (
     <div className={`model-controls ${compact ? 'compact' : ''}`}>
-      {[['fullyManaged', 'Fully managed']].map(([key, label]) => <label key={key} className={settings[key] ? 'selected' : ''}><input type="checkbox" checked={Boolean(settings[key])} onChange={(event) => onChange(key, event.target.checked)} /><i><Check size={12} /></i><span>{label}</span></label>)}
+      {controls.map(([key, label, disabled, help]) => <label key={key} className={`${settings[key] ? 'selected' : ''} ${disabled ? 'not-applicable' : ''}`} title={help}><input disabled={disabled} type="checkbox" checked={Boolean(settings[key])} onChange={(event) => onChange(key, event.target.checked)} /><i><Check size={12} /></i><span>{label}</span></label>)}
     </div>
   )
 }
 
-function ScenarioTable({ scenarios, count }) {
-  return <div className="scenario-list">{scenarios.map((scenario, index) => <div className="scenario" key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Tax / mo</span><b className="negative">{currency(scenario.tax)}</b></div><div><span>Cashflow / mo</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>Total gain / yr</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div></div>)}</div>
+function ScenarioTable({ scenarios, count, accountType = 'company' }) {
+  const isPrivate = accountType === 'private'
+  return <div className="scenario-list">{scenarios.map((scenario, index) => <div className="scenario" key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Tax / mo</span><b className="negative">{currency(scenario.tax)}</b></div><div><span>{isPrivate ? 'Cashflow / mo' : 'Company + extraction / mo'}</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>{isPrivate ? 'Total gain / yr' : 'Total gain / yr (pre-personal-tax)'}</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div></div>)}</div>
 }
 
 function ProjectionChart({ points, metric, perFlat, count }) {
@@ -296,24 +306,25 @@ function ProjectionExplorer({ properties, settings, portfolio, onSettingChange }
   const [tableOpen, setTableOpen] = useState(false)
   const points = useMemo(() => projectPortfolio(properties, settings, settings.projectionMonths), [properties, settings])
   const tablePoints = points.filter((point) => point.month > 0 && point.month % 12 === 0)
-  const metricLabels = { cashPot: 'Cash pot', totalGain: 'Total gain', cashflow: 'Cash flow', appreciation: 'Appreciation' }
+  const isCompany = settings.accountType !== 'private'
+  const metricLabels = { cashPot: isCompany ? 'Company cash pot' : 'Cash pot', totalGain: isCompany ? 'Total gain (pre-personal-tax)' : 'Total gain', cashflow: isCompany ? 'Company + extraction cash' : 'Cash flow', appreciation: 'Appreciation' }
   const divisor = perFlat ? Math.max(1, portfolio.count) : 1
   return <section className="panel projection-explorer"><header><div><span className="kicker">FORWARD VIEW</span><h2>Scenario accumulation over time</h2><p>Compare how cash and value build across the three sheet scenarios.</p></div><div className="projection-duration"><span>Horizon</span><select value={settings.projectionMonths} onChange={(event) => onSettingChange('projectionMonths', Number(event.target.value))}><option value={36}>3 years</option><option value={60}>5 years</option><option value={120}>10 years</option></select></div></header><div className="projection-toolbar"><div className="segmented">{Object.entries(metricLabels).map(([key, label]) => <button className={metric === key ? 'active' : ''} key={key} onClick={() => setMetric(key)}>{label}</button>)}</div><label className="per-flat-toggle"><input type="checkbox" checked={perFlat} onChange={(event) => setPerFlat(event.target.checked)} /><i /><span>Per flat</span></label></div><ProjectionChart points={points} metric={metric} perFlat={perFlat} count={portfolio.count} /><button className="projection-table-toggle" onClick={() => setTableOpen((open) => !open)}>{tableOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}<span><b>{tableOpen ? 'Hide' : 'Expand'} projection table</b><small>Annual snapshots · {metricLabels[metric]}{perFlat ? ' per flat' : ''}</small></span></button>{tableOpen && <div className="projection-table-wrap"><table className="projection-table"><thead><tr><th>Point in time</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{tablePoints.map((point) => <tr key={point.month}><th>{point.month / 12} year{point.month === 12 ? '' : 's'}<small>{shortDate(point.date)}</small></th>{point.scenarios.map((scenario, index) => <td key={index} style={{ '--scenario': scenarioMeta[index].colour }}><b>{currency(scenario[metric] / divisor)}</b><span className={scenario[metric] >= 0 ? 'positive' : 'negative'}>{scenario[metric] >= 0 ? 'Positive' : 'Negative'}</span></td>)}</tr>)}</tbody></table></div>}</section>
 }
 
 const propertyCostFields = [
   ['factorsFees', 'Factors / service charge', 'fixed'],
-  ['legionella', 'Legionella reserve', 'fixed'],
-  ['gasCertificate', 'Gas certificate reserve', 'fixed'],
-  ['eicr', 'EICR reserve', 'fixed'],
-  ['mortgageAdmin', 'Mortgage filing reserve', 'fixed'],
-  ['repairs', 'Repairs reserve', 'variable'],
-  ['applianceReserve', 'Appliance reserve', 'variable'],
+  ['legionella', 'Legionella budget', 'fixed'],
+  ['gasCertificate', 'Gas certificate budget', 'fixed'],
+  ['eicr', 'EICR budget', 'fixed'],
+  ['mortgageAdmin', 'Mortgage filing budget', 'fixed'],
+  ['repairs', 'Repairs budget', 'variable'],
+  ['applianceReserve', 'Appliance budget', 'variable'],
 ]
 
 function LineItemsEditor({ title, description, items, onChange, onAdd, onRemove, timed = false, tone, disabled = false }) {
   const total = items.filter((item) => item.enabled !== false).reduce((sum, item) => sum + Number(item.amount || 0), 0)
-  return <section className={`panel cashflow-editor ${tone} ${disabled ? 'not-applicable' : ''}`} title={disabled ? 'Not used for private landlords.' : undefined}><header><div><span className="kicker">{title}</span><h2>{currency(disabled ? 0 : total)} <small>/ month</small></h2><p>{disabled ? 'Not used for private landlords.' : description}</p></div><button disabled={disabled} className="secondary-button small" onClick={onAdd}><Plus size={15} /> Add line</button></header><div className="cashflow-lines">{items.length === 0 && <div className="empty-cashflow"><ReceiptText size={22} /><b>No line items yet</b><span>Add one when this account has a recurring cash flow.</span></div>}{items.map((item) => <div className={`cashflow-line ${item.enabled === false ? 'disabled' : ''}`} key={item.id}><label className="cashflow-enabled"><input disabled={disabled} type="checkbox" checked={item.enabled !== false} onChange={(event) => onChange(item.id, 'enabled', event.target.checked)} /><i><Check size={12} /></i></label><label className="cashflow-name"><span>Description</span><input disabled={disabled} value={item.name} onChange={(event) => onChange(item.id, 'name', event.target.value)} placeholder="New monthly item" /></label><label><span>Monthly amount</span><div className="money-input"><b>£</b><input disabled={disabled} type="number" min="0" step="0.01" value={moneyInputValue(item.amount)} onChange={(event) => onChange(item.id, 'amount', Number(event.target.value))} /></div></label>{timed && <label><span>Months remaining</span><input disabled={disabled} type="number" min="0" step="1" value={item.monthsRemaining || ''} onChange={(event) => onChange(item.id, 'monthsRemaining', Number(event.target.value))} placeholder="Ongoing" /></label>}<button disabled={disabled} className="icon-button cashflow-delete" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.name || 'line item'}`}><Trash2 size={16} /></button></div>)}</div></section>
+  return <section className={`panel cashflow-editor ${tone} ${disabled ? 'not-applicable' : ''}`} title={disabled ? 'Not used for private landlords.' : undefined}><header><div><span className="kicker">{title}</span><h2>{currency(disabled ? 0 : total)} <small>/ month</small></h2><p>{disabled ? 'Not used for private landlords.' : description}</p></div><button disabled={disabled} className="secondary-button small" onClick={onAdd}><Plus size={15} /> Add line</button></header><div className="cashflow-lines">{items.length === 0 && <div className="empty-cashflow"><ReceiptText size={22} /><b>No line items yet</b><span>Add one when this account has a recurring cash flow.</span></div>}{items.map((item) => <div className={`cashflow-line ${item.enabled === false ? 'disabled' : ''}`} key={item.id}><label className="cashflow-enabled"><input disabled={disabled} type="checkbox" checked={item.enabled !== false} onChange={(event) => onChange(item.id, 'enabled', event.target.checked)} /><i><Check size={12} /></i></label><label className="cashflow-name"><span>Description</span><input disabled={disabled} value={item.name} onChange={(event) => onChange(item.id, 'name', event.target.value)} placeholder="New monthly item" /></label><label><span>Monthly amount</span><div className="money-input"><b>£</b><input disabled={disabled} type="number" min="0" step="0.01" value={moneyInputValue(item.amount)} onChange={(event) => onChange(item.id, 'amount', Number(event.target.value))} /></div></label><label className="cashflow-tax"><span>Tax treatment</span><select disabled={disabled} value={item.taxDeductible === true ? 'deductible' : 'non-deductible'} onChange={(event) => onChange(item.id, 'taxDeductible', event.target.value === 'deductible')}><option value="non-deductible">Non-deductible</option><option value="deductible">Deductible</option></select></label>{timed && <label><span>Months remaining</span><input disabled={disabled} type="number" min="0" step="1" value={item.monthsRemaining || ''} onChange={(event) => onChange(item.id, 'monthsRemaining', Number(event.target.value))} placeholder="Ongoing" /></label>}<button disabled={disabled} className="icon-button cashflow-delete" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.name || 'line item'}`}><Trash2 size={16} /></button></div>)}</div></section>
 }
 
 function CostsWorkspace({ properties, calculated, settings, portfolio, onPropertyChange, onLineItemChange, onLineItemAdd, onLineItemRemove }) {
@@ -323,7 +334,7 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
       <MetricCard eyebrow="PROPERTY FIXED COSTS" value={currency(portfolio.propertyFixedCosts)} delta="Mortgages, factors & compliance" icon={Home} tone="dark" />
       <MetricCard eyebrow="PROPERTY VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} />
       <MetricCard eyebrow="COMPANY COSTS" value={currency(portfolio.companyCosts)} delta={isPrivate ? 'Not used for private landlords' : 'Editable recurring overheads'} icon={Landmark} disabled={isPrivate} />
-      <MetricCard eyebrow="OWNER EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta="Editable tax-deductible value" icon={WalletCards} tone="green" />
+      <MetricCard eyebrow="OWNER / EMPLOYEE CASH" value={currency(portfolio.extractionTotal)} delta={isPrivate ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} tone="green" disabled={isPrivate} />
     </section>
 
     <section className="panel property-cost-panel"><header><div><span className="kicker">PROPERTY CASH FLOWS</span><h2>Every property, line by line</h2><p>Income and monthly cost assumptions feed directly into all scenarios and projections.</p></div></header><div className="property-cost-grid">{calculated.map((property) => {
@@ -333,20 +344,20 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
     })}{calculated.length === 0 && <div className="empty-cashflow"><Home size={24} /><b>No properties yet</b><span>Add a BTL to start entering its income and costs.</span></div>}</div></section>
 
     <div className="cashflow-editor-grid">
-      <LineItemsEditor title="COMPANY COSTS" description="Account-level overheads and finance payments. Set a remaining term for temporary costs." items={settings.companyCosts} timed tone="company" disabled={isPrivate} onChange={(id, key, value) => onLineItemChange('companyCosts', id, key, value)} onAdd={() => onLineItemAdd('companyCosts', 'New company cost')} onRemove={(id) => onLineItemRemove('companyCosts', id)} />
-      <LineItemsEditor title="EXTRACTIONS" description="Generic owner or employee value items. Add, rename, switch off or remove anything." items={settings.extractions} tone="extraction" onChange={(id, key, value) => onLineItemChange('extractions', id, key, value)} onAdd={() => onLineItemAdd('extractions', 'New extraction')} onRemove={(id) => onLineItemRemove('extractions', id)} />
+      <LineItemsEditor title="COMPANY COSTS" description="Account-level cash costs. Mark a line deductible only when it genuinely qualifies for Corporation Tax." items={settings.companyCosts} timed tone="company" disabled={isPrivate} onChange={(id, key, value) => onLineItemChange('companyCosts', id, key, value)} onAdd={() => onLineItemAdd('companyCosts', 'New company cost')} onRemove={(id) => onLineItemRemove('companyCosts', id)} />
+      <LineItemsEditor title="EXTRACTIONS" description="Cash paid to an owner or employee. Dividends, DLA repayments and loan principal are normally non-deductible; set each line explicitly. Personal tax/NIC on the recipient is not modelled." items={settings.extractions} tone="extraction" disabled={isPrivate} onChange={(id, key, value) => onLineItemChange('extractions', id, key, value)} onAdd={() => onLineItemAdd('extractions', 'New extraction')} onRemove={(id) => onLineItemRemove('extractions', id)} />
     </div>
     <section className="panel cashflow-reconciliation"><header><div><span className="kicker">CASH-FLOW RECONCILIATION</span><h2>Where every pound goes</h2><p>Management is calculated from the model toggle and rate. {isPrivate ? 'Estimated income tax' : 'Corporation tax'} changes with each scenario.</p></div></header><div className="reconciliation-wrap"><table><thead><tr><th>Monthly line</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{[
-      ['Rent received', () => portfolio.rent, 'income'],
-      ['Property fixed costs', () => -portfolio.propertyFixedCosts, 'cost'],
+      ['Rent received', (scenario) => scenario.collectedRent, 'income'],
+      ['Property fixed cash costs', () => -portfolio.propertyFixedCosts, 'cost'],
       ['Company costs', () => -portfolio.companyCosts, 'cost', true],
-      ['Management fee', () => -portfolio.management, 'cost'],
-      ['Variable property costs', (_, index) => index === 0 ? -portfolio.variableCosts : index === 1 ? -(portfolio.variableCosts - portfolio.selected.reduce((sum, property) => sum + property.voids, 0)) : 0, 'cost'],
-      ['Extraction deductions', () => -portfolio.extractionTotal, 'cost'],
+      ['Management fee', (scenario) => -scenario.management, 'cost'],
+      ['Repairs & appliance budget', (scenario) => -scenario.problemBudget, 'cost'],
+      ['Owner / employee cash paid', () => -portfolio.extractionTotal, 'cost', true],
       ['Taxable profit', (scenario) => scenario.taxable, 'subtotal'],
       [isPrivate ? 'Estimated income tax' : 'Corporation tax', (scenario) => -scenario.tax, 'cost', false],
-      ['Extractions returned as owner value', () => portfolio.extractionTotal, 'income'],
-      ['Net monthly owner value', (scenario) => scenario.cashflow, 'total'],
+      ['Company bank cashflow', (scenario) => scenario.bankCashflow, 'subtotal', true],
+      [isPrivate ? 'Net monthly cashflow' : 'Company + extraction cash (pre-personal-tax)', (scenario) => scenario.cashflow, 'total'],
     ].map(([label, getter, kind, companyOnly]) => <tr className={`${kind} ${companyOnly && isPrivate ? 'not-applicable-row' : ''}`} title={companyOnly && isPrivate ? 'Not used for private landlords.' : undefined} key={label}><th>{label}</th>{portfolio.scenarios.map((scenario, index) => <td key={scenario.id}>{currency(getter(scenario, index))}</td>)}</tr>)}</tbody></table></div></section>
   </div>
 }
@@ -389,7 +400,7 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
   useEffect(() => setDraft(property), [property])
   const update = (key, value, type) => setDraft((current) => ({
     ...current,
-    [key]: type === 'percent' ? Number(value) / 100 : type === 'number' ? Number(value) : value,
+    [key]: type === 'percent' ? Number(value) / 100 : type === 'number' ? Number(value) : type === 'optional-number' ? (value === '' ? '' : Number(value)) : value,
   }))
 
   return (
@@ -406,8 +417,8 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
                     <span>{label}</span>
                     <div className={type === 'percent' ? 'input-suffix' : ''}>
                       <input
-                        type={type === 'percent' ? 'number' : type}
-                        step={type === 'percent' ? '0.1' : type === 'number' ? 'any' : undefined}
+                        type={type === 'percent' || type === 'optional-number' ? 'number' : type}
+                        step={type === 'percent' ? '0.1' : ['number', 'optional-number'].includes(type) ? 'any' : undefined}
                         value={type === 'percent' ? percentInputValue(draft[key]) : draft[key] ?? ''}
                         onChange={(event) => update(key, event.target.value, type)}
                       />
@@ -501,8 +512,8 @@ function PortfolioApp({ user }) {
           ...(portfolioState.settings || {}),
           companyName: portfolioState.settings?.companyName || (isEstablishedPortfolio ? 'Quark Holdings' : ''),
           onboardingComplete: isEstablishedPortfolio || Boolean(portfolioState.settings?.onboardingComplete),
-          companyCosts: Array.isArray(portfolioState.settings?.companyCosts) ? portfolioState.settings.companyCosts : [],
-          extractions: Array.isArray(portfolioState.settings?.extractions) ? portfolioState.settings.extractions : [],
+          companyCosts: Array.isArray(portfolioState.settings?.companyCosts) ? portfolioState.settings.companyCosts.map((item) => ({ ...item, taxDeductible: item.taxDeductible === true })) : [],
+          extractions: Array.isArray(portfolioState.settings?.extractions) ? portfolioState.settings.extractions.map((item) => ({ ...item, taxDeductible: item.taxDeductible === true })) : [],
         },
       })
     }
@@ -599,7 +610,7 @@ function PortfolioApp({ user }) {
   const completeAccountSetup = (profile) => setState((current) => ({ ...current, settings: { ...current.settings, ...profile } }))
   const updatePercentSetting = (key, value) => updateSetting(key, Number(value) / 100)
   const updateLineItem = (collection, id, key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].map((item) => item.id === id ? { ...item, [key]: value } : item) } }))
-  const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
+  const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, taxDeductible: false, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
   const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
@@ -676,7 +687,7 @@ function PortfolioApp({ user }) {
             <section className="metrics-grid">
               <MetricCard eyebrow="PORTFOLIO VALUE" value={currency(portfolio.totalValue)} delta={`${currency(portfolio.totalEquity)} total equity`} icon={Landmark} tone="dark" />
               <MetricCard eyebrow="MONTHLY RENT" value={currency(portfolio.rent)} delta={`${currency(portfolio.rent * 12)} annually`} icon={PoundSterling} tone="green" />
-              <MetricCard eyebrow="MONTHLY CASHFLOW" value={currency(portfolio.scenarios[0]?.cashflow)} delta="Conservative scenario" icon={portfolio.scenarios[0]?.cashflow >= 0 ? ArrowUpRight : ArrowDownRight} />
+              <MetricCard eyebrow={state.settings.accountType === 'private' ? 'MONTHLY CASHFLOW' : 'COMPANY + EXTRACTION / MONTH'} value={currency(portfolio.scenarios[0]?.cashflow)} delta={state.settings.accountType === 'private' ? 'Conservative scenario' : `${currency(portfolio.scenarios[0]?.bankCashflow)} company bank cashflow · before personal tax on extraction`} icon={portfolio.scenarios[0]?.cashflow >= 0 ? ArrowUpRight : ArrowDownRight} />
               <MetricCard eyebrow="WEIGHTED RATE" value={percent(portfolio.weightedRate, 2)} delta={`${percent(state.settings.rateShock, 2)} rate shock included`} icon={TrendingUp} />
             </section>
 
@@ -688,7 +699,7 @@ function PortfolioApp({ user }) {
             <section className="properties-heading"><div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div><button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button></section>
             <section className="property-cards">{calculated.map((p) => <PropertyCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}<button className="add-property-card" onClick={addProperty}><span><Plus /></span><b>Add another BTL</b><small>Start blank or clone an existing property</small></button></section>
 
-            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} /></section>
+            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
           </>}
 
           {section === 'Properties' && <><section className="panel properties-toolbar"><div><span className="kicker">CLEAR COMPARISON VIEW</span><h2>Property information by section</h2><p>Basics, performance and dates are separated so each property is easier to scan.</p></div><div className="table-tools"><label><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label><button className="primary-button small" onClick={addProperty}><Plus size={16} /> New BTL</button></div></section><div className="property-group-stack">{propertyGroups.map((group) => <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}><header><div><span className="group-marker" /><div><h2>{group.title}</h2><p>{group.description}</p></div></div></header><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead><tbody>{group.rows.map(([label, getter, kind]) => <tr key={label}><th>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody></table></div></section>)}</div></>}
@@ -702,8 +713,8 @@ function PortfolioApp({ user }) {
           {BANKING_ENABLED && section === 'Banking' && <BankWorkspace user={user} onCashHeldChange={updateConnectedCashHeld} />}
 
           {section === 'Projections' && <>
-            <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta="Editable in Costs & Cash Flows" icon={WalletCards} /></section>
-            <section className="panel scenarios-panel"><header><div><span className="kicker">SHEET-MATCHED MODEL</span><h2>Current monthly scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} /></section>
+            <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>
+            <section className="panel scenarios-panel"><header><div><span className="kicker">SHEET-MATCHED MODEL</span><h2>Current monthly scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
             <ProjectionExplorer properties={state.properties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
             <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
           </>}

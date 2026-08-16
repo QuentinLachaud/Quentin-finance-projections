@@ -155,12 +155,29 @@ const trailingMonthKeys = (asOf, count) => {
 
 export const calculateBankMetrics = (transactions, balanceSeries = [], options = {}) => {
   const filtered = selectedTransactions(transactions, options)
-  const latestTransactionDate = filtered.map((transaction) => transaction.bookedAt).sort().at(-1)
+  const trailingOptions = { ...options }
+  delete trailingOptions.from
+  delete trailingOptions.to
+  const trailingHistory = selectedTransactions(transactions, trailingOptions)
+  const latestTransactionDate = trailingHistory.map((transaction) => transaction.bookedAt).sort().at(-1)
   const asOf = isoDate(options.asOf || latestTransactionDate || new Date().toISOString())
-  const monthly = aggregateCashFlow(filtered, { period: 'month', includeTransfers: true, includePending: true })
+  const monthly = aggregateCashFlow(trailingHistory, { period: 'month', includeTransfers: true, includePending: true })
   const byMonth = new Map(monthly.map((row) => [row.period, row]))
-  const average = (months, field) => Number((trailingMonthKeys(asOf, months)
-    .reduce((total, key) => total + (byMonth.get(key)?.[field] || 0), 0) / months).toFixed(2))
+  const earliestTransactionDate = trailingHistory.map((transaction) => transaction.bookedAt).filter(Boolean).sort().at(0)
+  const monthSpan = (from, to) => {
+    if (!from || !to) return 0
+    const start = new Date(`${isoDate(from)}T12:00:00Z`)
+    const end = new Date(`${isoDate(to)}T12:00:00Z`)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0
+    return Math.max(1, (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + end.getUTCMonth() - start.getUTCMonth() + 1)
+  }
+  const historyMonths = Math.min(12, monthSpan(earliestTransactionDate, asOf))
+  const average = (months, field) => {
+    const divisor = Math.min(months, historyMonths)
+    if (!divisor) return 0
+    return Number((trailingMonthKeys(asOf, months)
+      .reduce((total, key) => total + (byMonth.get(key)?.[field] || 0), 0) / divisor).toFixed(2))
+  }
   const balances = balanceSeries.map((point) => number(point.balance)).filter(Number.isFinite)
   const inflow = filtered.reduce((total, transaction) => total + Math.max(0, transaction.amount), 0)
   const outflow = filtered.reduce((total, transaction) => total + Math.max(0, -transaction.amount), 0)
@@ -170,6 +187,7 @@ export const calculateBankMetrics = (transactions, balanceSeries = [], options =
     netCashFlow: Number((inflow - outflow).toFixed(2)),
     averageMonthlyInflow: average(12, 'inflow'),
     averageMonthlyOutflow: average(12, 'outflow'),
+    historyMonths,
     averages: {
       threeMonth: { inflow: average(3, 'inflow'), outflow: average(3, 'outflow'), net: average(3, 'net') },
       sixMonth: { inflow: average(6, 'inflow'), outflow: average(6, 'outflow'), net: average(6, 'net') },
@@ -208,6 +226,13 @@ export const cashHeldFromAccounts = (accounts) => Number(accounts
   .filter((account) => account.includeInCash !== false && account.currency === 'GBP')
   .reduce((total, account) => total + number(account.currentBalance), 0)
   .toFixed(2))
+
+export const reportingAccountIds = (accounts, selectedIds, currency = 'GBP') => {
+  const selected = new Set(selectedIds || accounts.map((account) => account.id))
+  return accounts
+    .filter((account) => selected.has(account.id) && String(account.currency || '').toUpperCase() === currency)
+    .map((account) => account.id)
+}
 
 export const transactionsToCsv = (transactions) => {
   const escape = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`

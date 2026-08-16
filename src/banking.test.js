@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   aggregateCashFlow, calculateBankMetrics, cashHeldFromAccounts, classifyTransaction,
-  detectInternalTransfers, normalizeGoCardlessTransaction, reconstructBalanceSeries, transactionsToCsv,
+  detectInternalTransfers, normalizeGoCardlessTransaction, reconstructBalanceSeries, reportingAccountIds, transactionsToCsv,
 } from './banking.js'
 
 const tx = (accountId, bookedAt, amount, extra = {}) => ({
@@ -91,15 +91,39 @@ describe('balance reconstruction and metrics', () => {
     expect(cashHeldFromAccounts([...accounts, { id: 'c', currency: 'EUR', currentBalance: 900 }, { id: 'd', currency: 'GBP', currentBalance: 800, includeInCash: false }])).toBe(2000)
   })
 
-  it('uses calendar windows including zero months for 3, 6 and 12 month averages', () => {
+
+  it('limits aggregate reporting to selected accounts in the reporting currency', () => {
+    const mixed = [...accounts, { id: 'eur', currency: 'EUR', currentBalance: 1000 }, { id: 'usd', currency: 'USD', currentBalance: 1000 }]
+    expect(reportingAccountIds(mixed, ['a', 'eur', 'usd'], 'GBP')).toEqual(['a'])
+  })
+
+  it('uses available calendar history, including zero-transaction months, without pretending missing history is zero cash flow', () => {
     const metrics = calculateBankMetrics([
       tx('a', '2026-01-10', 1200), tx('a', '2026-01-12', -300),
       tx('a', '2026-03-10', 600), tx('a', '2026-03-12', -150),
     ], [{ balance: 700 }, { balance: 2100 }, { balance: 1300 }], { asOf: '2026-03-31', includeTransfers: false })
     expect(metrics.averages.threeMonth).toEqual({ inflow: 600, outflow: 150, net: 450 })
-    expect(metrics.averages.sixMonth).toEqual({ inflow: 300, outflow: 75, net: 225 })
-    expect(metrics.averages.twelveMonth).toEqual({ inflow: 150, outflow: 37.5, net: 112.5 })
+    expect(metrics.historyMonths).toBe(3)
+    expect(metrics.averages.sixMonth).toEqual({ inflow: 600, outflow: 150, net: 450 })
+    expect(metrics.averages.twelveMonth).toEqual({ inflow: 600, outflow: 150, net: 450 })
     expect(metrics).toMatchObject({ inflow: 1800, outflow: 450, netCashFlow: 1350, lowestBalance: 700, highestBalance: 2100 })
+  })
+
+
+  it('keeps trailing averages independent of the selected display range', () => {
+    const transactions = Array.from({ length: 12 }, (_, index) => {
+      const month = String(index + 1).padStart(2, '0')
+      return tx('a', `2026-${month}-10`, 1000)
+    })
+    const metrics = calculateBankMetrics(transactions, [], {
+      asOf: '2026-12-31',
+      from: '2026-10-01',
+      accountIds: ['a'],
+    })
+    expect(metrics.inflow).toBe(3000)
+    expect(metrics.averages.threeMonth.inflow).toBe(1000)
+    expect(metrics.averages.twelveMonth.inflow).toBe(1000)
+    expect(metrics.historyMonths).toBe(12)
   })
 })
 
