@@ -1,4 +1,4 @@
-# Quentin Finance Projections
+# BTL Portfolio
 
 A responsive React dashboard that turns the Quark Holdings BTL spreadsheet into an editable, dynamic portfolio model.
 

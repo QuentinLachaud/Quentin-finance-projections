@@ -50,7 +50,7 @@ export default function AuthScreen() {
   return (
     <main className="auth-page">
       <section className="auth-brand-panel">
-        <div className="auth-brand"><span><Building2 size={25} /></span><div><strong>QUARK</strong><small>HOLDINGS</small></div></div>
+        <div className="auth-brand"><span><Building2 size={25} /></span><div><strong>BTL</strong><small>PORTFOLIO</small></div></div>
         <div className="auth-promise">
           <span className="kicker">PRIVATE PORTFOLIO MODELLING</span>
           <h1>Your property finances, available wherever you are.</h1>
@@ -62,7 +62,7 @@ export default function AuthScreen() {
 
       <section className="auth-form-panel">
         <div className="auth-card">
-          <span className="kicker">WELCOME TO QUARK HOLDINGS</span>
+          <span className="kicker">WELCOME TO BTL PORTFOLIO</span>
           <h2>{mode === 'sign-up' ? 'Create your account' : 'Sign in to your portfolio'}</h2>
           <p>{mode === 'sign-up' ? 'Start with an empty, private portfolio of your own.' : 'Use Google or your email and password.'}</p>
 
@@ -77,7 +77,7 @@ export default function AuthScreen() {
             <button className="auth-submit" type="submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'sign-up' ? 'Create account' : 'Sign in'}</button>
           </form>
 
-          <p className="auth-switch">{mode === 'sign-up' ? 'Already have an account?' : 'New to Quark Holdings?'} <button onClick={() => { setMode(mode === 'sign-up' ? 'sign-in' : 'sign-up'); setError(''); setMessage('') }}>{mode === 'sign-up' ? 'Sign in' : 'Create an account'}</button></p>
+          <p className="auth-switch">{mode === 'sign-up' ? 'Already have an account?' : 'New to BTL Portfolio?'} <button onClick={() => { setMode(mode === 'sign-up' ? 'sign-in' : 'sign-up'); setError(''); setMessage('') }}>{mode === 'sign-up' ? 'Sign in' : 'Create an account'}</button></p>
         </div>
       </section>
     </main>
