@@ -16,6 +16,8 @@ A responsive React dashboard that turns the Quark Holdings BTL spreadsheet into 
 - A spreadsheet-style comparison table and compliance/remortgage diary
 - Secure cloud persistence through Supabase
 - Responsive desktop and mobile layouts
+- Free and Pro entitlements, with one BTL on Free and unlimited BTLs on Pro
+- Stripe Checkout, customer billing portal and signed subscription webhooks
 
 The application bundle contains no portfolio seed data. Each signed-in user can only read and update the portfolio row attached to their own account.
 
@@ -32,6 +34,8 @@ Then open the local URL shown by Vite.
 Create a Supabase project, run `supabase/schema.sql`, and put its project URL and publishable key in `.env.local`. Configure the production and local redirect URLs in Supabase Auth before testing OAuth.
 
 For the Companies House workspace, create a free Companies House developer API key and add it to the Cloudflare Pages environment as `COMPANIES_HOUSE_API_KEY`. The key is used only by the server-side Pages Function. The function verifies the caller's Supabase session before proxying a request.
+
+For billing, apply `supabase/migrations/20260816_account_entitlements.sql`, then configure the server-only variables listed in `.env.example` in Cloudflare Pages. Stripe should send Checkout and subscription events to `/api/stripe-webhook`. The service-role key, Stripe secret key and webhook secret must never be exposed as `VITE_` variables. Free accounts see their real one-property calculations throughout the app; the product deliberately does not display dummy financial data or masked placeholders.
 
 ## Verify
 
