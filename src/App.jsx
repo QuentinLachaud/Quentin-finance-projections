@@ -7,10 +7,11 @@ import {
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections } from './data.js'
 import { anchorMortgageOverride, calculatePortfolio, calculateProperty, currency, migrateMortgageOverride, percent, projectPortfolio, shortDate } from './calculations.js'
+import { TAX_YEAR } from './tax.js'
 import AuthScreen from './AuthScreen.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
-const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'scotland' }
+const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'england' }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 
@@ -119,6 +120,16 @@ function ModelInputFields({ settings, onSettingChange, onPercentChange, compact 
   })}</div>
 }
 
+function PrivateLandlordInputs({ settings, onSettingChange, compact = false }) {
+  if (settings.accountType !== 'private') return null
+  return <section className={`private-tax-inputs ${compact ? 'compact' : ''}`}><header><PoundSterling size={15} /><div><b>Private landlord tax</b><small>{TAX_YEAR} income-tax assumptions</small></div></header><label><span>Other gross annual income</span><div className="private-income-field"><b>£</b><input aria-label="Other gross annual income" type="number" min="0" step="100" value={Number(settings.grossAnnualIncome || 0)} onChange={(event) => onSettingChange('grossAnnualIncome', Number(event.target.value))} /></div><small>Before property income; excludes savings and dividends.</small></label><div className="tax-jurisdiction"><span>Tax jurisdiction</span><div><button className={settings.taxJurisdiction !== 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'england')}>England</button><button className={settings.taxJurisdiction === 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'scotland')}>Scotland</button></div></div></section>
+}
+
+function PrivateTaxSummary({ portfolio, settings }) {
+  if (settings.accountType !== 'private') return null
+  return <section className="panel private-tax-summary"><header><div><span className="kicker">PRIVATE LANDLORD · {TAX_YEAR}</span><h2>Estimated property income tax</h2><p>Rental profit is stacked on your other gross income. Residential mortgage interest receives basic-rate relief instead of being deducted from profit.</p></div><span className="panel-stat">{settings.taxJurisdiction === 'scotland' ? 'Scotland' : 'England'}</span></header><div className="private-tax-scenarios">{portfolio.scenarios.map((scenario, index) => <article key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><span>{scenarioMeta[index].name}</span><strong>{currency(scenario.tax * 12)}</strong><small>estimated annual tax</small><dl><div><dt>Taxable property profit</dt><dd>{currency(scenario.privateTax?.propertyProfit)}</dd></div><div><dt>Finance-cost reduction</dt><dd>{currency(scenario.privateTax?.financeCostTaxReduction)}</dd></div><div><dt>Marginal income-tax rate</dt><dd>{percent(scenario.privateTax?.marginalRate, 0)}</dd></div></dl></article>)}</div><footer>Planning estimate only · excludes pension reliefs, losses brought forward, savings, dividends and unused finance costs carried forward.</footer></section>
+}
+
 function AccountProfileEditor({ settings, onChange }) {
   const isPrivate = settings.accountType === 'private'
   return <section className="sidebar-profile-editor"><header><Building2 size={15} /><div><b>Portfolio profile</b><small>Account identity</small></div></header><div className="account-type-toggle"><button className={!isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'company')}>Company</button><button className={isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'private')}>Private</button></div><label className={isPrivate ? 'not-applicable' : ''} title={isPrivate ? 'Not used for private landlords.' : undefined}><span>Company name <small>optional</small></span><input disabled={isPrivate} value={settings.companyName || ''} onChange={(event) => onChange('companyName', event.target.value)} placeholder="Property company" /></label></section>
@@ -158,7 +169,7 @@ function ModelControls({ settings, onChange, compact = false }) {
 }
 
 function ScenarioTable({ scenarios, count }) {
-  return <div className="scenario-list">{scenarios.map((scenario, index) => <div className="scenario" key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Cashflow / mo</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>Total gain / yr</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div></div>)}</div>
+  return <div className="scenario-list">{scenarios.map((scenario, index) => <div className="scenario" key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Tax / mo</span><b className="negative">{currency(scenario.tax)}</b></div><div><span>Cashflow / mo</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>Total gain / yr</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div></div>)}</div>
 }
 
 function ProjectionChart({ points, metric, perFlat, count }) {
@@ -221,7 +232,7 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
       <LineItemsEditor title="COMPANY COSTS" description="Account-level overheads and finance payments. Set a remaining term for temporary costs." items={settings.companyCosts} timed tone="company" disabled={isPrivate} onChange={(id, key, value) => onLineItemChange('companyCosts', id, key, value)} onAdd={() => onLineItemAdd('companyCosts', 'New company cost')} onRemove={(id) => onLineItemRemove('companyCosts', id)} />
       <LineItemsEditor title="EXTRACTIONS" description="Generic owner or employee value items. Add, rename, switch off or remove anything." items={settings.extractions} tone="extraction" onChange={(id, key, value) => onLineItemChange('extractions', id, key, value)} onAdd={() => onLineItemAdd('extractions', 'New extraction')} onRemove={(id) => onLineItemRemove('extractions', id)} />
     </div>
-    <section className="panel cashflow-reconciliation"><header><div><span className="kicker">CASH-FLOW RECONCILIATION</span><h2>Where every pound goes</h2><p>Management is calculated from the model toggle and rate. Corporation tax changes with each scenario.</p></div></header><div className="reconciliation-wrap"><table><thead><tr><th>Monthly line</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{[
+    <section className="panel cashflow-reconciliation"><header><div><span className="kicker">CASH-FLOW RECONCILIATION</span><h2>Where every pound goes</h2><p>Management is calculated from the model toggle and rate. {isPrivate ? 'Estimated income tax' : 'Corporation tax'} changes with each scenario.</p></div></header><div className="reconciliation-wrap"><table><thead><tr><th>Monthly line</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{[
       ['Rent received', () => portfolio.rent, 'income'],
       ['Property fixed costs', () => -portfolio.propertyFixedCosts, 'cost'],
       ['Company costs', () => -portfolio.companyCosts, 'cost', true],
@@ -229,7 +240,7 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
       ['Variable property costs', (_, index) => index === 0 ? -portfolio.variableCosts : index === 1 ? -(portfolio.variableCosts - portfolio.selected.reduce((sum, property) => sum + property.voids, 0)) : 0, 'cost'],
       ['Extraction deductions', () => -portfolio.extractionTotal, 'cost'],
       ['Taxable profit', (scenario) => scenario.taxable, 'subtotal'],
-      ['Corporation tax', (scenario) => -scenario.tax, 'cost', true],
+      [isPrivate ? 'Estimated income tax' : 'Corporation tax', (scenario) => -scenario.tax, 'cost', false],
       ['Extractions returned as owner value', () => portfolio.extractionTotal, 'income'],
       ['Net monthly owner value', (scenario) => scenario.cashflow, 'total'],
     ].map(([label, getter, kind, companyOnly]) => <tr className={`${kind} ${companyOnly && isPrivate ? 'not-applicable-row' : ''}`} title={companyOnly && isPrivate ? 'Not used for private landlords.' : undefined} key={label}><th>{label}</th>{portfolio.scenarios.map((scenario, index) => <td key={scenario.id}>{currency(getter(scenario, index))}</td>)}</tr>)}</tbody></table></div></section>
@@ -319,7 +330,7 @@ function PortfolioApp({ user }) {
       const portfolioState = data?.portfolio || { properties: [], settings: {} }
       const storedProperties = Array.isArray(portfolioState.properties) ? portfolioState.properties : []
       const isEstablishedPortfolio = storedProperties.length > 0
-      const existingAccountDefaults = isEstablishedPortfolio ? { companyName: 'Quark Holdings', onboardingComplete: true } : {}
+      const existingAccountDefaults = isEstablishedPortfolio ? { companyName: 'Quark Holdings', onboardingComplete: true, taxJurisdiction: 'scotland' } : {}
       loaded.current = true
       setState({
         properties: storedProperties
@@ -419,6 +430,7 @@ function PortfolioApp({ user }) {
           <section className="sidebar-model-inputs">
             <header><Sparkles size={15} /><div><b>Model inputs</b><small>Portfolio assumptions</small></div></header>
             <ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
+            <PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} compact />
           </section>
           <AccountProfileEditor settings={state.settings} onChange={updateSetting} />
         </div>
@@ -437,6 +449,8 @@ function PortfolioApp({ user }) {
           </section>
 
           {(section === 'Overview' || section === 'Projections') && <section className="global-model-strip"><div><span className="kicker">LIVE MODEL OPTIONS</span><p>Changes recalculate every overview, property metric and projection.</p></div><ModelControls settings={state.settings} onChange={updateSetting} /></section>}
+
+          {(section === 'Overview' || section === 'Projections') && <PrivateTaxSummary portfolio={portfolio} settings={state.settings} />}
 
           {section === 'Overview' && <>
             <section className="metrics-grid">
@@ -465,7 +479,7 @@ function PortfolioApp({ user }) {
             <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta="Editable in Costs & Cash Flows" icon={WalletCards} /></section>
             <section className="panel scenarios-panel"><header><div><span className="kicker">SHEET-MATCHED MODEL</span><h2>Current monthly scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} /></section>
             <ProjectionExplorer properties={state.properties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
-            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /></section>
+            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
           </>}
 
           {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{calculated.flatMap((p) => [['Call broker',p.brokerDate],['Gas certificate',p.gasExpiry],['EICR',p.eicrExpiry],['PAT testing',p.patExpiry],['EPC',p.epcExpiry]].map(([label,date]) => ({ property:p.name,label,date:new Date(date instanceof Date ? date : `${date}T12:00:00`) }))).filter((item) => !Number.isNaN(item.date.getTime())).sort((a,b) => a.date-b.date).map((item, index) => <div key={`${item.property}-${item.label}`}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.property}</small></p><time>{shortDate(item.date)}</time></div>)}</div></section>}
