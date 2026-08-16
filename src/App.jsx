@@ -6,7 +6,7 @@ import {
   WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText, FileText, Users, RefreshCw, AlertTriangle, Coffee,
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
-import { anchorMortgageOverride, calculatePortfolio, calculateProperty, currency, migrateMortgageOverride, percent, projectPortfolio, shortDate } from './calculations.js'
+import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
 import { TAX_YEAR } from './tax.js'
 import {
   activeOfficers, activePsc, companyDeadlines, formatCompanyAddress,
@@ -328,9 +328,8 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
 
     <section className="panel property-cost-panel"><header><div><span className="kicker">PROPERTY CASH FLOWS</span><h2>Every property, line by line</h2><p>Income and monthly cost assumptions feed directly into all scenarios and projections.</p></div></header><div className="property-cost-grid">{calculated.map((property) => {
       const source = properties.find((item) => item.id === property.id)
-      const mortgageAutomatic = source.mortgageOverride === '' || source.mortgageOverride == null
       const voidsAutomatic = source.voidsOverride === '' || source.voidsOverride == null
-      return <article className="property-cost-card" key={property.id}><header><div><span>{property.name}</span><h3>{formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'}</h3></div><b>{currency(property.rent - property.fixedCosts - property.variableCosts)}<small> before company costs</small></b></header><div className="cost-category income"><span>Monthly income</span><label><b>Rent</b><div className="money-input"><i>£</i><input type="number" min="0" step="1" value={moneyInputValue(source.rent)} onChange={(event) => onPropertyChange(property.id, 'rent', Number(event.target.value))} /></div></label></div><div className="cost-category"><span>Fixed property costs</span><label><b>Mortgage payment {mortgageAutomatic && <small>calculated</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.monthlyPayment)} onChange={(event) => onPropertyChange(property.id, 'mortgageOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'fixed').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key] ?? property[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div><div className="cost-category variable"><span>Variable property costs</span><label><b>Void allowance {voidsAutomatic && <small>1/12 rent</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.voids)} onChange={(event) => onPropertyChange(property.id, 'voidsOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'variable').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div></article>
+      return <article className="property-cost-card" key={property.id}><header><div><span>{property.name}</span><h3>{formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'}</h3></div><b>{currency(property.rent - property.fixedCosts - property.variableCosts)}<small> before company costs</small></b></header><div className="cost-category income"><span>Monthly income</span><label><b>Rent</b><div className="money-input"><i>£</i><input type="number" min="0" step="1" value={moneyInputValue(source.rent)} onChange={(event) => onPropertyChange(property.id, 'rent', Number(event.target.value))} /></div></label></div><div className="cost-category"><span>Fixed property costs</span><label><b>Mortgage payment <small>calculated</small></b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.monthlyPayment)} readOnly /></div></label>{propertyCostFields.filter(([, , group]) => group === 'fixed').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key] ?? property[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div><div className="cost-category variable"><span>Variable property costs</span><label><b>Void allowance {voidsAutomatic && <small>1/12 rent</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.voids)} onChange={(event) => onPropertyChange(property.id, 'voidsOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'variable').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div></article>
     })}{calculated.length === 0 && <div className="empty-cashflow"><Home size={24} /><b>No properties yet</b><span>Add a BTL to start entering its income and costs.</span></div>}</div></section>
 
     <div className="cashflow-editor-grid">
@@ -485,7 +484,12 @@ function PortfolioApp({ user }) {
       const isEstablishedPortfolio = storedProperties.length > 0
       const existingAccountDefaults = isEstablishedPortfolio ? { companyName: 'Quark Holdings', onboardingComplete: true, taxJurisdiction: 'scotland' } : {}
       const migratedProperties = storedProperties
-        .map((property) => migrateMortgageOverride({ ...property }, { ...defaultSettings, ...(portfolioState.settings || {}) }))
+        .map((property) => ({
+          ...property,
+          mortgageOverride: '',
+          mortgageOverrideRate: null,
+          mortgageOverrideLoanAmount: null,
+        }))
       const migratedTenants = importPropertyTenants(migratedProperties, portfolioState.tenants)
       loaded.current = true
       setState({
@@ -585,7 +589,6 @@ function PortfolioApp({ user }) {
     ...current,
     properties: current.properties.map((property) => {
       if (property.id !== id) return property
-      if (key === 'mortgageOverride') return anchorMortgageOverride(property, value, current.settings)
       return { ...property, [key]: value }
     }),
   }))
