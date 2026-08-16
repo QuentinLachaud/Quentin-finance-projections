@@ -15,6 +15,8 @@ import {
 import AuthScreen from './AuthScreen.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
+import { formatPropertyAddress, shouldSelectZeroInput } from './portfolioFields.js'
+import { applyTenantToProperty, createTenant, importPropertyTenants, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 
 // Keep the completed Open Banking workspace dormant until a production data
 // provider is available. It can be restored without code changes at deploy time.
@@ -26,7 +28,7 @@ const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 
 const propertyGroups = [
   { title: 'Property basics', description: 'Identity, location and physical details', tone: 'blue', rows: [
-    ['Address', (p) => `${p.flatNumber}, ${p.address}`, 'text'], ['Postcode', (p) => p.postcode, 'text'],
+    ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address), 'text'], ['Postcode', (p) => p.postcode, 'text'],
     ['Bedrooms', (p) => p.bedrooms, 'integer'], ['Area', (p) => `${p.areaSqm} m²`, 'integer'],
     ['EPC rating', (p) => p.epc, 'text'], ['First purchased', (p) => shortDate(p.purchaseDate), 'date'],
   ]},
@@ -68,6 +70,7 @@ const modelInputFields = [
 const workspaceNavigation = [
   ['Overview', 'Overview', Gauge],
   ['Properties', 'Properties', Home],
+  ['Tenants', 'Tenants', Users],
   ['Costs & Cash Flows', 'Costs', ReceiptText],
   ['Banking', 'Banking', WalletCards],
   ['Projections', 'Projections', TrendingUp],
@@ -97,7 +100,7 @@ function PropertyCard({ property, onEdit, onClone, onToggle }) {
       </div>
       <div>
         <span className="kicker">{property.name}</span>
-        <h3>{property.flatNumber}, {property.address}</h3>
+        <h3>{formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'}</h3>
         <p>{property.postcode} · {property.bedrooms} bed · {property.areaSqm}m²</p>
       </div>
       <div className="property-value">
@@ -320,7 +323,7 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
       const source = properties.find((item) => item.id === property.id)
       const mortgageAutomatic = source.mortgageOverride === '' || source.mortgageOverride == null
       const voidsAutomatic = source.voidsOverride === '' || source.voidsOverride == null
-      return <article className="property-cost-card" key={property.id}><header><div><span>{property.name}</span><h3>{property.flatNumber}, {property.address}</h3></div><b>{currency(property.rent - property.fixedCosts - property.variableCosts)}<small> before company costs</small></b></header><div className="cost-category income"><span>Monthly income</span><label><b>Rent</b><div className="money-input"><i>£</i><input type="number" min="0" step="1" value={moneyInputValue(source.rent)} onChange={(event) => onPropertyChange(property.id, 'rent', Number(event.target.value))} /></div></label></div><div className="cost-category"><span>Fixed property costs</span><label><b>Mortgage payment {mortgageAutomatic && <small>calculated</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.monthlyPayment)} onChange={(event) => onPropertyChange(property.id, 'mortgageOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'fixed').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key] ?? property[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div><div className="cost-category variable"><span>Variable property costs</span><label><b>Void allowance {voidsAutomatic && <small>1/12 rent</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.voids)} onChange={(event) => onPropertyChange(property.id, 'voidsOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'variable').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div></article>
+      return <article className="property-cost-card" key={property.id}><header><div><span>{property.name}</span><h3>{formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'}</h3></div><b>{currency(property.rent - property.fixedCosts - property.variableCosts)}<small> before company costs</small></b></header><div className="cost-category income"><span>Monthly income</span><label><b>Rent</b><div className="money-input"><i>£</i><input type="number" min="0" step="1" value={moneyInputValue(source.rent)} onChange={(event) => onPropertyChange(property.id, 'rent', Number(event.target.value))} /></div></label></div><div className="cost-category"><span>Fixed property costs</span><label><b>Mortgage payment {mortgageAutomatic && <small>calculated</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.monthlyPayment)} onChange={(event) => onPropertyChange(property.id, 'mortgageOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'fixed').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key] ?? property[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div><div className="cost-category variable"><span>Variable property costs</span><label><b>Void allowance {voidsAutomatic && <small>1/12 rent</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.voids)} onChange={(event) => onPropertyChange(property.id, 'voidsOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'variable').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div></article>
     })}{calculated.length === 0 && <div className="empty-cashflow"><Home size={24} /><b>No properties yet</b><span>Add a BTL to start entering its income and costs.</span></div>}</div></section>
 
     <div className="cashflow-editor-grid">
@@ -339,6 +342,35 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
       ['Extractions returned as owner value', () => portfolio.extractionTotal, 'income'],
       ['Net monthly owner value', (scenario) => scenario.cashflow, 'total'],
     ].map(([label, getter, kind, companyOnly]) => <tr className={`${kind} ${companyOnly && isPrivate ? 'not-applicable-row' : ''}`} title={companyOnly && isPrivate ? 'Not used for private landlords.' : undefined} key={label}><th>{label}</th>{portfolio.scenarios.map((scenario, index) => <td key={scenario.id}>{currency(getter(scenario, index))}</td>)}</tr>)}</tbody></table></div></section>
+  </div>
+}
+
+const tenantFields = [
+  ['name', 'Name', 'text'], ['email', 'Email', 'email'], ['phone', 'Phone', 'tel'],
+  ['occupation', 'Occupation', 'text'], ['moveIn', 'Move-in date', 'date'], ['depositHeld', 'Deposit held', 'text'],
+]
+
+function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
+  const [draft, setDraft] = useState(null)
+  const startNew = () => setDraft(createTenant(properties[0]?.id || ''))
+  const edit = (tenant) => setDraft({ ...tenant })
+  const propertyName = (id) => properties.find((property) => property.id === id)?.name || 'Unknown BTL'
+  const submit = (event) => {
+    event.preventDefault()
+    if (!draft.propertyId) return
+    onSave(draft)
+    setDraft(null)
+  }
+
+  return <div className="tenants-workspace">
+    <section className="panel tenants-toolbar"><div><span className="kicker">TENANCY DIRECTORY</span><h2>Tenants linked to your BTLs</h2><p>Tenant records are private to your account. Tenure updates automatically from the move-in date.</p></div><button className="primary-button" onClick={startNew} disabled={!properties.length}><Plus size={16} /> Add tenant</button></section>
+    {!properties.length && <section className="panel tenants-empty"><Users /><h2>Add a property first</h2><p>Every tenant must be linked to a BTL, so orphaned tenant records cannot be created.</p></section>}
+    {properties.length > 0 && tenants.length === 0 && <section className="panel tenants-empty"><Users /><h2>No tenants yet</h2><p>Add a tenant here, or enter tenant details while creating or editing a BTL.</p><button className="secondary-button" onClick={startNew}><Plus size={16} /> Add your first tenant</button></section>}
+    <section className="tenant-grid">{tenants.map((tenant) => {
+      const tenure = tenantTenure(tenant)
+      return <article className={`panel tenant-card ${tenure.live ? 'live' : ''}`} key={tenant.id}><header><div><span className={`tenant-status ${tenure.live ? 'live' : 'future'}`}>{tenure.live ? 'Live tenant' : 'Upcoming'}</span><h2>{tenant.name || 'Unnamed tenant'}</h2><p>{propertyName(tenant.propertyId)} · {tenure.label}</p></div><Users size={20} /></header><dl><div><dt>Email</dt><dd>{tenant.email || '—'}</dd></div><div><dt>Phone</dt><dd>{tenant.phone || '—'}</dd></div><div><dt>Occupation</dt><dd>{tenant.occupation || '—'}</dd></div><div><dt>Deposit</dt><dd>{tenant.depositHeld || '—'}</dd></div></dl><footer><button className="text-button" onClick={() => edit(tenant)}><Pencil size={15} /> Edit</button><button className="text-button tenant-delete" onClick={() => onRemove(tenant.id)}><Trash2 size={15} /> Remove</button></footer></article>
+    })}</section>
+    {draft && <div className="tenant-editor-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDraft(null)}><form className="panel tenant-editor" onSubmit={submit}><header><div><span className="kicker">TENANT RECORD</span><h2>{tenants.some((tenant) => tenant.id === draft.id) ? 'Edit tenant' : 'Add tenant'}</h2></div><button type="button" className="icon-button" onClick={() => setDraft(null)} aria-label="Close tenant editor"><X /></button></header><label className="tenant-property-field"><span>Linked BTL <b>Required</b></span><select required value={draft.propertyId} onChange={(event) => setDraft((current) => ({ ...current, propertyId: event.target.value }))}><option value="" disabled>Select a property</option>{properties.map((property) => <option value={property.id} key={property.id}>{property.name} — {formatPropertyAddress(property.flatNumber, property.address) || property.postcode || 'Address not set'}</option>)}</select></label><div className="tenant-form-grid">{tenantFields.map(([key, label, type]) => <label key={key}><span>{label}</span><input type={type} value={draft[key] || ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div><footer><button type="button" className="secondary-button" onClick={() => setDraft(null)}>Cancel</button><button className="primary-button"><Check size={16} /> Save tenant</button></footer></form></div>}
   </div>
 }
 
@@ -431,10 +463,13 @@ function PortfolioApp({ user }) {
       const storedProperties = Array.isArray(portfolioState.properties) ? portfolioState.properties : []
       const isEstablishedPortfolio = storedProperties.length > 0
       const existingAccountDefaults = isEstablishedPortfolio ? { companyName: 'Quark Holdings', onboardingComplete: true, taxJurisdiction: 'scotland' } : {}
+      const migratedProperties = storedProperties
+        .map((property) => migrateMortgageOverride({ ...property }, { ...defaultSettings, ...(portfolioState.settings || {}) }))
+      const migratedTenants = importPropertyTenants(migratedProperties, portfolioState.tenants)
       loaded.current = true
       setState({
-        properties: storedProperties
-          .map((property) => migrateMortgageOverride(property, { ...defaultSettings, ...(portfolioState.settings || {}) })),
+        properties: migratedProperties,
+        tenants: migratedTenants,
         settings: {
           ...defaultSettings,
           ...existingAccountDefaults,
@@ -469,12 +504,15 @@ function PortfolioApp({ user }) {
   const editing = pendingProperty || state.properties.find((p) => p.id === editingId)
   const closeEditor = () => { setEditingId(null); setPendingProperty(null) }
   const saveProperty = (draft) => {
-    setState((current) => ({ ...current, properties: current.properties.some((p) => p.id === draft.id) ? current.properties.map((p) => p.id === draft.id ? draft : p) : [...current.properties, draft] }))
+    setState((current) => {
+      const synced = syncPropertyTenant(draft, current.tenants)
+      return { ...current, tenants: synced.tenants, properties: current.properties.some((p) => p.id === draft.id) ? current.properties.map((p) => p.id === draft.id ? synced.property : p) : [...current.properties, synced.property] }
+    })
     closeEditor()
   }
   const cloneProperty = (id) => {
     const source = state.properties.find((p) => p.id === id)
-    const clone = { ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantName: '', tenantEmail: '', tenantPhone: '', mortgageNumber: '' }
+    const clone = { ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', depositHeld: '', mortgageNumber: '' }
     setPendingProperty(clone)
     setEditingId(null)
   }
@@ -484,7 +522,7 @@ function PortfolioApp({ user }) {
     setEditingId(null)
   }
   const removeProperty = (id) => {
-    setState((current) => ({ ...current, properties: current.properties.filter((p) => p.id !== id) }))
+    setState((current) => ({ ...current, properties: current.properties.filter((p) => p.id !== id), tenants: removeTenantsForProperty(current.tenants, id) }))
     closeEditor()
   }
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
@@ -505,6 +543,19 @@ function PortfolioApp({ user }) {
   const updateLineItem = (collection, id, key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].map((item) => item.id === id ? { ...item, [key]: value } : item) } }))
   const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
   const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
+  const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
+    ...current,
+    tenants: current.tenants.some((item) => item.id === tenant.id) ? current.tenants.map((item) => item.id === tenant.id ? tenant : item) : [...current.tenants, tenant],
+    properties: current.properties.map((property) => applyTenantToProperty(tenant, property)),
+  }) : current)
+  const removeTenant = (id) => setState((current) => {
+    const tenant = current.tenants.find((item) => item.id === id)
+    return {
+      ...current,
+      tenants: current.tenants.filter((item) => item.id !== id),
+      properties: current.properties.map((property) => tenant?.importedFromProperty && property.id === tenant.propertyId ? { ...property, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', depositHeld: '' } : property),
+    }
+  })
   const reset = () => { if (window.confirm('Reset the model inputs to their defaults? Your properties and cash-flow lines will be kept.')) setState((current) => ({ ...current, settings: { ...current.settings, ...assumptions, fullyManaged: false } })) }
 
   const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Portfolio owner'
@@ -524,7 +575,7 @@ function PortfolioApp({ user }) {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" onFocusCapture={(event) => { if (shouldSelectZeroInput(event.target)) event.target.select() }}>
       <button className={`mobile-nav-backdrop ${mobileNavOpen ? 'open' : ''}`} onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" tabIndex={mobileNavOpen ? 0 : -1} />
       <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`} aria-label="Portfolio navigation">
         <div className="brand"><span><Building2 size={20} /></span><div><strong>{state.settings.companyName || (state.settings.accountType === 'private' ? 'PRIVATE' : 'PROPERTY')}</strong><small>PORTFOLIO</small></div><button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
@@ -582,6 +633,8 @@ function PortfolioApp({ user }) {
           {section === 'Properties' && <><section className="panel properties-toolbar"><div><span className="kicker">CLEAR COMPARISON VIEW</span><h2>Property information by section</h2><p>Basics, performance and dates are separated so each property is easier to scan.</p></div><div className="table-tools"><label><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label><button className="primary-button small" onClick={addProperty}><Plus size={16} /> New BTL</button></div></section><div className="property-group-stack">{propertyGroups.map((group) => <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}><header><div><span className="group-marker" /><div><h2>{group.title}</h2><p>{group.description}</p></div></div></header><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead><tbody>{group.rows.map(([label, getter, kind]) => <tr key={label}><th>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody></table></div></section>)}</div></>}
 
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={state.properties} calculated={calculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} />}
+
+          {section === 'Tenants' && <TenantsWorkspace tenants={state.tenants} properties={state.properties} onSave={saveTenant} onRemove={removeTenant} />}
 
           {BANKING_ENABLED && section === 'Banking' && <BankWorkspace user={user} onCashHeldChange={updateConnectedCashHeld} />}
 
