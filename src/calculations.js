@@ -100,11 +100,12 @@ export function calculateProperty(property, settings, now = new Date()) {
 
 export function calculatePortfolio(properties, settings, now = new Date()) {
   const selected = properties.filter((property) => property.active).map((property) => calculateProperty(property, settings, now))
+  const isCompany = settings.accountType !== 'private'
   const sum = (key) => selected.reduce((total, property) => total + Number(property[key] || 0), 0)
   const rent = sum('rent')
   const management = settings.fullyManaged ? rent * Number(settings.managementRate) : 0
   const enabledTotal = (items) => (Array.isArray(items) ? items : []).filter((item) => item.enabled !== false).reduce((total, item) => total + Number(item.amount || 0), 0)
-  const companyCosts = enabledTotal(settings.companyCosts)
+  const companyCosts = isCompany ? enabledTotal(settings.companyCosts) : 0
   const extractionCosts = enabledTotal(settings.extractions)
   const propertyFixedCosts = sum('fixedCosts')
   const fixedCosts = propertyFixedCosts + companyCosts + management
@@ -115,7 +116,7 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
   const taxableNoVoids = taxableAll + sum('voids')
   const taxableNoProblems = rent - fixedCosts - extractionTotal
   const scenarios = [taxableAll, taxableNoVoids, taxableNoProblems].map((taxable, index) => {
-    const tax = Math.max(0, taxable * Number(settings.corporationTaxRate))
+    const tax = isCompany ? Math.max(0, taxable * Number(settings.corporationTaxRate)) : 0
     const cashflow = taxable + extractionTotal - tax
     const totalGain = cashflow + appreciation
     return { id: index + 1, taxable, tax, cashflow, totalGain }
@@ -158,7 +159,7 @@ export function projectPortfolio(properties, settings, months = settings.project
   return Array.from({ length: duration + 1 }, (_, month) => {
     if (month > 0) {
       const appreciation = portfolio.totalValue * monthlyAppreciationRate * ((1 + monthlyAppreciationRate) ** (month - 1))
-      const expiringCompanyCosts = (Array.isArray(settings.companyCosts) ? settings.companyCosts : [])
+      const expiringCompanyCosts = settings.accountType === 'private' ? 0 : (Array.isArray(settings.companyCosts) ? settings.companyCosts : [])
         .filter((item) => item.enabled !== false && Number(item.monthsRemaining || 0) > 0 && month > Number(item.monthsRemaining))
         .reduce((total, item) => total + Number(item.amount || 0), 0)
       portfolio.scenarios.forEach((scenario, index) => {

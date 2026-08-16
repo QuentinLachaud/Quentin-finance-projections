@@ -10,7 +10,7 @@ import { anchorMortgageOverride, calculatePortfolio, calculateProperty, currency
 import AuthScreen from './AuthScreen.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
-const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [] }
+const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 
@@ -49,7 +49,7 @@ const scenarioMeta = [
 const modelInputFields = [
   ['appreciationRate', 'Annual appreciation', '%', 'percent'],
   ['rateShock', 'Interest rate shock', '%', 'percent'],
-  ['corporationTaxRate', 'Corporation tax', '%', 'percent'],
+  ['corporationTaxRate', 'Corporation tax', '%', 'percent', 'company'],
   ['managementRate', 'Management fee', '%', 'percent'],
   ['cashHeld', 'Cash held', '£', 'number'],
   ['bufferMonths', 'Target buffer', 'months', 'number'],
@@ -63,9 +63,9 @@ const workspaceNavigation = [
   ['Compliance', 'Compliance', ShieldCheck],
 ]
 
-function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral' }) {
+function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disabled = false }) {
   return (
-    <article className={`metric-card ${tone}`}>
+    <article className={`metric-card ${tone} ${disabled ? 'not-applicable' : ''}`} title={disabled ? 'Not used for private landlords.' : undefined}>
       <div className="metric-top"><span>{eyebrow}</span><Icon size={18} strokeWidth={1.8} /></div>
       <strong>{value}</strong>
       {delta && <small>{delta}</small>}
@@ -112,7 +112,23 @@ function PropertyCard({ property, onEdit, onClone, onToggle }) {
 }
 
 function ModelInputFields({ settings, onSettingChange, onPercentChange, compact = false }) {
-  return <div className={compact ? 'sidebar-input-list' : 'assumptions-grid'}>{modelInputFields.map(([key, label, suffix, type]) => <label key={key}><span>{label}</span><div><input aria-label={label} type="number" step={type === 'percent' ? '0.1' : 'any'} value={type === 'percent' ? percentInputValue(settings[key]) : settings[key]} onChange={(event) => type === 'percent' ? onPercentChange(key, event.target.value) : onSettingChange(key, Number(event.target.value))} /><b>{suffix}</b></div></label>)}</div>
+  const isPrivate = settings.accountType === 'private'
+  return <div className={compact ? 'sidebar-input-list' : 'assumptions-grid'}>{modelInputFields.map(([key, label, suffix, type, scope]) => {
+    const disabled = scope === 'company' && isPrivate
+    return <label key={key} className={disabled ? 'not-applicable' : ''} title={disabled ? 'Not used for private landlords.' : undefined}><span>{label}</span><div><input aria-label={label} disabled={disabled} type="number" step={type === 'percent' ? '0.1' : 'any'} value={type === 'percent' ? percentInputValue(settings[key]) : settings[key]} onChange={(event) => type === 'percent' ? onPercentChange(key, event.target.value) : onSettingChange(key, Number(event.target.value))} /><b>{suffix}</b></div></label>
+  })}</div>
+}
+
+function AccountProfileEditor({ settings, onChange }) {
+  const isPrivate = settings.accountType === 'private'
+  return <section className="sidebar-profile-editor"><header><Building2 size={15} /><div><b>Portfolio profile</b><small>Account identity</small></div></header><div className="account-type-toggle"><button className={!isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'company')}>Company</button><button className={isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'private')}>Private</button></div><label className={isPrivate ? 'not-applicable' : ''} title={isPrivate ? 'Not used for private landlords.' : undefined}><span>Company name <small>optional</small></span><input disabled={isPrivate} value={settings.companyName || ''} onChange={(event) => onChange('companyName', event.target.value)} placeholder="Property company" /></label></section>
+}
+
+function AccountSetupModal({ onComplete }) {
+  const [accountType, setAccountType] = useState('company')
+  const [companyName, setCompanyName] = useState('')
+  const isPrivate = accountType === 'private'
+  return <div className="setup-layer"><section className="setup-modal" role="dialog" aria-modal="true" aria-labelledby="setup-title"><span className="setup-icon">{isPrivate ? <Home /> : <Building2 />}</span><span className="kicker">ONE QUICK DETAIL</span><h2 id="setup-title">How do you hold your properties?</h2><p>This keeps company-only fields out of the way when they do not apply.</p><div className="setup-account-types"><button className={!isPrivate ? 'active' : ''} onClick={() => setAccountType('company')}><Building2 /><span><b>Limited company</b><small>Company costs and corporation tax</small></span><Check /></button><button className={isPrivate ? 'active' : ''} onClick={() => setAccountType('private')}><Home /><span><b>Private landlord</b><small>Personal property portfolio</small></span><Check /></button></div>{!isPrivate && <label className="setup-company-name"><span>Company name <small>optional</small></span><input autoFocus value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="e.g. Quark Holdings" /></label>}<button className="primary-button setup-continue" onClick={() => onComplete({ accountType, companyName: isPrivate ? '' : companyName.trim(), onboardingComplete: true })}>Continue to portfolio <ArrowUpRight size={17} /></button></section></div>
 }
 
 function AssetPositionChart({ properties }) {
@@ -179,17 +195,18 @@ const propertyCostFields = [
   ['applianceReserve', 'Appliance reserve', 'variable'],
 ]
 
-function LineItemsEditor({ title, description, items, onChange, onAdd, onRemove, timed = false, tone }) {
+function LineItemsEditor({ title, description, items, onChange, onAdd, onRemove, timed = false, tone, disabled = false }) {
   const total = items.filter((item) => item.enabled !== false).reduce((sum, item) => sum + Number(item.amount || 0), 0)
-  return <section className={`panel cashflow-editor ${tone}`}><header><div><span className="kicker">{title}</span><h2>{currency(total)} <small>/ month</small></h2><p>{description}</p></div><button className="secondary-button small" onClick={onAdd}><Plus size={15} /> Add line</button></header><div className="cashflow-lines">{items.length === 0 && <div className="empty-cashflow"><ReceiptText size={22} /><b>No line items yet</b><span>Add one when this account has a recurring cash flow.</span></div>}{items.map((item) => <div className={`cashflow-line ${item.enabled === false ? 'disabled' : ''}`} key={item.id}><label className="cashflow-enabled"><input type="checkbox" checked={item.enabled !== false} onChange={(event) => onChange(item.id, 'enabled', event.target.checked)} /><i><Check size={12} /></i></label><label className="cashflow-name"><span>Description</span><input value={item.name} onChange={(event) => onChange(item.id, 'name', event.target.value)} placeholder="New monthly item" /></label><label><span>Monthly amount</span><div className="money-input"><b>£</b><input type="number" min="0" step="0.01" value={moneyInputValue(item.amount)} onChange={(event) => onChange(item.id, 'amount', Number(event.target.value))} /></div></label>{timed && <label><span>Months remaining</span><input type="number" min="0" step="1" value={item.monthsRemaining || ''} onChange={(event) => onChange(item.id, 'monthsRemaining', Number(event.target.value))} placeholder="Ongoing" /></label>}<button className="icon-button cashflow-delete" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.name || 'line item'}`}><Trash2 size={16} /></button></div>)}</div></section>
+  return <section className={`panel cashflow-editor ${tone} ${disabled ? 'not-applicable' : ''}`} title={disabled ? 'Not used for private landlords.' : undefined}><header><div><span className="kicker">{title}</span><h2>{currency(disabled ? 0 : total)} <small>/ month</small></h2><p>{disabled ? 'Not used for private landlords.' : description}</p></div><button disabled={disabled} className="secondary-button small" onClick={onAdd}><Plus size={15} /> Add line</button></header><div className="cashflow-lines">{items.length === 0 && <div className="empty-cashflow"><ReceiptText size={22} /><b>No line items yet</b><span>Add one when this account has a recurring cash flow.</span></div>}{items.map((item) => <div className={`cashflow-line ${item.enabled === false ? 'disabled' : ''}`} key={item.id}><label className="cashflow-enabled"><input disabled={disabled} type="checkbox" checked={item.enabled !== false} onChange={(event) => onChange(item.id, 'enabled', event.target.checked)} /><i><Check size={12} /></i></label><label className="cashflow-name"><span>Description</span><input disabled={disabled} value={item.name} onChange={(event) => onChange(item.id, 'name', event.target.value)} placeholder="New monthly item" /></label><label><span>Monthly amount</span><div className="money-input"><b>£</b><input disabled={disabled} type="number" min="0" step="0.01" value={moneyInputValue(item.amount)} onChange={(event) => onChange(item.id, 'amount', Number(event.target.value))} /></div></label>{timed && <label><span>Months remaining</span><input disabled={disabled} type="number" min="0" step="1" value={item.monthsRemaining || ''} onChange={(event) => onChange(item.id, 'monthsRemaining', Number(event.target.value))} placeholder="Ongoing" /></label>}<button disabled={disabled} className="icon-button cashflow-delete" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.name || 'line item'}`}><Trash2 size={16} /></button></div>)}</div></section>
 }
 
 function CostsWorkspace({ properties, calculated, settings, portfolio, onPropertyChange, onLineItemChange, onLineItemAdd, onLineItemRemove }) {
+  const isPrivate = settings.accountType === 'private'
   return <div className="costs-workspace">
     <section className="metrics-grid">
       <MetricCard eyebrow="PROPERTY FIXED COSTS" value={currency(portfolio.propertyFixedCosts)} delta="Mortgages, factors & compliance" icon={Home} tone="dark" />
       <MetricCard eyebrow="PROPERTY VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} />
-      <MetricCard eyebrow="COMPANY COSTS" value={currency(portfolio.companyCosts)} delta="Editable recurring overheads" icon={Landmark} />
+      <MetricCard eyebrow="COMPANY COSTS" value={currency(portfolio.companyCosts)} delta={isPrivate ? 'Not used for private landlords' : 'Editable recurring overheads'} icon={Landmark} disabled={isPrivate} />
       <MetricCard eyebrow="OWNER EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta="Editable tax-deductible value" icon={WalletCards} tone="green" />
     </section>
 
@@ -201,21 +218,21 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
     })}{calculated.length === 0 && <div className="empty-cashflow"><Home size={24} /><b>No properties yet</b><span>Add a BTL to start entering its income and costs.</span></div>}</div></section>
 
     <div className="cashflow-editor-grid">
-      <LineItemsEditor title="COMPANY COSTS" description="Account-level overheads and finance payments. Set a remaining term for temporary costs." items={settings.companyCosts} timed tone="company" onChange={(id, key, value) => onLineItemChange('companyCosts', id, key, value)} onAdd={() => onLineItemAdd('companyCosts', 'New company cost')} onRemove={(id) => onLineItemRemove('companyCosts', id)} />
+      <LineItemsEditor title="COMPANY COSTS" description="Account-level overheads and finance payments. Set a remaining term for temporary costs." items={settings.companyCosts} timed tone="company" disabled={isPrivate} onChange={(id, key, value) => onLineItemChange('companyCosts', id, key, value)} onAdd={() => onLineItemAdd('companyCosts', 'New company cost')} onRemove={(id) => onLineItemRemove('companyCosts', id)} />
       <LineItemsEditor title="EXTRACTIONS" description="Generic owner or employee value items. Add, rename, switch off or remove anything." items={settings.extractions} tone="extraction" onChange={(id, key, value) => onLineItemChange('extractions', id, key, value)} onAdd={() => onLineItemAdd('extractions', 'New extraction')} onRemove={(id) => onLineItemRemove('extractions', id)} />
     </div>
     <section className="panel cashflow-reconciliation"><header><div><span className="kicker">CASH-FLOW RECONCILIATION</span><h2>Where every pound goes</h2><p>Management is calculated from the model toggle and rate. Corporation tax changes with each scenario.</p></div></header><div className="reconciliation-wrap"><table><thead><tr><th>Monthly line</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{[
       ['Rent received', () => portfolio.rent, 'income'],
       ['Property fixed costs', () => -portfolio.propertyFixedCosts, 'cost'],
-      ['Company costs', () => -portfolio.companyCosts, 'cost'],
+      ['Company costs', () => -portfolio.companyCosts, 'cost', true],
       ['Management fee', () => -portfolio.management, 'cost'],
       ['Variable property costs', (_, index) => index === 0 ? -portfolio.variableCosts : index === 1 ? -(portfolio.variableCosts - portfolio.selected.reduce((sum, property) => sum + property.voids, 0)) : 0, 'cost'],
       ['Extraction deductions', () => -portfolio.extractionTotal, 'cost'],
       ['Taxable profit', (scenario) => scenario.taxable, 'subtotal'],
-      ['Corporation tax', (scenario) => -scenario.tax, 'cost'],
+      ['Corporation tax', (scenario) => -scenario.tax, 'cost', true],
       ['Extractions returned as owner value', () => portfolio.extractionTotal, 'income'],
       ['Net monthly owner value', (scenario) => scenario.cashflow, 'total'],
-    ].map(([label, getter, kind]) => <tr className={kind} key={label}><th>{label}</th>{portfolio.scenarios.map((scenario, index) => <td key={scenario.id}>{currency(getter(scenario, index))}</td>)}</tr>)}</tbody></table></div></section>
+    ].map(([label, getter, kind, companyOnly]) => <tr className={`${kind} ${companyOnly && isPrivate ? 'not-applicable-row' : ''}`} title={companyOnly && isPrivate ? 'Not used for private landlords.' : undefined} key={label}><th>{label}</th>{portfolio.scenarios.map((scenario, index) => <td key={scenario.id}>{currency(getter(scenario, index))}</td>)}</tr>)}</tbody></table></div></section>
   </div>
 }
 
@@ -300,13 +317,19 @@ function PortfolioApp({ user }) {
         return
       }
       const portfolioState = data?.portfolio || { properties: [], settings: {} }
+      const storedProperties = Array.isArray(portfolioState.properties) ? portfolioState.properties : []
+      const isEstablishedPortfolio = storedProperties.length > 0
+      const existingAccountDefaults = isEstablishedPortfolio ? { companyName: 'Quark Holdings', onboardingComplete: true } : {}
       loaded.current = true
       setState({
-        properties: (Array.isArray(portfolioState.properties) ? portfolioState.properties : [])
+        properties: storedProperties
           .map((property) => migrateMortgageOverride(property, { ...defaultSettings, ...(portfolioState.settings || {}) })),
         settings: {
           ...defaultSettings,
+          ...existingAccountDefaults,
           ...(portfolioState.settings || {}),
+          companyName: portfolioState.settings?.companyName || (isEstablishedPortfolio ? 'Quark Holdings' : ''),
+          onboardingComplete: isEstablishedPortfolio || Boolean(portfolioState.settings?.onboardingComplete),
           companyCosts: Array.isArray(portfolioState.settings?.companyCosts) ? portfolioState.settings.companyCosts : [],
           extractions: Array.isArray(portfolioState.settings?.extractions) ? portfolioState.settings.extractions : [],
         },
@@ -363,6 +386,7 @@ function PortfolioApp({ user }) {
     }),
   }))
   const updateSetting = (key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [key]: value } }))
+  const completeAccountSetup = (profile) => setState((current) => ({ ...current, settings: { ...current.settings, ...profile } }))
   const updatePercentSetting = (key, value) => updateSetting(key, Number(value) / 100)
   const updateLineItem = (collection, id, key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].map((item) => item.id === id ? { ...item, [key]: value } : item) } }))
   const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
@@ -371,6 +395,7 @@ function PortfolioApp({ user }) {
 
   const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Portfolio owner'
   const initials = displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+  const portfolioName = state.settings.accountType === 'private' ? `${displayName}'s portfolio` : state.settings.companyName || 'Property portfolio'
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
   const navigateMobile = (nextSection) => {
@@ -383,7 +408,7 @@ function PortfolioApp({ user }) {
     <div className="app-shell">
       <button className={`mobile-nav-backdrop ${mobileNavOpen ? 'open' : ''}`} onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" tabIndex={mobileNavOpen ? 0 : -1} />
       <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`} aria-label="Portfolio navigation">
-        <div className="brand"><span><Building2 size={20} /></span><div><strong>QUARK</strong><small>HOLDINGS</small></div><button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
+        <div className="brand"><span><Building2 size={20} /></span><div><strong>{state.settings.companyName || (state.settings.accountType === 'private' ? 'PRIVATE' : 'PROPERTY')}</strong><small>PORTFOLIO</small></div><button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
         <div className="sidebar-body">
           <nav>
             <small>WORKSPACE</small>
@@ -395,13 +420,14 @@ function PortfolioApp({ user }) {
             <header><Sparkles size={15} /><div><b>Model inputs</b><small>Portfolio assumptions</small></div></header>
             <ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
           </section>
+          <AccountProfileEditor settings={state.settings} onChange={updateSetting} />
         </div>
         <div className="sidebar-foot"><div className="avatar">{initials}</div><span><b>{displayName}</b><small>{user.email}</small></span><button className="sidebar-signout" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut size={16} /></button></div>
       </aside>
 
       <main>
         <header className="topbar">
-          <div><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span>Quark Holdings</span><b>/</b><strong>{section}</strong></div>
+          <div><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span>{portfolioName}</span><b>/</b><strong>{section}</strong></div>
           <div><span className={`save-status ${saveStatus}`} title={saveStatus === 'error' ? 'Could not save changes' : 'Your account data is saved securely'}>{saveStatus === 'error' ? <CloudOff size={15} /> : <Cloud size={15} />}{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved'}</span><button className="secondary-button small" onClick={reset}><RotateCcw size={15} /> Reset inputs</button></div>
         </header>
 
@@ -452,6 +478,7 @@ function PortfolioApp({ user }) {
       </nav>
 
       {editing && <EditDrawer property={editing} isNew={!state.properties.some((p) => p.id === editing.id)} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
+      {!state.settings.onboardingComplete && <AccountSetupModal onComplete={completeAccountSetup} />}
     </div>
   )
 }

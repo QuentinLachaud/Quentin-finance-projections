@@ -48,6 +48,31 @@ describe('Quark sheet calculations', () => {
     expect(afterExpiry - beforeExpiry).toBeCloseTo(547, 1)
   })
 
+  it('excludes company-only costs and corporation tax for private landlords', () => {
+    const sharedSettings = {
+      ...assumptions,
+      companyCosts: [{ id: 'accountancy', name: 'Accountancy', amount: 200, enabled: true }],
+      extractions: [],
+    }
+    const company = calculatePortfolio(testProperties, { ...sharedSettings, accountType: 'company' }, fixedNow)
+    const privateLandlord = calculatePortfolio(testProperties, { ...sharedSettings, accountType: 'private' }, fixedNow)
+
+    expect(company.companyCosts).toBe(200)
+    expect(company.scenarios[2].tax).toBeGreaterThan(0)
+    expect(privateLandlord.companyCosts).toBe(0)
+    expect(privateLandlord.scenarios.every((scenario) => scenario.tax === 0)).toBe(true)
+    expect(privateLandlord.scenarios[2].cashflow).toBeGreaterThan(company.scenarios[2].cashflow)
+
+    const privateProjection = projectPortfolio(testProperties, {
+      ...sharedSettings,
+      accountType: 'private',
+      companyCosts: [{ id: 'loan', name: 'Company loan', amount: 500, monthsRemaining: 1, enabled: true }],
+    }, 12, fixedNow)
+    const monthOne = privateProjection[1].scenarios[0].cashflow - privateProjection[0].scenarios[0].cashflow
+    const monthTwo = privateProjection[2].scenarios[0].cashflow - privateProjection[1].scenarios[0].cashflow
+    expect(monthTwo).toBeCloseTo(monthOne)
+  })
+
   describe('mortgage interest regression coverage', () => {
     const property = { ...testProperties[0], loanAmount: 180000, baseRate: 0.04 }
 
