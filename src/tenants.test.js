@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { applyTenantToProperty, importPropertyTenants, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
+import { applyTenantToProperty, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 
 vi.stubGlobal('crypto', { randomUUID: vi.fn(() => 'generated-tenant-id') })
 
@@ -29,8 +29,26 @@ describe('tenant records', () => {
   })
 
   it('calculates live tenure from move-in date and the current date', () => {
-    expect(tenantTenure({ moveIn: '2025-09-01' }, new Date('2026-11-15T12:00:00'))).toEqual({ live: true, label: '1 year 2 months' })
+    expect(tenantTenure({ moveIn: '2025-09-01' }, new Date('2026-11-15T12:00:00'))).toEqual({ live: true, archived: false, label: '1 year 2 months' })
     expect(tenantTenure({ moveIn: '2027-01-01' }, new Date('2026-11-15T12:00:00')).live).toBe(false)
+    expect(tenantTenure({ moveIn: '2025-01-01', moveOut: '2026-10-01' }, new Date('2026-11-15T12:00:00')).archived).toBe(true)
+  })
+
+  it('calculates void days across historical tenancies without double-counting overlaps', () => {
+    const propertyRecord = { id: 'btl-1', purchaseDate: '2025-01-01' }
+    const tenants = [
+      { propertyId: 'btl-1', moveIn: '2025-01-11', moveOut: '2025-04-11' },
+      { propertyId: 'btl-1', moveIn: '2025-04-21', moveOut: '' },
+      { propertyId: 'btl-1', moveIn: '2025-05-01', moveOut: '2025-06-01' },
+    ]
+    const history = propertyVoidHistory(propertyRecord, tenants, new Date('2025-07-01T12:00:00'))
+    expect(history.ownedDays).toBe(181)
+    expect(history.voidDays).toBe(20)
+    expect(history.voidRate).toBeCloseTo(20 / 181)
+  })
+
+  it('reports no ownership history when purchase date is absent', () => {
+    expect(propertyVoidHistory({ id: 'btl-1' }, [], new Date('2026-01-01T12:00:00'))).toEqual({ voidDays: 0, ownedDays: 0, voidRate: 0 })
   })
 
   it('rejects orphan links and cascades tenants when a property is removed', () => {

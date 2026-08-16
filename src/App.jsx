@@ -16,7 +16,7 @@ import AuthScreen from './AuthScreen.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, shouldSelectZeroInput } from './portfolioFields.js'
-import { applyTenantToProperty, createTenant, importPropertyTenants, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
+import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 
 // Keep the completed Open Banking workspace dormant until a production data
 // provider is available. It can be restored without code changes at deploy time.
@@ -43,6 +43,7 @@ const propertyGroups = [
     ['Monthly rent', (p) => currency(p.rent), 'money-positive'], ['Monthly mortgage', (p) => currency(p.monthlyPayment, 0), 'money-negative'],
     ['Gross yield', (p) => percent(p.grossYield, 2), 'percent'], ['Net yield', (p) => percent(p.netYield, 2), 'percent'],
     ['Interest coverage ratio', (p) => percent(p.icr, 0), 'percent'], ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive'],
+    ['Voids since ownership', (p) => p.ownedDays ? `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})` : 'Purchase date required', 'text'],
     ['Current rate + shock', (p) => percent(p.currentRate, 2), 'percent'], ['Current lender', (p) => p.lender, 'text'],
   ]},
   { title: 'Key dates', description: 'Remortgage and compliance milestones', tone: 'amber', rows: [
@@ -347,7 +348,7 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
 
 const tenantFields = [
   ['name', 'Name', 'text'], ['email', 'Email', 'email'], ['phone', 'Phone', 'tel'],
-  ['occupation', 'Occupation', 'text'], ['moveIn', 'Move-in date', 'date'], ['depositHeld', 'Deposit held', 'text'],
+  ['occupation', 'Occupation', 'text'], ['moveIn', 'Move-in date', 'date'], ['moveOut', 'Move-out date (optional)', 'date'], ['depositHeld', 'Deposit held', 'text'],
 ]
 
 function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
@@ -355,6 +356,12 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
   const startNew = () => setDraft(createTenant(properties[0]?.id || ''))
   const edit = (tenant) => setDraft({ ...tenant })
   const propertyName = (id) => properties.find((property) => property.id === id)?.name || 'Unknown BTL'
+  const currentTenants = tenants.filter((tenant) => !tenantTenure(tenant).archived)
+  const archivedTenants = tenants.filter((tenant) => tenantTenure(tenant).archived)
+  const tenantCard = (tenant) => {
+    const tenure = tenantTenure(tenant)
+    return <article className={`panel tenant-card ${tenure.live ? 'live' : ''}`} key={tenant.id}><header><div><span className={`tenant-status ${tenure.live ? 'live' : tenure.archived ? 'archived' : 'future'}`}>{tenure.live ? 'Live tenant' : tenure.archived ? 'Archived' : 'Upcoming'}</span><h2>{tenant.name || 'Unnamed tenant'}</h2><p>{propertyName(tenant.propertyId)} · {tenure.label}</p></div><Users size={20} /></header><dl><div><dt>Email</dt><dd>{tenant.email || '—'}</dd></div><div><dt>Phone</dt><dd>{tenant.phone || '—'}</dd></div><div><dt>Occupation</dt><dd>{tenant.occupation || '—'}</dd></div><div><dt>Deposit</dt><dd>{tenant.depositHeld || '—'}</dd></div></dl><footer><button className="text-button" onClick={() => edit(tenant)}><Pencil size={15} /> Edit</button><button className="text-button tenant-delete" onClick={() => onRemove(tenant.id)}><Trash2 size={15} /> Remove</button></footer></article>
+  }
   const submit = (event) => {
     event.preventDefault()
     if (!draft.propertyId) return
@@ -366,10 +373,8 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
     <section className="panel tenants-toolbar"><div><span className="kicker">TENANCY DIRECTORY</span><h2>Tenants linked to your BTLs</h2><p>Tenant records are private to your account. Tenure updates automatically from the move-in date.</p></div><button className="primary-button" onClick={startNew} disabled={!properties.length}><Plus size={16} /> Add tenant</button></section>
     {!properties.length && <section className="panel tenants-empty"><Users /><h2>Add a property first</h2><p>Every tenant must be linked to a BTL, so orphaned tenant records cannot be created.</p></section>}
     {properties.length > 0 && tenants.length === 0 && <section className="panel tenants-empty"><Users /><h2>No tenants yet</h2><p>Add a tenant here, or enter tenant details while creating or editing a BTL.</p><button className="secondary-button" onClick={startNew}><Plus size={16} /> Add your first tenant</button></section>}
-    <section className="tenant-grid">{tenants.map((tenant) => {
-      const tenure = tenantTenure(tenant)
-      return <article className={`panel tenant-card ${tenure.live ? 'live' : ''}`} key={tenant.id}><header><div><span className={`tenant-status ${tenure.live ? 'live' : 'future'}`}>{tenure.live ? 'Live tenant' : 'Upcoming'}</span><h2>{tenant.name || 'Unnamed tenant'}</h2><p>{propertyName(tenant.propertyId)} · {tenure.label}</p></div><Users size={20} /></header><dl><div><dt>Email</dt><dd>{tenant.email || '—'}</dd></div><div><dt>Phone</dt><dd>{tenant.phone || '—'}</dd></div><div><dt>Occupation</dt><dd>{tenant.occupation || '—'}</dd></div><div><dt>Deposit</dt><dd>{tenant.depositHeld || '—'}</dd></div></dl><footer><button className="text-button" onClick={() => edit(tenant)}><Pencil size={15} /> Edit</button><button className="text-button tenant-delete" onClick={() => onRemove(tenant.id)}><Trash2 size={15} /> Remove</button></footer></article>
-    })}</section>
+    <section className="tenant-grid">{currentTenants.map(tenantCard)}</section>
+    {archivedTenants.length > 0 && <details className="panel archived-tenants"><summary><span><b>Archived tenants</b><small>{archivedTenants.length} historical {archivedTenants.length === 1 ? 'record' : 'records'}</small></span><ChevronDown size={18} /></summary><section className="tenant-grid">{archivedTenants.map(tenantCard)}</section></details>}
     {draft && <div className="tenant-editor-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDraft(null)}><form className="panel tenant-editor" onSubmit={submit}><header><div><span className="kicker">TENANT RECORD</span><h2>{tenants.some((tenant) => tenant.id === draft.id) ? 'Edit tenant' : 'Add tenant'}</h2></div><button type="button" className="icon-button" onClick={() => setDraft(null)} aria-label="Close tenant editor"><X /></button></header><label className="tenant-property-field"><span>Linked BTL <b>Required</b></span><select required value={draft.propertyId} onChange={(event) => setDraft((current) => ({ ...current, propertyId: event.target.value }))}><option value="" disabled>Select a property</option>{properties.map((property) => <option value={property.id} key={property.id}>{property.name} — {formatPropertyAddress(property.flatNumber, property.address) || property.postcode || 'Address not set'}</option>)}</select></label><div className="tenant-form-grid">{tenantFields.map(([key, label, type]) => <label key={key}><span>{label}</span><input type={type} value={draft[key] || ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div><footer><button type="button" className="secondary-button" onClick={() => setDraft(null)}>Cancel</button><button className="primary-button"><Check size={16} /> Save tenant</button></footer></form></div>}
   </div>
 }
@@ -499,7 +504,7 @@ function PortfolioApp({ user }) {
   if (!state) return <div className="app-status-screen"><span className="loading-mark"><Building2 /></span><h1>Loading your private portfolio…</h1></div>
 
   const portfolio = calculatePortfolio(state.properties, state.settings)
-  const calculated = state.properties.map((p) => calculateProperty(p, state.settings))
+  const calculated = state.properties.map((p) => ({ ...calculateProperty(p, state.settings), ...propertyVoidHistory(p, state.tenants) }))
 
   const editing = pendingProperty || state.properties.find((p) => p.id === editingId)
   const closeEditor = () => { setEditingId(null); setPendingProperty(null) }
@@ -512,7 +517,7 @@ function PortfolioApp({ user }) {
   }
   const cloneProperty = (id) => {
     const source = state.properties.find((p) => p.id === id)
-    const clone = { ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', depositHeld: '', mortgageNumber: '' }
+    const clone = { ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', tenantMoveOut: '', depositHeld: '', mortgageNumber: '' }
     setPendingProperty(clone)
     setEditingId(null)
   }
@@ -553,7 +558,7 @@ function PortfolioApp({ user }) {
     return {
       ...current,
       tenants: current.tenants.filter((item) => item.id !== id),
-      properties: current.properties.map((property) => tenant?.importedFromProperty && property.id === tenant.propertyId ? { ...property, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', depositHeld: '' } : property),
+      properties: current.properties.map((property) => tenant?.importedFromProperty && property.id === tenant.propertyId ? { ...property, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', tenantMoveOut: '', depositHeld: '' } : property),
     }
   })
   const reset = () => { if (window.confirm('Reset the model inputs to their defaults? Your properties and cash-flow lines will be kept.')) setState((current) => ({ ...current, settings: { ...current.settings, ...assumptions, fullyManaged: false } })) }

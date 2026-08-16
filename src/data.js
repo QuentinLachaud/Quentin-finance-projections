@@ -47,6 +47,7 @@ export const createBlankProperty = (name = 'BTL1') => ({
   tenantPhone: '',
   tenantOccupation: '',
   tenantMoveIn: '',
+  tenantMoveOut: '',
   depositHeld: '',
   latestRemortgage: '',
   gasExpiry: '',
@@ -90,7 +91,8 @@ export const editableSections = [
     fields: [
       ['tenantName', 'Name', 'text'], ['tenantEmail', 'Email', 'email'],
       ['tenantPhone', 'Phone', 'tel'], ['tenantOccupation', 'Occupation', 'text'],
-      ['tenantMoveIn', 'Move-in date', 'date'], ['depositHeld', 'Deposit held', 'text'],
+      ['tenantMoveIn', 'Move-in date', 'date'], ['tenantMoveOut', 'Move-out date (optional)', 'date'],
+      ['depositHeld', 'Deposit held', 'text'],
     ],
   },
 ]
