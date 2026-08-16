@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown,
+  ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown, CircleHelp,
   ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu, MoreHorizontal,
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp,
   WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText, FileText, Users, RefreshCw, AlertTriangle,
 } from 'lucide-react'
-import { assumptions, createBlankProperty, editableSections } from './data.js'
+import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
 import { anchorMortgageOverride, calculatePortfolio, calculateProperty, currency, migrateMortgageOverride, percent, projectPortfolio, shortDate } from './calculations.js'
 import { TAX_YEAR } from './tax.js'
 import {
@@ -22,7 +22,7 @@ import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoi
 // provider is available. It can be restored without code changes at deploy time.
 const BANKING_ENABLED = import.meta.env.VITE_BANKING_ENABLED === 'true'
 
-const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'england' }
+const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'england' }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 
@@ -61,11 +61,11 @@ const scenarioMeta = [
 
 const modelInputFields = [
   ['appreciationRate', 'Annual appreciation', '%', 'percent'],
-  ['rateShock', 'Interest rate shock', '%', 'percent'],
+  ['rateShock', 'Interest rate shock', '%', 'percent', null, 'Adds this many percentage points to every BTL mortgage rate throughout the model.'],
   ['corporationTaxRate', 'Corporation tax', '%', 'percent', 'company'],
-  ['managementRate', 'Management fee', '%', 'percent'],
+  ['managementRate', 'Management fee', '%', 'percent', null, 'Applied to monthly rent only when the Fully managed option is enabled.'],
   ['cashHeld', 'Cash held', '£', 'number'],
-  ['bufferMonths', 'Target buffer', 'months', 'number'],
+  ['bufferMonths', 'Target buffer', 'months', 'number', null, 'The target cash reserve expressed as months of fixed and variable property costs.'],
 ]
 
 const workspaceNavigation = [
@@ -129,9 +129,9 @@ function PropertyCard({ property, onEdit, onClone, onToggle }) {
 
 function ModelInputFields({ settings, onSettingChange, onPercentChange, compact = false }) {
   const isPrivate = settings.accountType === 'private'
-  return <div className={compact ? 'sidebar-input-list' : 'assumptions-grid'}>{modelInputFields.map(([key, label, suffix, type, scope]) => {
+  return <div className={compact ? 'sidebar-input-list' : 'assumptions-grid'}>{modelInputFields.map(([key, label, suffix, type, scope, help]) => {
     const disabled = scope === 'company' && isPrivate
-    return <label key={key} className={disabled ? 'not-applicable' : ''} title={disabled ? 'Not used for private landlords.' : undefined}><span>{label}</span><div><input aria-label={label} disabled={disabled} type="number" step={type === 'percent' ? '0.1' : 'any'} value={type === 'percent' ? percentInputValue(settings[key]) : settings[key]} onChange={(event) => type === 'percent' ? onPercentChange(key, event.target.value) : onSettingChange(key, Number(event.target.value))} /><b>{suffix}</b></div></label>
+    return <label key={key} className={disabled ? 'not-applicable' : ''} title={disabled ? 'Not used for private landlords.' : undefined}><span>{label}{help && <button type="button" className="model-help" aria-label={`${label}: ${help}`} data-tooltip={help}><CircleHelp size={13} /></button>}</span><div><input aria-label={label} disabled={disabled} type="number" step={type === 'percent' ? '0.1' : 'any'} value={type === 'percent' ? percentInputValue(settings[key]) : settings[key]} onChange={(event) => type === 'percent' ? onPercentChange(key, event.target.value) : onSettingChange(key, Number(event.target.value))} /><b>{suffix}</b></div></label>
   })}</div>
 }
 

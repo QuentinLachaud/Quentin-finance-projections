@@ -9,6 +9,11 @@ export const assumptions = {
   landlordRegistration: '540076/260/18032',
 }
 
+export const newAccountDefaults = {
+  cashHeld: 0,
+  rateShock: 0,
+}
+
 const sharedCosts = {
   legionella: 0,
   gasCertificate: 0,
