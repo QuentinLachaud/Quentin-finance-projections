@@ -19,6 +19,6 @@ describe('account entitlements', () => {
     expect(showFreeSupport({ plan: 'free' })).toBe(true)
     expect(showFreeSupport({ plan: 'pro' })).toBe(false)
     expect(PLAN_PRICES.monthly.amount).toBe(9.99)
-    expect(PLAN_PRICES.annual.amount).toBe(69)
+    expect(PLAN_PRICES.annual.amount).toBe(79)
   })
 })

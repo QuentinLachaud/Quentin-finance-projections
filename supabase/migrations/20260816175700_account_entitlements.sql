@@ -35,7 +35,7 @@ update public.account_entitlements entitlement
 set plan = 'pro', source = 'owner', is_admin = true, updated_at = now()
 from auth.users account
 where entitlement.user_id = account.id
-  and lower(account.email) = lower('QuentinLachaux@gmail.com');
+  and lower(account.email) = lower('quentin.lachaud@gmail.com');
 
 create or replace function public.create_default_account_entitlement()
 returns trigger

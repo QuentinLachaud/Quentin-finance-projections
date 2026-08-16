@@ -1,6 +1,6 @@
 export const PLAN_PRICES = Object.freeze({
   monthly: { amount: 9.99, label: '£9.99 monthly' },
-  annual: { amount: 69, label: '£69 annually' },
+  annual: { amount: 79, label: '£79 annually' },
 })
 
 export const FREE_PROPERTY_LIMIT = 1

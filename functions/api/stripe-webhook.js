@@ -32,7 +32,9 @@ export const applyStripeEvent = async (env, event) => {
       stripe_subscription_id: object.id,
       stripe_price_id: object.items?.data?.[0]?.price?.id || null,
       subscription_status: object.status,
-      current_period_end: object.current_period_end ? new Date(object.current_period_end * 1000).toISOString() : null,
+      current_period_end: object.items?.data?.[0]?.current_period_end
+        ? new Date(object.items.data[0].current_period_end * 1000).toISOString()
+        : null,
     })
     return true
   }

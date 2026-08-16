@@ -6,7 +6,7 @@ export const json = (body, status = 200) => new Response(JSON.stringify(body), {
 const supabaseConfig = (env) => ({
   url: env.SUPABASE_URL || env.VITE_SUPABASE_URL,
   publicKey: env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  serviceKey: env.SUPABASE_SERVICE_ROLE_KEY,
+  serviceKey: env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY,
 })
 
 export const authenticateUser = async (request, env) => {
@@ -23,7 +23,9 @@ export const adminRequest = async (env, path, { method = 'GET', body, headers = 
   const response = await fetch(`${url}${path}`, {
     method,
     headers: {
-      authorization: `Bearer ${serviceKey}`,
+      ...(serviceKey.startsWith('sb_secret_')
+        ? {}
+        : { authorization: `Bearer ${serviceKey}` }),
       apikey: serviceKey,
       ...(body ? { 'content-type': 'application/json' } : {}),
       ...headers,

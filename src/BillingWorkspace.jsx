@@ -68,7 +68,7 @@ export default function BillingWorkspace({ entitlement, onRefresh, modal = false
         <button className="primary-button" disabled={Boolean(busy)} onClick={() => perform('checkout', { interval: 'monthly' })}>{busy === 'checkoutmonthly' ? 'Opening Stripe…' : `Choose ${PLAN_PRICES.monthly.label}`}</button>
       </article>
       <article className="pricing-card featured">
-        <i>Save £50.88 a year</i><span>Annual</span><strong>£69<small>/year</small></strong><p>Equivalent to £5.75 a month.</p>
+        <i>Save £40.88 a year</i><span>Annual</span><strong>£79<small>/year</small></strong><p>Equivalent to £6.58 a month.</p>
         <button className="primary-button" disabled={Boolean(busy)} onClick={() => perform('checkout', { interval: 'annual' })}>{busy === 'checkoutannual' ? 'Opening Stripe…' : `Choose ${PLAN_PRICES.annual.label}`}</button>
       </article>
     </section>}

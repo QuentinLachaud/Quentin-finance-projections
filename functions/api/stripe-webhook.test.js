@@ -22,7 +22,7 @@ describe('Stripe entitlement events', () => {
     vi.stubGlobal('fetch', fetchMock)
     await applyStripeEvent(env, {
       type: 'customer.subscription.deleted',
-      data: { object: { id: 'sub_1', customer: 'cus_1', status: 'canceled', current_period_end: 1786900000, metadata: { user_id: 'user-1' }, items: { data: [{ price: { id: 'price_annual' } }] } } },
+      data: { object: { id: 'sub_1', customer: 'cus_1', status: 'canceled', metadata: { user_id: 'user-1' }, items: { data: [{ price: { id: 'price_annual' }, current_period_end: 1786900000 }] } } },
     })
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
     expect(body.plan).toBe('free')
