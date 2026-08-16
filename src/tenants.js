@@ -64,13 +64,17 @@ export const syncPropertyTenant = (property, tenants) => {
     return { property: { ...property, tenantId: '' }, tenants: nextTenants }
   }
 
+  const existingTenant = existingIndex >= 0 ? nextTenants[existingIndex] : null
+  const startsReplacementTenancy = Boolean(existingTenant?.moveOut)
+    && !property.tenantMoveOut
+    && property.tenantMoveIn !== existingTenant.moveIn
   const tenant = {
-    ...(existingIndex >= 0 ? nextTenants[existingIndex] : createTenant(property.id)),
+    ...(existingTenant && !startsReplacementTenancy ? existingTenant : createTenant(property.id)),
     ...propertyTenantValues(property),
     propertyId: property.id,
     importedFromProperty: true,
   }
-  if (existingIndex >= 0) nextTenants[existingIndex] = tenant
+  if (existingIndex >= 0 && !startsReplacementTenancy) nextTenants[existingIndex] = tenant
   else nextTenants.push(tenant)
   return { property: { ...property, tenantId: tenant.id }, tenants: nextTenants }
 }

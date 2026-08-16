@@ -22,6 +22,15 @@ describe('tenant records', () => {
     expect(result.property.tenantId).toBe('tenant-1')
   })
 
+  it('preserves an archived tenant when replacement details are entered on the BTL', () => {
+    const archived = { id: 'tenant-1', propertyId: 'btl-1', name: 'John Smith', moveIn: '2025-01-01', moveOut: '2026-01-01', importedFromProperty: true }
+    const result = syncPropertyTenant({ ...property, tenantId: 'tenant-1', tenantName: 'Jane Smith', tenantMoveIn: '2026-02-01', tenantMoveOut: '' }, [archived])
+    expect(result.tenants).toHaveLength(2)
+    expect(result.tenants[0]).toEqual(archived)
+    expect(result.tenants[1]).toMatchObject({ name: 'Jane Smith', moveIn: '2026-02-01', moveOut: '' })
+    expect(result.property.tenantId).toBe('generated-tenant-id')
+  })
+
   it('reflects edits to an imported tenant back onto the linked BTL', () => {
     const updated = applyTenantToProperty({ id: 'tenant-1', propertyId: 'btl-1', importedFromProperty: true, name: 'Jane Smith', moveIn: '2026-01-01' }, property)
     expect(updated.tenantName).toBe('Jane Smith')
