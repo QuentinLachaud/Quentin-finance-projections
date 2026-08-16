@@ -402,7 +402,7 @@ function PortfolioApp({ user }) {
       <main>
         <header className="topbar">
           <div><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span>Quark Holdings</span><b>/</b><strong>{section}</strong></div>
-          <div><span className={`save-status ${saveStatus}`} title={saveStatus === 'error' ? 'Could not save changes' : 'Your account data is saved securely'}>{saveStatus === 'error' ? <CloudOff size={15} /> : <Cloud size={15} />}{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved'}</span><button className="secondary-button small" onClick={reset}><RotateCcw size={15} /> Reset inputs</button><button className="primary-button small" onClick={addProperty}><Plus size={16} /> Add BTL</button></div>
+          <div><span className={`save-status ${saveStatus}`} title={saveStatus === 'error' ? 'Could not save changes' : 'Your account data is saved securely'}>{saveStatus === 'error' ? <CloudOff size={15} /> : <Cloud size={15} />}{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved'}</span><button className="secondary-button small" onClick={reset}><RotateCcw size={15} /> Reset inputs</button></div>
         </header>
 
         <div className="content">
