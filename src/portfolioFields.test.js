@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPropertyAddress, shouldSelectZeroInput } from './portfolioFields.js'
+import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput } from './portfolioFields.js'
 
 describe('portfolio field behaviour', () => {
   it('formats addresses without leading or empty separators', () => {
@@ -14,5 +14,10 @@ describe('portfolio field behaviour', () => {
     expect(shouldSelectZeroInput({ type: 'number', value: '10' })).toBe(false)
     expect(shouldSelectZeroInput({ type: 'text', value: '0' })).toBe(false)
   })
-})
 
+  it('shows the base rate, shock and effective rate without redundant zero shocks', () => {
+    expect(formatRateComposition(0.0484, 0.0584)).toBe('4.84% + 1.00% = 5.84%')
+    expect(formatRateComposition(0.0484, 0.0484)).toBe('4.84%')
+    expect(formatRateComposition(0.0484, 0.0384)).toBe('4.84% − 1.00% = 3.84%')
+  })
+})

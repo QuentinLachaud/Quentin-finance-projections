@@ -15,7 +15,7 @@ import {
 import AuthScreen from './AuthScreen.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
-import { formatPropertyAddress, shouldSelectZeroInput } from './portfolioFields.js'
+import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput } from './portfolioFields.js'
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 
 // Keep the completed Open Banking workspace dormant until a production data
@@ -44,7 +44,7 @@ const propertyGroups = [
     ['Gross yield', (p) => percent(p.grossYield, 2), 'percent'], ['Net yield', (p) => percent(p.netYield, 2), 'percent'],
     ['Interest coverage ratio', (p) => percent(p.icr, 0), 'percent'], ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive'],
     ['Voids since ownership', (p) => p.ownedDays ? `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})` : 'Purchase date required', 'text'],
-    ['Current rate + shock', (p) => percent(p.currentRate, 2), 'percent'], ['Current lender', (p) => p.lender, 'text'],
+    ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent'], ['Current lender', (p) => p.lender, 'text'],
   ]},
   { title: 'Key dates', description: 'Remortgage and compliance milestones', tone: 'amber', rows: [
     ['Next remortgage', (p) => shortDate(p.nextRemortgage), 'date'], ['Call broker', (p) => shortDate(p.brokerDate), 'date'],
