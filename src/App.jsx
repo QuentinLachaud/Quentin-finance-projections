@@ -16,6 +16,10 @@ import AuthScreen from './AuthScreen.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
+// Keep the completed Open Banking workspace dormant until a production data
+// provider is available. It can be restored without code changes at deploy time.
+const BANKING_ENABLED = import.meta.env.VITE_BANKING_ENABLED === 'true'
+
 const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'england' }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
@@ -391,12 +395,13 @@ function PortfolioApp({ user }) {
   const loaded = useRef(false)
   const [editingId, setEditingId] = useState(null)
   const [pendingProperty, setPendingProperty] = useState(null)
-  const [section, setSection] = useState(() => new URLSearchParams(window.location.search).get('bank_callback') === '1' ? 'Banking' : 'Overview')
+  const [section, setSection] = useState(() => BANKING_ENABLED && new URLSearchParams(window.location.search).get('bank_callback') === '1' ? 'Banking' : 'Overview')
   const [search, setSearch] = useState('')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     if (state?.settings.accountType === 'private' && section === 'Companies House') setSection('Overview')
+    if (!BANKING_ENABLED && section === 'Banking') setSection('Overview')
   }, [state?.settings.accountType, section])
 
   useEffect(() => {
@@ -507,9 +512,11 @@ function PortfolioApp({ user }) {
   const portfolioName = state.settings.accountType === 'private' ? `${displayName}'s portfolio` : state.settings.companyName || 'Property portfolio'
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
-  const visibleWorkspaceNavigation = state.settings.accountType === 'private'
-    ? workspaceNavigation.filter(([label]) => label !== 'Companies House')
-    : workspaceNavigation
+  const visibleWorkspaceNavigation = workspaceNavigation.filter(([label]) => {
+    if (!BANKING_ENABLED && label === 'Banking') return false
+    if (state.settings.accountType === 'private' && label === 'Companies House') return false
+    return true
+  })
   const navigateMobile = (nextSection) => {
     setSection(nextSection)
     setMobileNavOpen(false)
@@ -576,7 +583,7 @@ function PortfolioApp({ user }) {
 
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={state.properties} calculated={calculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} />}
 
-          {section === 'Banking' && <BankWorkspace user={user} onCashHeldChange={updateConnectedCashHeld} />}
+          {BANKING_ENABLED && section === 'Banking' && <BankWorkspace user={user} onCashHeldChange={updateConnectedCashHeld} />}
 
           {section === 'Projections' && <>
             <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta="Editable in Costs & Cash Flows" icon={WalletCards} /></section>
