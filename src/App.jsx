@@ -3,11 +3,15 @@ import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown,
   ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu, MoreHorizontal,
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp,
-  WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText,
+  WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText, FileText, Users, RefreshCw, AlertTriangle,
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections } from './data.js'
 import { anchorMortgageOverride, calculatePortfolio, calculateProperty, currency, migrateMortgageOverride, percent, projectPortfolio, shortDate } from './calculations.js'
 import { TAX_YEAR } from './tax.js'
+import {
+  activeOfficers, activePsc, companyDeadlines, formatCompanyAddress,
+  identityVerificationSummary, officialCompanyUrl, outstandingCharges,
+} from './companiesHouse.js'
 import AuthScreen from './AuthScreen.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
@@ -62,6 +66,7 @@ const workspaceNavigation = [
   ['Costs & Cash Flows', 'Costs', ReceiptText],
   ['Projections', 'Projections', TrendingUp],
   ['Compliance', 'Compliance', ShieldCheck],
+  ['Companies House', 'Companies', Landmark],
 ]
 
 function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disabled = false }) {
@@ -128,6 +133,90 @@ function PrivateLandlordInputs({ settings, onSettingChange, compact = false }) {
 function PrivateTaxSummary({ portfolio, settings }) {
   if (settings.accountType !== 'private') return null
   return <section className="panel private-tax-summary"><header><div><span className="kicker">PRIVATE LANDLORD · {TAX_YEAR}</span><h2>Estimated property income tax</h2><p>Rental profit is stacked on your other gross income. Residential mortgage interest receives basic-rate relief instead of being deducted from profit.</p></div><span className="panel-stat">{settings.taxJurisdiction === 'scotland' ? 'Scotland' : 'England'}</span></header><div className="private-tax-scenarios">{portfolio.scenarios.map((scenario, index) => <article key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><span>{scenarioMeta[index].name}</span><strong>{currency(scenario.tax * 12)}</strong><small>estimated annual tax</small><dl><div><dt>Taxable property profit</dt><dd>{currency(scenario.privateTax?.propertyProfit)}</dd></div><div><dt>Finance-cost reduction</dt><dd>{currency(scenario.privateTax?.financeCostTaxReduction)}</dd></div><div><dt>Marginal income-tax rate</dt><dd>{percent(scenario.privateTax?.marginalRate, 0)}</dd></div></dl></article>)}</div><footer>Planning estimate only · excludes pension reliefs, losses brought forward, savings, dividends and unused finance costs carried forward.</footer></section>
+}
+
+const companiesHouseRequest = async (params) => {
+  const { data } = await supabase.auth.getSession()
+  const response = await fetch(`/api/companies-house?${new URLSearchParams(params)}`, {
+    headers: { authorization: `Bearer ${data.session?.access_token || ''}` },
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const error = new Error(payload.error || 'Companies House is temporarily unavailable.')
+    error.code = payload.code
+    throw error
+  }
+  return payload
+}
+
+function CompaniesHouseWorkspace({ settings, onSettingChange }) {
+  const [query, setQuery] = useState(settings.companyName || '')
+  const [results, setResults] = useState([])
+  const [details, setDetails] = useState(null)
+  const [status, setStatus] = useState('idle')
+  const [error, setError] = useState('')
+
+  const loadCompany = async (companyNumber) => {
+    setStatus('loading')
+    setError('')
+    try {
+      const company = await companiesHouseRequest({ mode: 'company', number: companyNumber })
+      setDetails(company)
+      setStatus('ready')
+    } catch (requestError) {
+      setError(requestError.message)
+      setStatus(requestError.code === 'not_configured' ? 'not-configured' : 'error')
+    }
+  }
+
+  useEffect(() => {
+    if (settings.companyNumber) loadCompany(settings.companyNumber)
+    else setDetails(null)
+  }, [settings.companyNumber])
+
+  const searchCompanies = async (event) => {
+    event.preventDefault()
+    setStatus('searching')
+    setError('')
+    try {
+      const response = await companiesHouseRequest({ mode: 'search', q: query })
+      setResults(response.items)
+      setStatus('results')
+    } catch (requestError) {
+      setError(requestError.message)
+      setStatus(requestError.code === 'not_configured' ? 'not-configured' : 'error')
+    }
+  }
+
+  const selectCompany = (company) => {
+    onSettingChange('companyNumber', company.company_number)
+    onSettingChange('companyMatchedName', company.title)
+    onSettingChange('companyName', settings.companyName || company.title)
+    setResults([])
+  }
+
+  if (status === 'not-configured') return <section className="panel ch-setup-needed"><AlertTriangle /><div><span className="kicker">ONE-TIME CONNECTION</span><h2>Companies House needs an API key</h2><p>The workspace is ready, but the free server-side Companies House credential has not been added to Cloudflare yet.</p></div></section>
+
+  if (settings.companyNumber && status === 'loading' && !details) return <div className="app-inline-loading"><RefreshCw /><b>Checking Companies House…</b></div>
+
+  if (!settings.companyNumber || !details) return <div className="companies-house-workspace"><section className="panel ch-search-panel"><span className="ch-mark"><Landmark /></span><span className="kicker">OFFICIAL PUBLIC REGISTER</span><h2>Connect your company</h2><p>Search by company name, then confirm the exact legal entity. The app saves its unique company number, not an ambiguous name.</p><form onSubmit={searchCompanies}><label><Search /><input aria-label="Companies House company name" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Company name" /></label><button className="primary-button" disabled={status === 'searching' || query.trim().length < 2}>{status === 'searching' ? 'Searching…' : 'Search Companies House'}</button></form>{error && <p className="ch-error">{error}</p>}{results.length > 0 && <div className="ch-search-results">{results.map((company) => <button key={company.company_number} onClick={() => selectCompany(company)}><span><b>{company.title}</b><small>{company.company_number} · {company.company_status || 'Status unavailable'}</small><small>{formatCompanyAddress(company.address)}</small></span><ArrowUpRight /></button>)}</div>}</section></div>
+
+  const { profile, filings, officers, psc, charges, fetchedAt } = details
+  const deadlines = companyDeadlines(profile)
+  const directors = activeOfficers(officers)
+  const controllers = activePsc(psc)
+  const openCharges = outstandingCharges(charges)
+  const verification = identityVerificationSummary(officers, psc)
+  const officialUrl = officialCompanyUrl(profile.company_number)
+  return <div className="companies-house-workspace"><section className="panel ch-company-hero"><header><div><span className="kicker">COMPANIES HOUSE RECORD</span><h2>{profile.company_name}</h2><p>{profile.company_number} · Incorporated {shortDate(profile.date_of_creation)}</p></div><div className="ch-hero-actions"><span className={`ch-status ${profile.company_status === 'active' ? 'active' : 'warning'}`}>{profile.company_status}</span><button className="secondary-button small" onClick={() => loadCompany(profile.company_number)}><RefreshCw size={15} /> Refresh</button><a className="secondary-button small" href={officialUrl} target="_blank" rel="noreferrer">Official record <ExternalLink size={14} /></a></div></header><div className="ch-profile-grid"><div><span>Registered office</span><b>{formatCompanyAddress(profile.registered_office_address) || 'Not published'}</b></div><div><span>Company type</span><b>{(profile.type || 'Not published').replaceAll('-', ' ')}</b></div><div><span>SIC codes</span><b>{profile.sic_codes?.join(', ') || 'Not published'}</b></div><div><span>Last checked</span><b>{fetchedAt ? new Date(fetchedAt).toLocaleString('en-GB') : 'Just now'}</b></div></div></section>
+
+  <section className="ch-metrics-grid">{deadlines.map((deadline) => <article className={`panel ch-deadline ${deadline.status}`} key={deadline.id}><CalendarClock /><span>{deadline.label}</span><strong>{shortDate(deadline.date)}</strong><small>{deadline.status === 'overdue' ? `${Math.abs(deadline.days)} days overdue` : deadline.days === 0 ? 'Due today' : `${deadline.days} days remaining`}</small></article>)}<article className="panel ch-register-metric"><Users /><span>Active appointments</span><strong>{directors.length} <small>officers</small> · {controllers.length} <small>PSCs</small></strong><small>{verification.published ? `${verification.verified} verified · ${verification.due} due` : 'Verification detail not published'}</small></article><article className="panel ch-register-metric"><Landmark /><span>Outstanding charges</span><strong>{openCharges.length}</strong><small>{openCharges.length ? 'Review lender security below' : 'None shown on the register'}</small></article></section>
+
+  <div className="ch-detail-grid"><section className="panel ch-list-panel"><header><div><span className="kicker">RECENT FILINGS</span><h2>Filing history</h2></div><a href={`${officialUrl}/filing-history`} target="_blank" rel="noreferrer">View all <ExternalLink size={13} /></a></header><div>{(filings?.items || []).slice(0, 8).map((filing) => <article key={filing.transaction_id}><FileText /><span><b>{(filing.description || filing.category || 'Filing').replaceAll('-', ' ')}</b><small>{shortDate(filing.date)} · {filing.category}</small></span></article>)}{!filings?.items?.length && <p className="ch-empty">No filing history returned.</p>}</div></section>
+  <section className="panel ch-list-panel"><header><div><span className="kicker">PEOPLE & CONTROL</span><h2>Officers and PSCs</h2></div><a href={`${officialUrl}/officers`} target="_blank" rel="noreferrer">Official list <ExternalLink size={13} /></a></header><div>{directors.slice(0, 6).map((person) => <article key={`officer-${person.links?.officer?.appointments || person.name}`}><Users /><span><b>{person.name}</b><small>{person.officer_role?.replaceAll('-', ' ')} · appointed {shortDate(person.appointed_on)}</small></span></article>)}{controllers.slice(0, 6).map((person) => <article key={`psc-${person.links?.self || person.name}`}><ShieldCheck /><span><b>{person.name}</b><small>Person with significant control</small></span></article>)}{!directors.length && !controllers.length && <p className="ch-empty">No active people returned.</p>}</div></section></div>
+
+  <section className="panel ch-list-panel ch-charges"><header><div><span className="kicker">REGISTERED SECURITY</span><h2>Outstanding charges</h2></div><a href={`${officialUrl}/charges`} target="_blank" rel="noreferrer">Official register <ExternalLink size={13} /></a></header><div>{openCharges.map((charge) => <article key={charge.links?.self || charge.charge_number}><Landmark /><span><b>{charge.persons_entitled?.map((person) => person.name).join(', ') || 'Charge holder not published'}</b><small>{charge.classification?.description || 'Registered charge'} · delivered {shortDate(charge.delivered_on)}</small></span><em>{charge.status || 'outstanding'}</em></article>)}{!openCharges.length && <p className="ch-empty">No outstanding charges returned.</p>}</div></section>
+  <button className="text-button ch-unlink" onClick={() => { onSettingChange('companyNumber', ''); onSettingChange('companyMatchedName', '') }}>Choose a different company</button></div>
 }
 
 function AccountProfileEditor({ settings, onChange }) {
@@ -305,6 +394,10 @@ function PortfolioApp({ user }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
+    if (state?.settings.accountType === 'private' && section === 'Companies House') setSection('Overview')
+  }, [state?.settings.accountType, section])
+
+  useEffect(() => {
     if (!mobileNavOpen) return undefined
     const closeOnEscape = (event) => event.key === 'Escape' && setMobileNavOpen(false)
     document.addEventListener('keydown', closeOnEscape)
@@ -409,6 +502,9 @@ function PortfolioApp({ user }) {
   const portfolioName = state.settings.accountType === 'private' ? `${displayName}'s portfolio` : state.settings.companyName || 'Property portfolio'
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
+  const visibleWorkspaceNavigation = state.settings.accountType === 'private'
+    ? workspaceNavigation.filter(([label]) => label !== 'Companies House')
+    : workspaceNavigation
   const navigateMobile = (nextSection) => {
     setSection(nextSection)
     setMobileNavOpen(false)
@@ -423,7 +519,7 @@ function PortfolioApp({ user }) {
         <div className="sidebar-body">
           <nav>
             <small>WORKSPACE</small>
-            {workspaceNavigation.map(([label, , Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => { setSection(label); setMobileNavOpen(false) }}><Icon size={18} />{label}</button>)}
+            {visibleWorkspaceNavigation.map(([label, , Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => { setSection(label); setMobileNavOpen(false) }}><Icon size={18} />{label}</button>)}
             <small>PORTFOLIO</small>
             {calculated.map((p) => <button key={p.id} className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name); setMobileNavOpen(false) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>)}
           </nav>
@@ -483,12 +579,14 @@ function PortfolioApp({ user }) {
           </>}
 
           {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{calculated.flatMap((p) => [['Call broker',p.brokerDate],['Gas certificate',p.gasExpiry],['EICR',p.eicrExpiry],['PAT testing',p.patExpiry],['EPC',p.epcExpiry]].map(([label,date]) => ({ property:p.name,label,date:new Date(date instanceof Date ? date : `${date}T12:00:00`) }))).filter((item) => !Number.isNaN(item.date.getTime())).sort((a,b) => a.date-b.date).map((item, index) => <div key={`${item.property}-${item.label}`}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.property}</small></p><time>{shortDate(item.date)}</time></div>)}</div></section>}
+
+          {section === 'Companies House' && state.settings.accountType !== 'private' && <CompaniesHouseWorkspace settings={state.settings} onSettingChange={updateSetting} />}
         </div>
       </main>
 
       <nav className="mobile-bottom-nav" aria-label="Mobile workspace navigation">
-        {workspaceNavigation.slice(0, 4).map(([label, shortLabel, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => navigateMobile(label)}><Icon size={20} /><span>{shortLabel}</span></button>)}
-        <button className={section === 'Compliance' ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
+        {visibleWorkspaceNavigation.slice(0, 4).map(([label, shortLabel, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => navigateMobile(label)}><Icon size={20} /><span>{shortLabel}</span></button>)}
+        <button className={visibleWorkspaceNavigation.slice(4).some(([label]) => label === section) ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
       </nav>
 
       {editing && <EditDrawer property={editing} isNew={!state.properties.some((p) => p.id === editing.id)} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
