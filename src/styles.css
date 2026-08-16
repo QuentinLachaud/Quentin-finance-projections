@@ -258,6 +258,22 @@ body { font-size: 14px; }
   .mobile-bottom-nav button.active { color: #176047; background: #edf6f1; }
 }
 
+/* Portrait phones need the row heading and a complete value column in view together. */
+@media (max-width: 480px) and (orientation: portrait) {
+  .property-group-panel { padding: 0; }
+  .data-table { min-width: max-content; }
+  .data-table tr > :first-child { width: 124px; min-width: 124px; max-width: 124px; padding-inline: 11px; white-space: normal; line-height: 1.3; }
+  .data-table tr > :not(:first-child) { width: 158px; min-width: 158px; padding-inline: 12px; }
+
+  .projection-table { min-width: max-content; }
+  .projection-table tr > :first-child { width: 126px; min-width: 126px; max-width: 126px; padding-inline: 12px; }
+  .projection-table tr > :not(:first-child) { width: 164px; min-width: 164px; padding-inline: 12px; }
+
+  .reconciliation-wrap table { min-width: max-content; }
+  .reconciliation-wrap tr > :first-child { width: 152px; min-width: 152px; max-width: 152px; padding-inline: 12px; white-space: normal; line-height: 1.3; }
+  .reconciliation-wrap tr > :not(:first-child) { width: 144px; min-width: 144px; padding-inline: 12px; }
+}
+
 .sidebar-signout { width: 34px; height: 34px; flex: 0 0 auto; border: 0; border-radius: 8px; display: grid; place-items: center; background: transparent; color: #77837e; }.sidebar-signout:hover { color: #fff; background: #222d29; }
 .save-status { display: inline-flex; align-items: center; gap: 5px; color: #65706b; font-size: 12px; white-space: nowrap; }.save-status.saving { color: #9a732f; }.save-status.error { color: #b14b43; }
 .app-status-screen { min-height: 100vh; padding: 32px; display: grid; place-content: center; justify-items: center; text-align: center; color: #26322d; background: #f5f7f4; }.app-status-screen h1 { margin-top: 18px; font-size: 27px; }.app-status-screen p { max-width: 540px; margin: 4px 0 22px; color: #6d7873; }.loading-mark { width: 56px; height: 56px; border-radius: 17px; display: grid; place-items: center; color: #e9fff4; background: #1c6b50; box-shadow: 0 14px 32px rgba(28,107,80,.2); animation: authPulse 1.4s ease-in-out infinite; }
