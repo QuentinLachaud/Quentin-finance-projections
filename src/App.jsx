@@ -13,6 +13,7 @@ import {
   identityVerificationSummary, officialCompanyUrl, outstandingCharges,
 } from './companiesHouse.js'
 import AuthScreen from './AuthScreen.jsx'
+import BankWorkspace from './BankWorkspace.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
 const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'england' }
@@ -64,6 +65,7 @@ const workspaceNavigation = [
   ['Overview', 'Overview', Gauge],
   ['Properties', 'Properties', Home],
   ['Costs & Cash Flows', 'Costs', ReceiptText],
+  ['Banking', 'Banking', WalletCards],
   ['Projections', 'Projections', TrendingUp],
   ['Compliance', 'Compliance', ShieldCheck],
   ['Companies House', 'Companies', Landmark],
@@ -389,7 +391,7 @@ function PortfolioApp({ user }) {
   const loaded = useRef(false)
   const [editingId, setEditingId] = useState(null)
   const [pendingProperty, setPendingProperty] = useState(null)
-  const [section, setSection] = useState('Overview')
+  const [section, setSection] = useState(() => new URLSearchParams(window.location.search).get('bank_callback') === '1' ? 'Banking' : 'Overview')
   const [search, setSearch] = useState('')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
@@ -490,6 +492,9 @@ function PortfolioApp({ user }) {
     }),
   }))
   const updateSetting = (key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [key]: value } }))
+  const updateConnectedCashHeld = (value) => setState((current) => Number(current.settings.cashHeld) === Number(value)
+    ? current
+    : ({ ...current, settings: { ...current.settings, cashHeld: value } }))
   const completeAccountSetup = (profile) => setState((current) => ({ ...current, settings: { ...current.settings, ...profile } }))
   const updatePercentSetting = (key, value) => updateSetting(key, Number(value) / 100)
   const updateLineItem = (collection, id, key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].map((item) => item.id === id ? { ...item, [key]: value } : item) } }))
@@ -570,6 +575,8 @@ function PortfolioApp({ user }) {
           {section === 'Properties' && <><section className="panel properties-toolbar"><div><span className="kicker">CLEAR COMPARISON VIEW</span><h2>Property information by section</h2><p>Basics, performance and dates are separated so each property is easier to scan.</p></div><div className="table-tools"><label><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label><button className="primary-button small" onClick={addProperty}><Plus size={16} /> New BTL</button></div></section><div className="property-group-stack">{propertyGroups.map((group) => <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}><header><div><span className="group-marker" /><div><h2>{group.title}</h2><p>{group.description}</p></div></div></header><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead><tbody>{group.rows.map(([label, getter, kind]) => <tr key={label}><th>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody></table></div></section>)}</div></>}
 
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={state.properties} calculated={calculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} />}
+
+          {section === 'Banking' && <BankWorkspace user={user} onCashHeldChange={updateConnectedCashHeld} />}
 
           {section === 'Projections' && <>
             <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta="Editable in Costs & Cash Flows" icon={WalletCards} /></section>
