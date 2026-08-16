@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown, CircleHelp,
   ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu, MoreHorizontal,
-  Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp,
+  Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp, Moon, Sun,
   WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText, FileText, Users, RefreshCw, AlertTriangle,
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
@@ -17,6 +17,7 @@ import BankWorkspace from './BankWorkspace.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput } from './portfolioFields.js'
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
+import { initialTheme, userAvatarUrl } from './preferences.js'
 
 // Keep the completed Open Banking workspace dormant until a production data
 // provider is available. It can be restored without code changes at deploy time.
@@ -435,6 +436,13 @@ function PortfolioApp({ user }) {
   const [section, setSection] = useState(() => BANKING_ENABLED && new URLSearchParams(window.location.search).get('bank_callback') === '1' ? 'Banking' : 'Overview')
   const [search, setSearch] = useState('')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [theme, setTheme] = useState(() => initialTheme(window.localStorage.getItem('btl-theme'), window.matchMedia?.('(prefers-color-scheme: dark)').matches))
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    window.localStorage.setItem('btl-theme', theme)
+    return () => { delete document.documentElement.dataset.theme }
+  }, [theme])
 
   useEffect(() => {
     if (state?.settings.accountType === 'private' && section === 'Companies House') setSection('Overview')
@@ -565,6 +573,7 @@ function PortfolioApp({ user }) {
 
   const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Portfolio owner'
   const initials = displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+  const avatarUrl = userAvatarUrl(user)
   const portfolioName = state.settings.accountType === 'private' ? `${displayName}'s portfolio` : state.settings.companyName || 'Property portfolio'
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
@@ -598,13 +607,13 @@ function PortfolioApp({ user }) {
           </section>
           <AccountProfileEditor settings={state.settings} onChange={updateSetting} />
         </div>
-        <div className="sidebar-foot"><div className="avatar">{initials}</div><span><b>{displayName}</b><small>{user.email}</small></span><button className="sidebar-signout" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut size={16} /></button></div>
+        <div className="sidebar-foot"><div className="avatar">{avatarUrl ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : initials}</div><span><b>{displayName}</b><small>{user.email}</small></span><button className="sidebar-signout" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut size={16} /></button></div>
       </aside>
 
       <main>
         <header className="topbar">
           <div><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span>{portfolioName}</span><b>/</b><strong>{section}</strong></div>
-          <div><span className={`save-status ${saveStatus}`} title={saveStatus === 'error' ? 'Could not save changes' : 'Your account data is saved securely'}>{saveStatus === 'error' ? <CloudOff size={15} /> : <Cloud size={15} />}{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved'}</span><button className="secondary-button small" onClick={reset}><RotateCcw size={15} /> Reset inputs</button></div>
+          <div><button className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><span className={`save-status ${saveStatus}`} title={saveStatus === 'error' ? 'Could not save changes' : 'Your account data is saved securely'}>{saveStatus === 'error' ? <CloudOff size={15} /> : <Cloud size={15} />}{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved'}</span><button className="secondary-button small" onClick={reset}><RotateCcw size={15} /> Reset inputs</button></div>
         </header>
 
         <div className="content">

@@ -39,7 +39,7 @@ button { cursor: pointer; }
 .property-nav > span { display: flex; flex-direction: column; }
 .property-nav span small { color: #5f6a66; font-size: 9px; margin-top: 2px; }
 .sidebar-foot { border-top: 1px solid #29312e; display: flex; gap: 9px; align-items: center; padding: 17px 5px 0; }
-.avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: #d3eee1; color: #16513f; font-size: 10px; font-weight: 700; }
+.avatar { width: 32px; height: 32px; overflow: hidden; display: grid; place-items: center; border-radius: 50%; background: #d3eee1; color: #16513f; font-size: 10px; font-weight: 700; }.avatar img { width: 100%; height: 100%; object-fit: cover; }
 .sidebar-foot span { flex: 1; display: flex; flex-direction: column; }
 .sidebar-foot b { font-size: 11px; font-weight: 500; }.sidebar-foot small { color: #68736f; font-size: 9px; margin-top: 2px; }
 .sidebar-model-inputs { margin: 22px 4px 20px; padding: 15px 13px; border: 1px solid #2d3934; border-radius: 12px; background: #151d1a; }
@@ -56,6 +56,7 @@ main { grid-column: 2; min-width: 0; }
 .topbar span, .topbar b { color: #8d9592; font-size: 12px; }.topbar strong { font-size: 12px; font-weight: 600; }
 .mobile-menu, .mobile-nav-close, .mobile-bottom-nav, .mobile-nav-backdrop { display: none; }
 .mobile-menu, .mobile-nav-close { border: 0; background: transparent; }
+.theme-toggle { width: 35px; height: 35px; padding: 0; border: 1px solid var(--line); border-radius: 9px; display: grid; place-items: center; color: #617068; background: #fff; }.theme-toggle:hover { color: var(--green); border-color: #afc0b7; }
 .content { max-width: 1450px; margin: auto; padding: 42px 40px 70px; }
 .hero-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 30px; }
 .eyebrow, .kicker { font-size: 9px; font-weight: 700; letter-spacing: .16em; color: var(--green); }
@@ -324,3 +325,21 @@ body { font-size: 14px; }
 @media (max-width: 900px) {
   .auth-page { grid-template-columns: 1fr; }.auth-brand-panel { min-height: auto; padding: 28px 24px 36px; }.auth-promise { margin: 55px 0 35px; }.auth-promise h1 { font-size: clamp(34px, 9vw, 51px); }.auth-promise > p, .auth-promise ul, .auth-security-note { display: none; }.auth-form-panel { min-height: auto; padding: 30px 18px 55px; }.auth-card { padding: 31px 23px; border-radius: 16px; }
 }
+
+/* Dark mode is opt-in and leaves the established light design unchanged. */
+:root[data-theme='dark'] { color-scheme: dark; --ink: #edf3ef; --muted: #9ba7a1; --line: #303b36; --white: #151b18; --cream: #28281f; background: #0e1311; }
+:root[data-theme='dark'] body, :root[data-theme='dark'] .app-shell, :root[data-theme='dark'] main { color: #e7eee9; background: #0e1311; }
+:root[data-theme='dark'] .topbar { background: rgba(17,23,20,.92); }
+:root[data-theme='dark'] .panel, :root[data-theme='dark'] .property-card, :root[data-theme='dark'] .metric-card:not(.dark), :root[data-theme='dark'] .add-property-card, :root[data-theme='dark'] .global-model-strip, :root[data-theme='dark'] .cashflow-editor, :root[data-theme='dark'] .property-cost-card, :root[data-theme='dark'] .secondary-button, :root[data-theme='dark'] .theme-toggle { color: #e6ede9; background: #161d19; border-color: var(--line); }
+:root[data-theme='dark'] .metric-card.green, :root[data-theme='dark'] .private-tax-inputs, :root[data-theme='dark'] .private-tax-summary { background: #17261f; border-color: #294b3b; }
+:root[data-theme='dark'] .property-card h3, :root[data-theme='dark'] h1, :root[data-theme='dark'] h2, :root[data-theme='dark'] h3, :root[data-theme='dark'] .data-table td, :root[data-theme='dark'] .data-table th button, :root[data-theme='dark'] .tenant-card dd, :root[data-theme='dark'] .property-cost-card h3 { color: #e7eee9; }
+:root[data-theme='dark'] .data-table th, :root[data-theme='dark'] .data-table td, :root[data-theme='dark'] .projection-table th, :root[data-theme='dark'] .projection-table td, :root[data-theme='dark'] .reconciliation-wrap th, :root[data-theme='dark'] .reconciliation-wrap td { border-color: #2b3530; background: #161d19; }
+:root[data-theme='dark'] .data-table tr > :first-child, :root[data-theme='dark'] .projection-table tr > :first-child { background: #19211d; }
+:root[data-theme='dark'] input, :root[data-theme='dark'] select, :root[data-theme='dark'] .money-input, :root[data-theme='dark'] .table-tools > label, :root[data-theme='dark'] .tenant-editor input, :root[data-theme='dark'] .tenant-editor select { color: #e8efeb; background: #101612; border-color: #37433d; }
+:root[data-theme='dark'] .archived-tenants > .tenant-grid, :root[data-theme='dark'] .ch-profile-grid > div, :root[data-theme='dark'] .bank-toolbar, :root[data-theme='dark'] .projection-table-wrap { background: #111713; }
+:root[data-theme='dark'] .property-map, :root[data-theme='dark'] .projection-chart-wrap, :root[data-theme='dark'] .bar-chart, :root[data-theme='dark'] .cashflow-reconciliation { background-color: #151b18; }
+:root[data-theme='dark'] .panel-stat, :root[data-theme='dark'] .scenario i, :root[data-theme='dark'] .date-badge, :root[data-theme='dark'] .projection-table-toggle { color: #a6b2ac; background: #252e29; }
+:root[data-theme='dark'] .mobile-bottom-nav { border-color: #303b36; background: rgba(17,23,20,.96); }
+:root[data-theme='dark'] .mobile-bottom-nav button.active { color: #8ad8b2; background: #21352b; }
+:root[data-theme='dark'] .buffer-ring::before { background: #161d19; }
+:root[data-theme='dark'] .model-help::after, :root[data-theme='dark'] .assumptions-grid .model-help::after { color: #eaf2ee; background: #17201c; border-color: #33413b; }
