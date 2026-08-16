@@ -14,6 +14,8 @@ import {
 } from './companiesHouse.js'
 import AuthScreen from './AuthScreen.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
+import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
+import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput } from './portfolioFields.js'
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
@@ -23,7 +25,7 @@ import { supportConfig } from './support.js'
 // Keep the completed Open Banking workspace dormant until a production data
 // provider is available. It can be restored without code changes at deploy time.
 const BANKING_ENABLED = import.meta.env.VITE_BANKING_ENABLED === 'true'
-const SUPPORT = supportConfig({ enabled: import.meta.env.VITE_SUPPORT_ENABLED, url: import.meta.env.VITE_BUY_ME_A_COFFEE_URL })
+const SUPPORT = supportConfig({ enabled: import.meta.env.VITE_SUPPORT_ENABLED, url: import.meta.env.VITE_BUY_ME_A_COFFEE_URL || 'https://buymeacoffee.com/btlportfolio.co.uk' })
 
 const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'england' }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
@@ -80,6 +82,7 @@ const workspaceNavigation = [
   ['Projections', 'Projections', TrendingUp],
   ['Compliance', 'Compliance', ShieldCheck],
   ['Companies House', 'Companies', Landmark],
+  ['Plan & billing', 'Plan', Sparkles],
 ]
 
 function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disabled = false }) {
@@ -430,6 +433,9 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
 
 function PortfolioApp({ user }) {
   const [state, setState] = useState(null)
+  const [entitlement, setEntitlement] = useState(null)
+  const [billingError, setBillingError] = useState('')
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [saveStatus, setSaveStatus] = useState('saved')
   const loaded = useRef(false)
@@ -500,6 +506,31 @@ function PortfolioApp({ user }) {
     return () => { active = false }
   }, [user.id])
 
+  const refreshEntitlement = async () => {
+    try {
+      const value = normalizeEntitlement(await billingRequest())
+      setEntitlement(value)
+      setBillingError('')
+      return value
+    } catch (error) {
+      setBillingError(error.message)
+      setEntitlement(normalizeEntitlement())
+      return null
+    }
+  }
+
+  useEffect(() => { refreshEntitlement() }, [user.id])
+
+  useEffect(() => {
+    const billingResult = new URLSearchParams(window.location.search).get('billing')
+    if (billingResult === 'success') {
+      setSection('Plan & billing')
+      const timer = window.setTimeout(refreshEntitlement, 1200)
+      return () => window.clearTimeout(timer)
+    }
+    return undefined
+  }, [])
+
   useEffect(() => {
     if (!state || !loaded.current) return undefined
     setSaveStatus('saving')
@@ -517,8 +548,15 @@ function PortfolioApp({ user }) {
   const calculated = state.properties.map((p) => ({ ...calculateProperty(p, state.settings), ...propertyVoidHistory(p, state.tenants) }))
 
   const editing = pendingProperty || state.properties.find((p) => p.id === editingId)
+  const effectiveEntitlement = normalizeEntitlement(entitlement)
+  const requestPropertySlot = () => {
+    if (canAddProperty(effectiveEntitlement, state.properties.length)) return true
+    setUpgradeOpen(true)
+    return false
+  }
   const closeEditor = () => { setEditingId(null); setPendingProperty(null) }
   const saveProperty = (draft) => {
+    if (!state.properties.some((property) => property.id === draft.id) && !requestPropertySlot()) return
     setState((current) => {
       const synced = syncPropertyTenant(draft, current.tenants)
       return { ...current, tenants: synced.tenants, properties: current.properties.some((p) => p.id === draft.id) ? current.properties.map((p) => p.id === draft.id ? synced.property : p) : [...current.properties, synced.property] }
@@ -526,12 +564,14 @@ function PortfolioApp({ user }) {
     closeEditor()
   }
   const cloneProperty = (id) => {
+    if (!requestPropertySlot()) return
     const source = state.properties.find((p) => p.id === id)
     const clone = { ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', tenantMoveOut: '', depositHeld: '', mortgageNumber: '' }
     setPendingProperty(clone)
     setEditingId(null)
   }
   const addProperty = () => {
+    if (!requestPropertySlot()) return
     const next = createBlankProperty(`BTL${state.properties.length + 1}`)
     setPendingProperty(next)
     setEditingId(null)
@@ -608,7 +648,8 @@ function PortfolioApp({ user }) {
             <PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} compact />
           </section>
           <AccountProfileEditor settings={state.settings} onChange={updateSetting} />
-          {SUPPORT.enabled && <a className="sidebar-support" href={SUPPORT.url} target="_blank" rel="noreferrer"><Coffee size={17} /><span><b>Buy me a coffee</b><small>Support BTL Portfolio</small></span><ExternalLink size={13} /></a>}
+          <button className={`sidebar-plan ${effectiveEntitlement.isPro ? 'pro' : ''}`} onClick={() => { setSection('Plan & billing'); setMobileNavOpen(false) }}><Sparkles size={17} /><span><b>{effectiveEntitlement.isPro ? 'Pro access' : 'Free · 1 BTL'}</b><small>{effectiveEntitlement.isOwner ? 'Owner account' : effectiveEntitlement.isPro ? 'Unlimited properties' : 'View upgrade options'}</small></span></button>
+          {SUPPORT.enabled && showFreeSupport(effectiveEntitlement) && <a className="sidebar-support" href={SUPPORT.url} target="_blank" rel="noreferrer"><Coffee size={17} /><span><b>Buy me a coffee</b><small>Support BTL Portfolio</small></span><ExternalLink size={13} /></a>}
         </div>
         <div className="sidebar-foot"><div className="avatar">{avatarUrl ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : initials}</div><span><b>{displayName}</b><small>{user.email}</small></span><button className="sidebar-signout" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut size={16} /></button></div>
       </aside>
@@ -653,6 +694,8 @@ function PortfolioApp({ user }) {
 
           {section === 'Tenants' && <TenantsWorkspace tenants={state.tenants} properties={state.properties} onSave={saveTenant} onRemove={removeTenant} />}
 
+          {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
+
           {BANKING_ENABLED && section === 'Banking' && <BankWorkspace user={user} onCashHeldChange={updateConnectedCashHeld} />}
 
           {section === 'Projections' && <>
@@ -673,7 +716,8 @@ function PortfolioApp({ user }) {
         <button className={visibleWorkspaceNavigation.slice(4).some(([label]) => label === section) ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
       </nav>
 
-      {editing && <EditDrawer property={editing} isNew={!state.properties.some((p) => p.id === editing.id)} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
+        {editing && <EditDrawer property={editing} isNew={!state.properties.some((p) => p.id === editing.id)} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
+        {upgradeOpen && <BillingWorkspace entitlement={effectiveEntitlement} modal onClose={() => setUpgradeOpen(false)} />}
       {!state.settings.onboardingComplete && <AccountSetupModal onComplete={completeAccountSetup} />}
     </div>
   )
