@@ -6,7 +6,7 @@ import {
   WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText,
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections } from './data.js'
-import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
+import { anchorMortgageOverride, calculatePortfolio, calculateProperty, currency, migrateMortgageOverride, percent, projectPortfolio, shortDate } from './calculations.js'
 import AuthScreen from './AuthScreen.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
@@ -302,7 +302,8 @@ function PortfolioApp({ user }) {
       const portfolioState = data?.portfolio || { properties: [], settings: {} }
       loaded.current = true
       setState({
-        properties: Array.isArray(portfolioState.properties) ? portfolioState.properties : [],
+        properties: (Array.isArray(portfolioState.properties) ? portfolioState.properties : [])
+          .map((property) => migrateMortgageOverride(property, { ...defaultSettings, ...(portfolioState.settings || {}) })),
         settings: {
           ...defaultSettings,
           ...(portfolioState.settings || {}),
@@ -353,7 +354,14 @@ function PortfolioApp({ user }) {
     closeEditor()
   }
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
-  const updatePropertyField = (id, key, value) => setState((current) => ({ ...current, properties: current.properties.map((property) => property.id === id ? { ...property, [key]: value } : property) }))
+  const updatePropertyField = (id, key, value) => setState((current) => ({
+    ...current,
+    properties: current.properties.map((property) => {
+      if (property.id !== id) return property
+      if (key === 'mortgageOverride') return anchorMortgageOverride(property, value, current.settings)
+      return { ...property, [key]: value }
+    }),
+  }))
   const updateSetting = (key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [key]: value } }))
   const updatePercentSetting = (key, value) => updateSetting(key, Number(value) / 100)
   const updateLineItem = (collection, id, key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].map((item) => item.id === id ? { ...item, [key]: value } : item) } }))

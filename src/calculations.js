@@ -21,12 +21,43 @@ export const amortizingPayment = (principal, annualRate, months, dueAtStart = tr
   return dueAtStart ? ordinaryPayment / (1 + monthlyRate) : ordinaryPayment
 }
 
+const hasMortgageOverride = (property) => property.mortgageOverride !== '' && property.mortgageOverride != null
+
+export const mortgageInterestPayment = (property, settings) => {
+  const loanAmount = Math.max(0, Number(property.loanAmount || 0))
+  const currentRate = Math.max(0, Number(property.baseRate || 0) + Number(settings.rateShock || 0))
+  const calculatedMortgage = loanAmount * currentRate / 12
+
+  if (!hasMortgageOverride(property)) return calculatedMortgage
+
+  const override = Number(property.mortgageOverride || 0)
+  const anchorRate = property.mortgageOverrideRate == null
+    ? Number(property.baseRate || 0)
+    : Number(property.mortgageOverrideRate)
+  const anchorLoanAmount = property.mortgageOverrideLoanAmount == null
+    ? loanAmount
+    : Math.max(0, Number(property.mortgageOverrideLoanAmount))
+  const interestMovement = (loanAmount * currentRate - anchorLoanAmount * anchorRate) / 12
+
+  return Math.max(0, override + interestMovement)
+}
+
+export const anchorMortgageOverride = (property, monthlyPayment, settings) => ({
+  ...property,
+  mortgageOverride: Number(monthlyPayment || 0),
+  mortgageOverrideRate: Math.max(0, Number(property.baseRate || 0) + Number(settings.rateShock || 0)),
+  mortgageOverrideLoanAmount: Math.max(0, Number(property.loanAmount || 0)),
+})
+
+export const migrateMortgageOverride = (property, settings) => {
+  if (!hasMortgageOverride(property) || (property.mortgageOverrideRate != null && property.mortgageOverrideLoanAmount != null)) return property
+  return anchorMortgageOverride(property, property.mortgageOverride, settings)
+}
+
 export function calculateProperty(property, settings, now = new Date()) {
   const currentRate = Number(property.baseRate) + Number(settings.rateShock)
   const calculatedMortgage = Number(property.loanAmount) * currentRate / 12
-  const monthlyPayment = property.mortgageOverride === '' || property.mortgageOverride == null
-    ? calculatedMortgage
-    : Number(property.mortgageOverride)
+  const monthlyPayment = mortgageInterestPayment(property, settings)
   const nextRemortgage = addMonths(property.latestRemortgage, property.fixedRateMonths)
   const brokerDate = nextRemortgage ? addMonths(nextRemortgage.toISOString().slice(0, 10), -3) : null
   const monthsToRemortgage = monthsBetween(now, nextRemortgage)

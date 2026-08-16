@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { assumptions } from './data.js'
-import { calculatePortfolio, calculateProperty, projectPortfolio } from './calculations.js'
+import {
+  anchorMortgageOverride, calculatePortfolio, calculateProperty, migrateMortgageOverride,
+  mortgageInterestPayment, projectPortfolio,
+} from './calculations.js'
 
 const fixedNow = new Date('2026-08-15T12:00:00')
 const costs = { legionella: 2.75, gasCertificate: 8.33, eicr: 2.5, repairs: 50, applianceReserve: 13.33 }
@@ -43,5 +46,53 @@ describe('Quark sheet calculations', () => {
     const beforeExpiry = projection[12].scenarios[0].cashflow - projection[11].scenarios[0].cashflow
     const afterExpiry = projection[13].scenarios[0].cashflow - projection[12].scenarios[0].cashflow
     expect(afterExpiry - beforeExpiry).toBeCloseTo(547, 1)
+  })
+
+  describe('mortgage interest regression coverage', () => {
+    const property = { ...testProperties[0], loanAmount: 180000, baseRate: 0.04 }
+
+    it('calculates interest-only monthly cost from principal and the effective rate', () => {
+      expect(mortgageInterestPayment({ ...property, mortgageOverride: '' }, { ...assumptions, rateShock: 0.01 })).toBe(750)
+    })
+
+    it('preserves a manual payment at its anchor and applies later property-rate changes', () => {
+      const anchored = anchorMortgageOverride(property, 650, { ...assumptions, rateShock: 0 })
+      expect(mortgageInterestPayment(anchored, { ...assumptions, rateShock: 0 })).toBe(650)
+      expect(mortgageInterestPayment({ ...anchored, baseRate: 0.05 }, { ...assumptions, rateShock: 0 })).toBe(800)
+    })
+
+    it('applies rate shock to manually entered mortgage costs', () => {
+      const anchored = anchorMortgageOverride(property, 650, { ...assumptions, rateShock: 0 })
+      expect(mortgageInterestPayment(anchored, { ...assumptions, rateShock: 0.007 })).toBeCloseTo(755)
+      expect(mortgageInterestPayment(anchored, { ...assumptions, rateShock: -0.005 })).toBeCloseTo(575)
+    })
+
+    it('applies principal changes without discarding the manual baseline adjustment', () => {
+      const anchored = anchorMortgageOverride(property, 650, { ...assumptions, rateShock: 0 })
+      expect(mortgageInterestPayment({ ...anchored, loanAmount: 195000 }, { ...assumptions, rateShock: 0 })).toBe(700)
+    })
+
+    it('migrates legacy overrides without changing their current displayed payment', () => {
+      const legacy = { ...property, mortgageOverride: 683 }
+      const settings = { ...assumptions, rateShock: 0.007 }
+      const migrated = migrateMortgageOverride(legacy, settings)
+      expect(mortgageInterestPayment(migrated, settings)).toBe(683)
+      expect(migrated.mortgageOverrideRate).toBeCloseTo(0.047)
+      expect(migrated.mortgageOverrideLoanAmount).toBe(180000)
+    })
+
+    it('changes fixed costs, cash flow and weighted rate for every active BTL under rate shock', () => {
+      const manual = anchorMortgageOverride({ ...testProperties[0], loanAmount: 180000, baseRate: 0.04 }, 650, { ...assumptions, rateShock: 0 })
+      const automatic = { ...testProperties[1], loanAmount: 120000, baseRate: 0.05, mortgageOverride: '' }
+      const baseline = calculatePortfolio([manual, automatic], { ...assumptions, rateShock: 0 }, fixedNow)
+      const shocked = calculatePortfolio([manual, automatic], { ...assumptions, rateShock: 0.01 }, fixedNow)
+      const expectedMonthlyIncrease = (180000 + 120000) * 0.01 / 12
+
+      expect(shocked.propertyFixedCosts - baseline.propertyFixedCosts).toBeCloseTo(expectedMonthlyIncrease)
+      expect(shocked.scenarios[2].cashflow).toBeLessThan(baseline.scenarios[2].cashflow)
+      expect(shocked.weightedRate - baseline.weightedRate).toBeCloseTo(0.01)
+      expect(shocked.selected[0].monthlyPayment - baseline.selected[0].monthlyPayment).toBeCloseTo(150)
+      expect(shocked.selected[1].monthlyPayment - baseline.selected[1].monthlyPayment).toBeCloseTo(100)
+    })
   })
 })

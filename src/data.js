@@ -38,6 +38,8 @@ export const createBlankProperty = (name = 'BTL1') => ({
   baseRate: 0,
   fixedRateMonths: 24,
   mortgageOverride: '',
+  mortgageOverrideRate: null,
+  mortgageOverrideLoanAmount: null,
   voidsOverride: '',
   factorsFees: 0,
   tenantName: '',
