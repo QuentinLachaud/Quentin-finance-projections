@@ -1,3 +1,5 @@
+import { calculatePrivateLandlordTax } from './tax.js'
+
 const MS_YEAR = 365.2425 * 24 * 60 * 60 * 1000
 
 export const addMonths = (dateString, months) => {
@@ -112,14 +114,26 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
   const variableCosts = sum('variableCosts')
   const extractionTotal = extractionCosts
   const appreciation = sum('latestValuation') * Number(settings.appreciationRate) / 12
-  const taxableAll = rent - fixedCosts - variableCosts - extractionTotal
-  const taxableNoVoids = taxableAll + sum('voids')
-  const taxableNoProblems = rent - fixedCosts - extractionTotal
-  const scenarios = [taxableAll, taxableNoVoids, taxableNoProblems].map((taxable, index) => {
-    const tax = isCompany ? Math.max(0, taxable * Number(settings.corporationTaxRate)) : 0
-    const cashflow = taxable + extractionTotal - tax
+  const financeCosts = sum('monthlyPayment')
+  const nonFinancePropertyCosts = propertyFixedCosts - financeCosts
+  const scenarioVariableCosts = [variableCosts, variableCosts - sum('voids'), 0]
+  const scenarios = scenarioVariableCosts.map((scenarioVariables, index) => {
+    const companyTaxable = rent - fixedCosts - scenarioVariables - extractionTotal
+    const propertyProfit = rent - nonFinancePropertyCosts - management - scenarioVariables
+    const privateTax = isCompany ? null : calculatePrivateLandlordTax({
+      grossIncome: Number(settings.grossAnnualIncome || 0),
+      propertyProfit: Math.max(0, propertyProfit * 12),
+      financeCosts: financeCosts * 12,
+      jurisdiction: settings.taxJurisdiction,
+    })
+    const taxable = isCompany ? companyTaxable : propertyProfit
+    const tax = isCompany
+      ? Math.max(0, taxable * Number(settings.corporationTaxRate))
+      : privateTax.propertyIncomeTax / 12
+    const cashBeforeTax = isCompany ? taxable + extractionTotal : rent - propertyFixedCosts - management - scenarioVariables
+    const cashflow = cashBeforeTax - tax
     const totalGain = cashflow + appreciation
-    return { id: index + 1, taxable, tax, cashflow, totalGain }
+    return { id: index + 1, taxable, tax, cashflow, totalGain, privateTax }
   })
   const totalLoans = sum('loanAmount')
   const weightedRate = totalLoans ? selected.reduce((total, property) => total + property.currentRate * property.loanAmount, 0) / totalLoans : 0
@@ -135,6 +149,8 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
     companyCosts,
     management,
     variableCosts,
+    financeCosts,
+    nonFinancePropertyCosts,
     extractionTotal,
     appreciation,
     totalValue: sum('latestValuation'),

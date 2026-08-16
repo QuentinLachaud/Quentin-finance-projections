@@ -10,7 +10,7 @@ import { anchorMortgageOverride, calculatePortfolio, calculateProperty, currency
 import AuthScreen from './AuthScreen.jsx'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
-const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false }
+const defaultSettings = { ...assumptions, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'scotland' }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 

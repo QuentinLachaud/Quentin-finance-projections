@@ -48,29 +48,68 @@ describe('Quark sheet calculations', () => {
     expect(afterExpiry - beforeExpiry).toBeCloseTo(547, 1)
   })
 
-  it('excludes company-only costs and corporation tax for private landlords', () => {
+  it('excludes company costs and applies private-landlord income tax', () => {
     const sharedSettings = {
       ...assumptions,
       companyCosts: [{ id: 'accountancy', name: 'Accountancy', amount: 200, enabled: true }],
       extractions: [],
     }
     const company = calculatePortfolio(testProperties, { ...sharedSettings, accountType: 'company' }, fixedNow)
-    const privateLandlord = calculatePortfolio(testProperties, { ...sharedSettings, accountType: 'private' }, fixedNow)
+    const privateLandlord = calculatePortfolio(testProperties, { ...sharedSettings, accountType: 'private', grossAnnualIncome: 30000, taxJurisdiction: 'scotland' }, fixedNow)
 
     expect(company.companyCosts).toBe(200)
     expect(company.scenarios[2].tax).toBeGreaterThan(0)
     expect(privateLandlord.companyCosts).toBe(0)
-    expect(privateLandlord.scenarios.every((scenario) => scenario.tax === 0)).toBe(true)
-    expect(privateLandlord.scenarios[2].cashflow).toBeGreaterThan(company.scenarios[2].cashflow)
+    expect(privateLandlord.scenarios.every((scenario) => scenario.tax > 0)).toBe(true)
+    expect(privateLandlord.scenarios[0].privateTax.jurisdiction).toBe('scotland')
+    expect(privateLandlord.scenarios[0].cashflow).toBeLessThan(privateLandlord.rent - privateLandlord.propertyFixedCosts - privateLandlord.variableCosts)
 
     const privateProjection = projectPortfolio(testProperties, {
       ...sharedSettings,
       accountType: 'private',
+      grossAnnualIncome: 30000,
+      taxJurisdiction: 'scotland',
       companyCosts: [{ id: 'loan', name: 'Company loan', amount: 500, monthsRemaining: 1, enabled: true }],
     }, 12, fixedNow)
     const monthOne = privateProjection[1].scenarios[0].cashflow - privateProjection[0].scenarios[0].cashflow
     const monthTwo = privateProjection[2].scenarios[0].cashflow - privateProjection[1].scenarios[0].cashflow
     expect(monthTwo).toBeCloseTo(monthOne)
+  })
+
+  it('keeps mortgage interest out of taxable property profit and applies only basic-rate relief', () => {
+    const property = {
+      ...testProperties[0],
+      rent: 2000,
+      loanAmount: 180000,
+      baseRate: 0.04,
+      factorsFees: 100,
+      repairs: 0,
+      applianceReserve: 0,
+      legionella: 0,
+      gasCertificate: 0,
+      eicr: 0,
+      mortgageAdmin: 0,
+      voidsOverride: 0,
+    }
+    const portfolio = calculatePortfolio([property], {
+      ...assumptions,
+      accountType: 'private',
+      grossAnnualIncome: 30000,
+      taxJurisdiction: 'england',
+      rateShock: 0,
+      fullyManaged: false,
+      companyCosts: [],
+      extractions: [],
+    }, fixedNow)
+    const scenario = portfolio.scenarios[0]
+
+    expect(portfolio.financeCosts).toBe(600)
+    expect(scenario.taxable).toBe(1900)
+    expect(scenario.privateTax.propertyProfit).toBe(22800)
+    expect(scenario.privateTax.financeCosts).toBe(7200)
+    expect(scenario.privateTax.financeCostTaxReduction).toBe(1440)
+    expect(scenario.tax).toBeCloseTo(302.17, 1)
+    expect(scenario.cashflow).toBeCloseTo(997.83, 1)
   })
 
   describe('mortgage interest regression coverage', () => {
