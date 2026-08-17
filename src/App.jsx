@@ -272,8 +272,6 @@ function AssetPositionChart({ properties }) {
 function ModelControls({ settings, onChange, compact = false }) {
   const controls = [
     ['fullyManaged', 'Fully managed', false, 'Charge the management percentage on rent actually collected in each scenario.'],
-    ['budgetedPropertyCostsTaxDeductible', 'Budgets tax-deductible', false, 'Planning approximation only: enable only when the monthly budgets represent qualifying expenditure actually incurred/accrued, not money merely reserved for future work.'],
-    ['closeInvestmentHoldingCompany', 'CIHC main-rate treatment', settings.accountType === 'private', 'Enable only if the company is a close investment-holding company for Corporation Tax; this forces the main rate.'],
   ]
   return (
     <div className={`model-controls ${compact ? 'compact' : ''}`}>
