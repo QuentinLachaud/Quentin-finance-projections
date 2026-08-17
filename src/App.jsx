@@ -15,6 +15,7 @@ import {
 import AuthScreen from './AuthScreen.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
+import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput } from './portfolioFields.js'
@@ -80,6 +81,7 @@ const workspaceNavigation = [
   ['Properties', 'Properties', Home],
   ['Tenants', 'Tenants', Users],
   ['Costs & Cash Flows', 'Costs', ReceiptText],
+  ['Expenses', 'Expenses', FileText],
   ['Banking', 'Banking', WalletCards],
   ['Projections', 'Projections', TrendingUp],
   ['Compliance', 'Compliance', ShieldCheck],
@@ -504,6 +506,7 @@ function PortfolioApp({ user }) {
       setState({
         properties: migratedProperties,
         tenants: migratedTenants,
+        expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         settings: {
           ...defaultSettings,
           ...existingAccountDefaults,
@@ -610,6 +613,7 @@ function PortfolioApp({ user }) {
   const updateLineItem = (collection, id, key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].map((item) => item.id === id ? { ...item, [key]: value } : item) } }))
   const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, taxDeductible: false, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
   const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
+  const updateExpenses = (expenses) => setState((current) => ({ ...current, expenses }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
     tenants: current.tenants.some((item) => item.id === tenant.id) ? current.tenants.map((item) => item.id === tenant.id ? tenant : item) : [...current.tenants, tenant],
@@ -703,6 +707,8 @@ function PortfolioApp({ user }) {
           {section === 'Properties' && <><section className="panel properties-toolbar"><div><span className="kicker">CLEAR COMPARISON VIEW</span><h2>Property information by section</h2><p>Basics, performance and dates are separated so each property is easier to scan.</p></div><div className="table-tools"><label><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label><button className="primary-button small" onClick={addProperty}><Plus size={16} /> New BTL</button></div></section><div className="property-group-stack">{propertyGroups.map((group) => <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}><header><div><span className="group-marker" /><div><h2>{group.title}</h2><p>{group.description}</p></div></div></header><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead><tbody>{group.rows.map(([label, getter, kind]) => <tr key={label}><th>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody></table></div></section>)}</div></>}
 
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={state.properties} calculated={calculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} />}
+
+          {section === 'Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={state.properties} onChange={updateExpenses} />}
 
           {section === 'Tenants' && <TenantsWorkspace tenants={state.tenants} properties={state.properties} onSave={saveTenant} onRemove={removeTenant} />}
 
