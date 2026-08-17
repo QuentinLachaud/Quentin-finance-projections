@@ -6,6 +6,7 @@ export const PLAN_PRICES = Object.freeze({
 export const FREE_PROPERTY_LIMIT = 1
 
 export const normalizeEntitlement = (value = {}) => {
+  value = value ?? {}
   const plan = value.plan === 'pro' ? 'pro' : 'free'
   const isOwner = Boolean(value.isOwner ?? value.is_owner)
   const isAdmin = Boolean(value.isAdmin ?? value.is_admin ?? isOwner)
