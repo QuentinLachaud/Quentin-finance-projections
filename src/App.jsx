@@ -60,9 +60,9 @@ const propertyGroups = [
 ]
 
 const scenarioMeta = [
-  { name: 'All inclusive', note: 'Conservative', colour: '#b35c54' },
-  { name: 'No voids', note: 'Occupied throughout', colour: '#c78b3e' },
-  { name: 'No problems', note: 'Best case', colour: '#27795c' },
+  { name: 'Conservative', note: 'Expected cash flow', colour: '#b35c54' },
+  { name: 'No voids', note: 'Assumes full occupancy', colour: '#c78b3e' },
+  { name: 'No repairs or voids', note: 'Unrealistic maximum', colour: '#27795c' },
 ]
 
 const modelInputFields = [
@@ -808,7 +808,17 @@ function PortfolioApp({ user }) {
 
           {section === 'Projections' && <>
             <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>
-            <section className="panel scenarios-panel"><header><div><span className="kicker">SHEET-MATCHED MODEL</span><h2>Current monthly scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
+            <section className="panel scenarios-panel projections-scenarios">
+              <header>
+                <div>
+                  <span className="kicker">CURRENT MONTHLY OUTLOOK</span>
+                  <h2>Cash flow scenarios</h2>
+                  <p>Three operating cases using the BTLs currently included in your portfolio model.</p>
+                </div>
+                <ModelControls settings={state.settings} onChange={updateSetting} compact />
+              </header>
+              <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />
+            </section>
             <ProjectionExplorer properties={includedProperties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
             <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
           </>}
