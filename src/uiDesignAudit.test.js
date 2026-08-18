@@ -25,6 +25,7 @@ describe('interface information architecture', () => {
       'Remortgage Simulator',
       'Compliance',
       'Companies House',
+      'IDs & Credentials',
       'Plan & billing',
     ]) {
       expect(app).toContain(`title: '${title}'`)

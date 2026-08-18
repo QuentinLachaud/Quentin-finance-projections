@@ -3,7 +3,7 @@ import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown, CircleHelp,
   ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu, MoreHorizontal,
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp, Moon, Sun,
-  WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText, FileText, Users, RefreshCw, AlertTriangle, Coffee,
+  WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText, FileText, Users, RefreshCw, AlertTriangle, Coffee, KeyRound,
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
@@ -16,6 +16,7 @@ import AuthScreen from './AuthScreen.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
+import CredentialsWorkspace from './CredentialsWorkspace.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
@@ -88,6 +89,7 @@ const workspaceNavigation = [
   ['Remortgage Simulator', 'Remortgage', RefreshCw, 'PLANNING'],
   ['Compliance', 'Compliance', ShieldCheck, 'PLANNING'],
   ['Companies House', 'Companies', Landmark, 'COMPANY'],
+  ['IDs & Credentials', 'Credentials', KeyRound, 'COMPANY'],
   ['Plan & billing', 'Plan', Sparkles, 'ACCOUNT'],
 ]
 
@@ -143,6 +145,11 @@ const sectionMeta = {
     eyebrow: 'COMPANY RECORD',
     title: 'Companies House',
     description: 'Check your company against the official public register and upcoming filing dates.',
+  },
+  'IDs & Credentials': {
+    eyebrow: 'PRIVATE RECORDS',
+    title: 'IDs & Credentials',
+    description: 'Keep important IDs, reference numbers and filing codes organised in one private workspace.',
   },
   'Plan & billing': {
     eyebrow: 'ACCOUNT',
@@ -592,6 +599,7 @@ function PortfolioApp({ user }) {
         properties: migratedProperties,
         tenants: migratedTenants,
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
+        credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
         remortgageComparisons: Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : [],
         settings: {
           ...defaultSettings,
@@ -703,6 +711,7 @@ function PortfolioApp({ user }) {
   const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, taxDeductible: false, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
   const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
   const updateExpenses = (expenses) => setState((current) => ({ ...current, expenses }))
+  const updateCredentials = (credentials) => setState((current) => ({ ...current, credentials }))
   const updateRemortgageComparisons = (remortgageComparisons) => setState((current) => ({ ...current, remortgageComparisons }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
@@ -903,6 +912,8 @@ function PortfolioApp({ user }) {
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} />}
 
           {section === 'Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} onChange={updateExpenses} />}
+
+          {section === 'IDs & Credentials' && <CredentialsWorkspace credentials={state.credentials || []} onChange={updateCredentials} />}
 
           {section === 'Tenants' && <TenantsWorkspace tenants={includedTenants} properties={includedProperties} onSave={saveTenant} onRemove={removeTenant} />}
 

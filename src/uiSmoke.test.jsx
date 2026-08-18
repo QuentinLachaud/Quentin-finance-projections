@@ -2,6 +2,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
+import CredentialsWorkspace from './CredentialsWorkspace.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 
 describe('workspace render smoke tests', () => {
@@ -82,5 +83,34 @@ describe('workspace render smoke tests', () => {
     expect(html).toContain('Remortgage rate')
     expect(html).toContain('4.50%')
     expect(html).toContain('Cash-flow difference')
+  })
+  it('renders the IDs & Credentials workspace with masked values and archive controls', () => {
+    const html = renderToStaticMarkup(<CredentialsWorkspace
+      credentials={[
+        {
+          id: 'one',
+          label: 'Gateway ID',
+          value: '123456789',
+          notes: 'HMRC',
+          sensitive: true,
+          archived: false,
+        },
+        {
+          id: 'two',
+          label: 'Old code',
+          value: 'ABC',
+          notes: '',
+          sensitive: true,
+          archived: true,
+        },
+      ]}
+      onChange={() => {}}
+    />)
+
+    expect(html).toContain('IDs &amp; Credentials')
+    expect(html).toContain('Gateway ID')
+    expect(html).toContain('Archived items')
+    expect(html).toContain('type="password"')
+    expect(html).toContain('Drag to reorder')
   })
 })
