@@ -178,7 +178,7 @@ export const calculateBankMetrics = (transactions, balanceSeries = [], options =
     return Number((trailingMonthKeys(asOf, months)
       .reduce((total, key) => total + (byMonth.get(key)?.[field] || 0), 0) / divisor).toFixed(2))
   }
-  const balances = balanceSeries.map((point) => number(point.balance)).filter(Number.isFinite)
+  const balances = balanceSeries.map((point) => Number(point.balance)).filter(Number.isFinite)
   const inflow = filtered.reduce((total, transaction) => total + Math.max(0, transaction.amount), 0)
   const outflow = filtered.reduce((total, transaction) => total + Math.max(0, -transaction.amount), 0)
   return {
@@ -223,7 +223,7 @@ export const reconstructBalanceSeries = (accounts, transactions, options = {}) =
 }
 
 export const cashHeldFromAccounts = (accounts) => Number(accounts
-  .filter((account) => account.includeInCash !== false && account.currency === 'GBP')
+  .filter((account) => account.includeInCash !== false && String(account.currency || '').toUpperCase() === 'GBP')
   .reduce((total, account) => total + number(account.currentBalance), 0)
   .toFixed(2))
 

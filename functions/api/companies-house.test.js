@@ -54,3 +54,36 @@ describe('Companies House authenticated proxy', () => {
     expect(upstreamUrls.every((url) => url.includes('/company/SC123'))).toBe(true)
   })
 })
+
+describe('Companies House boundary audit', () => {
+  it('rejects too-short searches without calling Companies House', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await onRequestGet({ request: request('?mode=search&q=x'), env })
+    expect(response.status).toBe(400)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats optional company resources returning 404 as absent rather than failing the whole company view', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ company_name: 'TEST LTD' }), { status: 200 }))
+      .mockResolvedValue(new Response('{}', { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await onRequestGet({ request: request('?mode=company&number=SC123456'), env })
+    const body = await response.json()
+    expect(response.status).toBe(200)
+    expect(body.profile).toEqual({ company_name: 'TEST LTD' })
+    expect(body).toMatchObject({ filings: null, officers: null, psc: null, charges: null })
+  })
+
+  it('maps an upstream Companies House authentication failure to a safe error', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await onRequestGet({ request: request('?mode=search&q=test'), env })
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ error: 'Companies House API authentication failed.' })
+  })
+})

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { assumptions } from './data.js'
 import {
-  calculatePortfolio, calculateProperty, mortgageInterestPayment, projectPortfolio,
+  addMonths, calculatePortfolio, calculateProperty, mortgageInterestPayment, projectPortfolio,
 } from './calculations.js'
 
 const fixedNow = new Date('2026-08-11T12:00:00')
@@ -250,5 +250,50 @@ describe('mortgage interest regression coverage', () => {
     expect(shocked.weightedRate - baseline.weightedRate).toBeCloseTo(0.01)
     expect(shocked.selected[0].monthlyPayment - baseline.selected[0].monthlyPayment).toBeCloseTo(150)
     expect(shocked.selected[1].monthlyPayment - baseline.selected[1].monthlyPayment).toBeCloseTo(100)
+  })
+})
+
+describe('calendar and malformed-state regression audit', () => {
+  it('clamps month-end dates instead of rolling into the following month', () => {
+    expect(addMonths('2025-01-31', 1)?.toISOString().slice(0, 10)).toBe('2025-02-28')
+    expect(addMonths('2024-01-31', 1)?.toISOString().slice(0, 10)).toBe('2024-02-29')
+    expect(addMonths('2026-03-31', -1)?.toISOString().slice(0, 10)).toBe('2026-02-28')
+  })
+
+  it('returns null for invalid calendar input rather than leaking an invalid Date', () => {
+    expect(addMonths('not-a-date', 12)).toBeNull()
+  })
+
+  it('keeps legacy malformed numeric property fields from poisoning the portfolio with NaN', () => {
+    const malformed = {
+      ...testProperties[0],
+      latestValuation: 'bad',
+      loanAmount: 'bad',
+      rent: 'bad',
+      factorsFees: 'bad',
+      repairs: 'bad',
+      applianceReserve: 'bad',
+      purchaseDate: 'not-a-date',
+    }
+    const property = calculateProperty(malformed, companySettings, fixedNow)
+    const portfolio = calculatePortfolio([malformed], companySettings, fixedNow)
+    const criticalValues = [
+      property.monthlyPayment,
+      property.fixedCosts,
+      property.variableCosts,
+      property.currentLtv,
+      property.yearsOwned,
+      portfolio.totalValue,
+      portfolio.totalLoans,
+      portfolio.fixedCosts,
+      portfolio.scenarios[0].cashflow,
+    ]
+    expect(criticalValues.every(Number.isFinite)).toBe(true)
+  })
+
+  it('returns a finite zeroed portfolio for missing property input', () => {
+    const portfolio = calculatePortfolio(null, companySettings, fixedNow)
+    expect(portfolio).toMatchObject({ count: 0, rent: 0, totalValue: 0, totalLoans: 0, totalEquity: 0 })
+    expect(portfolio.scenarios.every((scenario) => Number.isFinite(scenario.cashflow))).toBe(true)
   })
 })

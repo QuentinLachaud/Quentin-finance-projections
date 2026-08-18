@@ -32,7 +32,9 @@ export const createRemortgageScenario = ({
 export const createRemortgageComparison = (property = null) => {
   const propertyValue = nonNegative(property?.latestValuation)
   const loanAmount = nonNegative(property?.loanAmount)
-  const rate = nonNegative(property?.baseRate) * 100
+  const hasCurrentRate = property?.currentRate !== '' && property?.currentRate != null
+    && Number.isFinite(Number(property.currentRate))
+  const rate = nonNegative(hasCurrentRate ? property.currentRate : property?.baseRate) * 100
   const scenario = createRemortgageScenario({ propertyValue, loanAmount, rate })
   return {
     id: makeId(),

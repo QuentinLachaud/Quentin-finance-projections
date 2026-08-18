@@ -63,3 +63,49 @@ describe('billing API', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('billing endpoint edge-case audit', () => {
+  it('prevents an already-Pro account from creating a duplicate Checkout session', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1', email: 'pro@example.com' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ user_id: 'user-1', plan: 'pro', source: 'manual', is_admin: false }]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await onRequestPost({ request: request({ action: 'checkout', interval: 'monthly' }), env })
+    expect(response.status).toBe(409)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not open a billing portal for an account with no Stripe customer', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1', email: 'person@example.com' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ user_id: 'user-1', plan: 'free', source: 'default', is_admin: false }]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await onRequestPost({ request: request({ action: 'portal' }), env })
+    expect(response.status).toBe(409)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects unknown billing actions after authentication', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1', email: 'person@example.com' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ user_id: 'user-1', plan: 'free', source: 'default', is_admin: false }]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await onRequestPost({ request: request({ action: 'surprise-action' }), env })
+    expect(response.status).toBe(400)
+  })
+
+  it('refuses to manually downgrade a user who still has an active Stripe subscription', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'admin-1', email: 'admin@example.com' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ user_id: 'admin-1', plan: 'pro', source: 'manual', is_admin: true }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ users: [{ id: 'target-1', email: 'paid@example.com' }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ user_id: 'target-1', source: 'stripe', subscription_status: 'active' }]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await onRequestPost({
+      request: request({ action: 'admin-set-plan', email: 'paid@example.com', plan: 'free' }),
+      env,
+    })
+    expect(response.status).toBe(409)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+})

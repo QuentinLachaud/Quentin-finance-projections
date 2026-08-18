@@ -4,6 +4,7 @@ import {
   compareRemortgageScenarios,
   createRemortgageComparison,
   createRemortgageScenario,
+  duplicateRemortgageComparison,
   roundedLtv,
   updateRemortgageScenario,
 } from './remortgage.js'
@@ -98,5 +99,54 @@ describe('remortgage simulator', () => {
     expect(comparison.left.loanAmount).toBe(175000)
     expect(comparison.left.rate).toBeCloseTo(4.84)
     expect(comparison.right).toEqual(comparison.left)
+  })
+})
+
+describe('remortgage regression audit', () => {
+  it('uses the effective current rate from the calculated property when a rate shock is active', () => {
+    const comparison = createRemortgageComparison({
+      id: 'btl-1',
+      name: 'BTL1',
+      latestValuation: 250000,
+      loanAmount: 175000,
+      baseRate: 0.04,
+      currentRate: 0.047,
+    })
+    expect(comparison.left.rate).toBeCloseTo(4.7)
+    expect(comparison.right.rate).toBeCloseTo(4.7)
+  })
+
+  it('falls back to the stored base rate when no calculated current rate exists', () => {
+    const comparison = createRemortgageComparison({
+      latestValuation: 250000,
+      loanAmount: 175000,
+      baseRate: 0.0484,
+    })
+    expect(comparison.left.rate).toBeCloseTo(4.84)
+  })
+
+  it('duplicates comparison scenarios by value rather than sharing nested mutable objects', () => {
+    const original = createRemortgageComparison({
+      name: 'BTL1',
+      latestValuation: 200000,
+      loanAmount: 140000,
+      baseRate: 0.05,
+    })
+    const copy = duplicateRemortgageComparison(original)
+    copy.right.loanAmount = 150000
+    expect(copy.id).not.toBe(original.id)
+    expect(original.right.loanAmount).toBe(140000)
+  })
+
+  it('clamps malformed and negative numeric inputs to safe non-negative values', () => {
+    const scenario = createRemortgageScenario({
+      propertyValue: 'bad',
+      loanAmount: -50000,
+      rate: -2,
+      feeValue: 'bad',
+    })
+    const result = calculateRemortgageScenario(scenario)
+    expect(result).toMatchObject({ propertyValue: 0, loanAmount: 0, rate: 0, fee: 0, monthlyInterest: 0 })
+    expect(Number.isFinite(result.resultingLtv)).toBe(true)
   })
 })

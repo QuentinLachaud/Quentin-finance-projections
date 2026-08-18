@@ -29,3 +29,27 @@ describe('account entitlements', () => {
     expect(PLAN_PRICES.annual.amount).toBe(79)
   })
 })
+
+describe('entitlement normalization audit', () => {
+  it('normalizes snake_case server fields without accidentally dropping access', () => {
+    expect(normalizeEntitlement({
+      plan: 'pro',
+      is_admin: true,
+      subscription_status: 'active',
+      current_period_end: '2027-01-01T00:00:00Z',
+      stripe_customer_id: 'cus_1',
+    })).toMatchObject({
+      isPro: true,
+      isAdmin: true,
+      subscriptionStatus: 'active',
+      currentPeriodEnd: '2027-01-01T00:00:00Z',
+      hasBillingAccount: true,
+    })
+  })
+
+  it('fails closed for unknown plan values and invalid property counts', () => {
+    expect(normalizeEntitlement({ plan: 'enterprise' }).isPro).toBe(false)
+    expect(canAddProperty({ plan: 'free' }, undefined)).toBe(false)
+    expect(canAddProperty({ plan: 'free' }, Number.NaN)).toBe(false)
+  })
+})

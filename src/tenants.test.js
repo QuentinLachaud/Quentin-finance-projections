@@ -68,3 +68,22 @@ describe('tenant records', () => {
     expect(importPropertyTenants([{ id: 'btl-1' }], [{ id: 'orphan', propertyId: 'missing' }])).toEqual([])
   })
 })
+
+describe('tenant lifecycle edge-case audit', () => {
+  it('returns a consistent non-archived shape for a future tenancy', () => {
+    expect(tenantTenure(
+      { moveIn: '2027-01-01' },
+      new Date('2026-11-15T12:00:00'),
+    )).toMatchObject({ live: false, archived: false })
+  })
+
+  it('clamps occupancy to the ownership window and today', () => {
+    const property = { id: 'btl-1', purchaseDate: '2026-01-10' }
+    const history = propertyVoidHistory(property, [
+      { propertyId: 'btl-1', moveIn: '2025-12-01', moveOut: '2026-02-01' },
+      { propertyId: 'btl-1', moveIn: '2026-02-01', moveOut: '2030-01-01' },
+    ], new Date('2026-03-01T12:00:00'))
+    expect(history.voidDays).toBe(0)
+    expect(history.voidRate).toBe(0)
+  })
+})

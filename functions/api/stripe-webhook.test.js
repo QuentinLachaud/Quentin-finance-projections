@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyStripeEvent } from './stripe-webhook.js'
+import { applyStripeEvent, onRequestPost } from './stripe-webhook.js'
 
 const env = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'service-key' }
 
@@ -36,6 +36,19 @@ describe('Stripe entitlement events', () => {
     vi.stubGlobal('fetch', fetchMock)
     expect(await applyStripeEvent(env, { type: 'invoice.created', data: { object: {} } })).toBe(false)
     expect(await applyStripeEvent(env, { type: 'customer.subscription.updated', data: { object: { status: 'active' } } })).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('Stripe webhook boundary audit', () => {
+  it('rejects a webhook with no valid signature before touching entitlement storage', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const response = await onRequestPost({
+      request: new Request('https://app.test/api/stripe-webhook', { method: 'POST', body: '{}' }),
+      env: { ...env, STRIPE_WEBHOOK_SECRET: 'whsec_test' },
+    })
+    expect(response.status).toBe(400)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

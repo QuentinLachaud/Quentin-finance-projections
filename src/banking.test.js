@@ -134,3 +134,27 @@ describe('exports', () => {
     expect(csv).toContain('"-12.30"')
   })
 })
+
+describe('banking defensive-input audit', () => {
+  it('ignores malformed balance points instead of treating them as a real £0 low', () => {
+    const metrics = calculateBankMetrics([], [{ balance: 'not-a-number' }, { balance: 450 }, { balance: 900 }], { asOf: '2026-08-18' })
+    expect(metrics.lowestBalance).toBe(450)
+    expect(metrics.highestBalance).toBe(900)
+  })
+
+  it('counts GBP balances regardless of currency-code casing', () => {
+    expect(cashHeldFromAccounts([
+      { currency: 'gbp', currentBalance: 100, includeInCash: true },
+      { currency: 'GBP', currentBalance: 200, includeInCash: true },
+      { currency: 'EUR', currentBalance: 500, includeInCash: true },
+    ])).toBe(300)
+  })
+
+  it('never detects pending entries as internal-transfer pairs', () => {
+    const result = detectInternalTransfers([
+      tx('a', '2026-08-01', -500, { status: 'pending' }),
+      tx('b', '2026-08-01', 500),
+    ])
+    expect(result.every((row) => !row.isTransfer)).toBe(true)
+  })
+})

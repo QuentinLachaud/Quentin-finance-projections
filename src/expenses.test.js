@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  filterExpenses, inferExpenseType, mergeExpenseImports, normalizeExpenseDate,
+  filterExpenses, inferExpenseType, isReceiptUrl, mergeExpenseImports, normalizeExpenseDate,
   parseExpenseAmount, parseExpenseImport, summarizeExpenses,
 } from './expenses.js'
 
@@ -65,5 +65,41 @@ describe('expenses ledger', () => {
     expect(merged.added).toBe(1)
     expect(merged.duplicates).toBe(1)
     expect(merged.expenses).toHaveLength(2)
+  })
+})
+
+describe('expense edge-case audit', () => {
+  it('rejects impossible ISO calendar dates instead of trusting their shape', () => {
+    expect(normalizeExpenseDate('2026-02-29')).toBe('')
+    expect(normalizeExpenseDate('2024-02-29')).toBe('2024-02-29')
+    expect(normalizeExpenseDate('2026-04-31')).toBe('')
+  })
+
+  it('parses quoted CSV fields containing commas and escaped quotes', () => {
+    const rows = parseExpenseImport([
+      'Date,Property,Category,Amount (£),Description,Notes',
+      '18/08/2026,BTL1,repair,"£ (1,250.50)","Boiler, parts and labour","Engineer said ""urgent"" today"',
+    ].join('\n'))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      date: '2026-08-18',
+      amount: -1250.5,
+      description: 'Boiler, parts and labour',
+      notes: 'Engineer said "urgent" today',
+    })
+  })
+
+  it('deduplicates duplicates inside the same incoming batch as well as against stored rows', () => {
+    const base = { id: 'a', date: '2026-08-18', property: 'BTL1', category: 'fee', amount: -25, description: 'Fee', recurrence: '', notes: '', receiptLink: '' }
+    const result = mergeExpenseImports([], [{ ...base, id: '1' }, { ...base, id: '2' }])
+    expect(result).toMatchObject({ added: 1, duplicates: 1 })
+    expect(result.expenses).toHaveLength(1)
+  })
+
+  it('only treats HTTP(S) links as openable receipt URLs', () => {
+    expect(isReceiptUrl('https://example.com/receipt.pdf')).toBe(true)
+    expect(isReceiptUrl('http://example.com/r')).toBe(true)
+    expect(isReceiptUrl('javascript:alert(1)')).toBe(false)
+    expect(isReceiptUrl('file:///tmp/receipt')).toBe(false)
   })
 })

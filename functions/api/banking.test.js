@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { onRequestGet, onRequestPost } from './banking.js'
+import { onRequestDelete, onRequestGet, onRequestPost } from './banking.js'
 
 const env = {
   VITE_SUPABASE_URL: 'https://example.supabase.co',
@@ -66,5 +66,53 @@ describe('banking Pages Function', () => {
     const stored = JSON.parse(storedCall[1].body)[0]
     expect(stored).toMatchObject({ user_id: 'user-1', requisition_id: 'req-1', institution_id: 'TIDE_DYNAMIC' })
     expect(stored).not.toHaveProperty('secret_key')
+  })
+})
+
+describe('banking API boundary audit', () => {
+  it('rejects unknown GET actions after authentication without contacting GoCardless', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response({ id: 'user-1' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await onRequestGet({
+      request: authenticatedRequest('https://app.test/api/banking?action=unknown'),
+      env,
+    })
+    expect(result.status).toBe(400)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects unknown POST actions after authentication without contacting GoCardless', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response({ id: 'user-1' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await onRequestPost({
+      request: authenticatedRequest('https://app.test/api/banking', { action: 'unknown' }),
+      env,
+    })
+    expect(result.status).toBe(400)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns 404 for a sync request referencing a connection the user cannot access', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ id: 'user-1' }))
+      .mockResolvedValueOnce(response([]))
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await onRequestPost({
+      request: authenticatedRequest('https://app.test/api/banking', { action: 'sync', connectionId: 'missing' }),
+      env,
+    })
+    expect(result.status).toBe(404)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects unauthenticated disconnect attempts before any upstream request', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await onRequestDelete({
+      request: new Request('https://app.test/api/banking?connection=one', { method: 'DELETE' }),
+      env,
+    })
+    expect(result.status).toBe(401)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

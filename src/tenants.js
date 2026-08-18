@@ -94,7 +94,7 @@ export const tenantTenure = (tenant, now = new Date()) => {
   const end = dateAtNoon(tenant.moveOut)
   if (end && !Number.isNaN(end.getTime()) && end <= now) return { live: false, archived: true, label: `Moved out ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` }
   if (!start || Number.isNaN(start.getTime())) return { live: true, archived: false, label: 'Move-in date not set' }
-  if (start > now) return { live: false, label: `Starts ${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` }
+  if (start > now) return { live: false, archived: false, label: `Starts ${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` }
   const months = Math.max(0, (now.getFullYear() - start.getFullYear()) * 12 + now.getMonth() - start.getMonth() - (now.getDate() < start.getDate() ? 1 : 0))
   const years = Math.floor(months / 12)
   const remainder = months % 12

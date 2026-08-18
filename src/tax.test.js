@@ -116,3 +116,28 @@ describe('private residential landlord tax', () => {
     expect(tax.policyNote).toContain('2027–28 England/Wales/NI property rates')
   })
 })
+
+describe('tax boundary and defensive-input audit', () => {
+  it('treats the exact Corporation Tax thresholds deterministically', () => {
+    expect(calculateCorporationTax({ taxableProfit: 50000 })).toMatchObject({ tax: 9500, rateType: 'small-profits' })
+    expect(calculateCorporationTax({ taxableProfit: 250000 })).toMatchObject({ tax: 62500, rateType: 'main' })
+  })
+
+  it('never produces negative tax from negative taxable inputs', () => {
+    expect(calculateIncomeTax(-1000, 'england').totalTax).toBe(0)
+    expect(calculateCorporationTax({ taxableProfit: -5000 }).tax).toBe(0)
+    expect(calculatePrivateLandlordTax({ grossIncome: -1, propertyProfit: -1000, financeCosts: -500 }).propertyIncomeTax).toBe(0)
+  })
+
+  it('caps finance-cost relief so it cannot create a tax credit out of no tax liability', () => {
+    const tax = calculatePrivateLandlordTax({
+      grossIncome: 0,
+      propertyProfit: 1000,
+      financeCosts: 100000,
+      jurisdiction: 'england',
+    })
+    expect(tax.financeCostTaxReduction).toBe(0)
+    expect(tax.propertyIncomeTax).toBe(0)
+    expect(tax.financeCostsCarryForward).toBe(100000)
+  })
+})

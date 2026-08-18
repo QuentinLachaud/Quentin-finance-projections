@@ -22,17 +22,23 @@ export const parseExpenseAmount = (value) => {
 export const normalizeExpenseDate = (value) => {
   const source = clean(value)
   if (!source || source === '?') return ''
-  if (/^\d{4}-\d{2}-\d{2}$/.test(source)) return source
-  const match = source.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/)
+
+  const isoMatch = source.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const ukMatch = source.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/)
+  const match = isoMatch
+    ? [source, isoMatch[3], isoMatch[2], isoMatch[1]]
+    : ukMatch
+
   if (!match) return ''
   const [, dayText, monthText, yearText] = match
   const day = Number(dayText)
   const month = Number(monthText)
   const year = Number(yearText)
   if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) return ''
+
   const candidate = new Date(Date.UTC(year, month - 1, day))
   if (candidate.getUTCFullYear() !== year || candidate.getUTCMonth() !== month - 1 || candidate.getUTCDate() !== day) return ''
-  return `${yearText}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
 export const createExpense = (overrides = {}) => ({
