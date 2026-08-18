@@ -18,7 +18,7 @@ export const billingRequest = async (body) => {
   return payload
 }
 
-const proFeatures = ['Unlimited BTL properties', 'The complete live portfolio model', 'Tenant, tax and compliance workspaces', 'All future Pro reporting and integrations']
+const proFeatures = ['Unlimited BTL properties', 'Remortgage Simulator and long-range projections', 'Tenant, tax and compliance workspaces', 'Future Pro reporting and integrations']
 
 export default function BillingWorkspace({ entitlement, onRefresh, modal = false, onClose }) {
   const [busy, setBusy] = useState('')
@@ -59,7 +59,7 @@ export default function BillingWorkspace({ entitlement, onRefresh, modal = false
       <span className="billing-mark"><Crown /></span>
       <span className="kicker">{entitlement?.isPro ? 'YOUR PLAN' : 'BTL PORTFOLIO PRO'}</span>
       <h2>{entitlement?.isOwner ? 'Owner access is active' : entitlement?.isPro ? 'Your Pro plan is active' : 'Grow beyond your first BTL'}</h2>
-      <p>{entitlement?.isPro ? 'You have unrestricted portfolio access.' : 'Free accounts include one real BTL and every core calculation. Upgrade when your portfolio grows—no dummy financial figures and no hidden surprises.'}</p>
+      <p>{entitlement?.isPro ? 'You have unrestricted portfolio access.' : 'Free includes one BTL and the core portfolio calculations. Pro adds unlimited properties and the advanced planning tools.'}</p>
     </section>
 
     {!entitlement?.isPro && <section className="pricing-grid" aria-label="Pro subscription options">

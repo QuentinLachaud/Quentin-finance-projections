@@ -15,7 +15,7 @@ describe('application architecture regression contracts', () => {
 
   it('keeps Remortgage Simulator as its own Pro-gated workspace', () => {
     const app = read('src/App.jsx')
-    expect(app).toContain("['Remortgage Simulator', 'Remortgage', RefreshCw]")
+    expect(app).toContain("['Remortgage Simulator', 'Remortgage', RefreshCw, 'PLANNING']")
     expect(app).toContain("{section === 'Remortgage Simulator' && <RemortgageSimulator")
     expect(app).toContain('isPro={effectiveEntitlement.isPro}')
     const projectionBlock = app.slice(

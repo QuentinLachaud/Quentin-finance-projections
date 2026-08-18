@@ -56,7 +56,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
       <div>
         <span className="kicker">HISTORICAL LEDGER</span>
         <h2>Expenses</h2>
-        <p>Track actual company cash movements. Type is inferred from the amount sign: positive is income, negative is expense. This ledger does not alter projections or tax calculations.</p>
+        <p>Track actual portfolio cash movements. Positive amounts are income and negative amounts are expenses. This ledger stays separate from projections and tax calculations.</p>
       </div>
       <div className="expenses-actions">
         <input ref={importRef} type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain" hidden onChange={importFile} />

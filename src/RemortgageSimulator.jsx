@@ -97,7 +97,7 @@ function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
         <span>{title}</span>
         <strong>{money.format(cashFlow)}<small> / month</small></strong>
       </div>
-      <small>{property ? 'Property cash flow before tax' : 'Finance-only cash flow'}</small>
+      <small>{property ? 'After mortgage and property costs' : 'Mortgage cost only'}</small>
     </header>
 
     <div className="remortgage-fields">
@@ -307,7 +307,9 @@ export default function RemortgageSimulator({
   }
 
   const removeComparison = (id) => {
-    onChange(comparisons.filter((comparison) => comparison.id !== id))
+    const comparison = comparisons.find((item) => item.id === id)
+    if (!window.confirm(`Delete ${comparison?.name || 'this remortgage comparison'}? This cannot be undone.`)) return
+    onChange(comparisons.filter((item) => item.id !== id))
     setExpanded(id, false)
   }
 
@@ -343,7 +345,7 @@ export default function RemortgageSimulator({
 
     {comparisons.length === 0 && <section className="panel remortgage-empty">
       <h3>No comparisons yet</h3>
-      <p>Select an existing BTL or Manual values, then add a comparison.</p>
+      <p>Choose a BTL or Manual values above, then select Add comparison.</p>
     </section>}
 
     <div className="remortgage-comparison-stack">

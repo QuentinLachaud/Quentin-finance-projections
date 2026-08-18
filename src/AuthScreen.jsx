@@ -53,11 +53,11 @@ export default function AuthScreen() {
         <div className="auth-brand"><span><Building2 size={25} /></span><div><strong>BTL</strong><small>PORTFOLIO</small></div></div>
         <div className="auth-promise">
           <span className="kicker">PRIVATE PORTFOLIO MODELLING</span>
-          <h1>Your property finances, available wherever you are.</h1>
-          <p>Every portfolio is stored separately and protected by account-level access rules.</p>
-          <ul><li><Check size={17} /> Private, account-specific data</li><li><Check size={17} /> Live BTL projections</li><li><Check size={17} /> Secure access on desktop and mobile</li></ul>
+          <h1>Your BTL portfolio, clearly modelled.</h1>
+          <p>Keep property details, cash flow, projections and key dates together in one account.</p>
+          <ul><li><Check size={17} /> Property-level cash flow</li><li><Check size={17} /> Scenario projections</li><li><Check size={17} /> Desktop and mobile access</li></ul>
         </div>
-        <small className="auth-security-note"><LockKeyhole size={14} /> Your data is never shared with another account.</small>
+        <small className="auth-security-note"><LockKeyhole size={14} /> Sign in to access your saved portfolio.</small>
       </section>
 
       <section className="auth-form-panel">

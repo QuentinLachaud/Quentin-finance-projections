@@ -1399,12 +1399,51 @@ body { font-size: 14px; }
   border-color: #37433d;
 }
 
-/* Global readability and spacing pass
-   Keep the existing visual language, but make the product easier to read,
-   scan and operate without turning the interface into oversized UI. */
+/* Interface design system + usability audit
+   Consolidates the previous readability overrides into one intentional layer. */
+:root {
+  --ui-surface: #ffffff;
+  --ui-surface-subtle: #f8faf8;
+  --ui-surface-muted: #f1f5f2;
+  --ui-line: #dde4df;
+  --ui-line-strong: #cbd5cf;
+  --ui-text: #202925;
+  --ui-muted: #68756f;
+  --ui-accent: #1c6b50;
+  --ui-accent-soft: #e7f3ed;
+  --ui-danger: #b54b41;
+  --ui-focus: rgba(39, 121, 92, .30);
+  --ui-radius-sm: 9px;
+  --ui-radius: 14px;
+  --ui-radius-lg: 18px;
+  --ui-shadow: 0 1px 2px rgba(22, 39, 31, .035), 0 8px 26px rgba(22, 39, 31, .035);
+}
+
+:root[data-theme='dark'] {
+  --ui-surface: #161d19;
+  --ui-surface-subtle: #1a231e;
+  --ui-surface-muted: #202923;
+  --ui-line: #303b35;
+  --ui-line-strong: #3d4a43;
+  --ui-text: #e8efeb;
+  --ui-muted: #9ba9a2;
+  --ui-accent: #83d1aa;
+  --ui-accent-soft: #20372d;
+  --ui-danger: #df8279;
+  --ui-focus: rgba(131, 209, 170, .30);
+  --ui-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 10px 30px rgba(0, 0, 0, .10);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-size: 15px;
-  line-height: 1.48;
+  line-height: 1.52;
+  color: var(--ui-text);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -1414,176 +1453,565 @@ textarea {
   font: inherit;
 }
 
-/* Give the larger typography enough horizontal room. */
-.app-shell {
-  grid-template-columns: 282px 1fr;
-}
-.sidebar {
-  width: 282px;
-  padding: 27px 18px 18px;
-}
-main {
-  grid-column: 2;
-}
-.content {
-  max-width: 1510px;
-  padding: 46px 44px 76px;
-}
-.topbar {
-  height: 72px;
-  padding-inline: 38px;
+button,
+a,
+input,
+select,
+textarea,
+summary {
+  transition: border-color .16s ease, background-color .16s ease, color .16s ease, box-shadow .16s ease, opacity .16s ease;
 }
 
-/* Navigation and persistent chrome. */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #98a29d;
+  opacity: 1;
+}
+
+/* Shell and persistent navigation */
+.app-shell {
+  grid-template-columns: 282px minmax(0, 1fr);
+}
+
+.sidebar {
+  width: 282px;
+  padding: 24px 16px 16px;
+}
+
+.brand {
+  padding: 2px 7px 22px;
+}
+
 .brand strong {
-  max-width: 164px;
+  max-width: 166px;
   font-size: 15px;
 }
+
 .brand small {
   font-size: 9px;
 }
-.sidebar nav > small {
-  font-size: 10px;
+
+.sidebar-body {
+  padding-right: 4px;
 }
+
+.sidebar nav > small {
+  margin-top: 8px;
+  padding: 14px 11px 6px;
+  color: #73807a;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .15em;
+}
+
+.sidebar nav > small:first-child {
+  margin-top: 0;
+  padding-top: 4px;
+}
+
 .sidebar nav button {
   min-height: 42px;
-  padding-block: 10px;
-  font-size: 14px;
+  margin: 1px 0;
+  padding: 9px 11px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 550;
 }
+
+.sidebar nav button.active {
+  background: #24332c;
+  box-shadow: inset 3px 0 #78cfa7;
+}
+
+.sidebar nav button[aria-current='page'] {
+  color: #fff;
+}
+
 .sidebar nav button.property-nav {
-  min-height: 40px;
+  min-height: 38px;
+  padding-block: 7px;
 }
+
 .property-nav > i {
   width: 26px;
   height: 26px;
   font-size: 11px;
 }
+
 .property-nav span small {
+  margin-top: 1px;
   font-size: 10px;
-  line-height: 1.35;
+  line-height: 1.3;
 }
+
+.property-nav-row.excluded > .property-nav {
+  opacity: .48;
+}
+
+.property-nav-visibility {
+  width: 38px;
+  min-height: 36px;
+  flex: 0 0 38px;
+}
+
+.property-nav-visibility > i {
+  width: 30px;
+  height: 17px;
+}
+
+.property-nav-visibility > i::after {
+  width: 13px;
+  height: 13px;
+}
+
+.property-nav-visibility input:checked + i::after {
+  transform: translateX(13px);
+}
+
+/* Secondary sidebar controls are available without permanently filling the tray. */
+.sidebar-disclosure {
+  margin: 14px 4px 0;
+  padding: 0;
+  overflow: visible;
+  border: 1px solid #2d3934;
+  border-radius: 12px;
+  background: #151d1a;
+}
+
+.sidebar-profile-editor.sidebar-disclosure {
+  margin-top: 9px;
+}
+
+.sidebar-disclosure > summary {
+  min-height: 52px;
+  padding: 10px 11px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 8px;
+  color: #8fddb9;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 11px;
+}
+
+.sidebar-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-disclosure > summary:hover {
+  background: #1b2521;
+}
+
+.sidebar-disclosure > summary div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.sidebar-disclosure > summary b {
+  color: #edf4f0;
+  font-size: 12px;
+}
+
+.sidebar-disclosure > summary small {
+  overflow: hidden;
+  color: #7f8c86;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-disclosure-chevron {
+  color: #728078;
+  transition: transform .18s ease;
+}
+
+.sidebar-disclosure[open] .sidebar-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.sidebar-disclosure-body {
+  padding: 4px 12px 13px;
+  border-top: 1px solid #29342f;
+}
+
+.sidebar-model-inputs .sidebar-input-list {
+  gap: 10px;
+}
+
+.sidebar-profile-editor .sidebar-disclosure-body > label {
+  margin-top: 11px;
+  display: grid;
+  gap: 5px;
+}
+
+.sidebar-profile-editor .sidebar-disclosure-body > label > span {
+  color: #9ca7a2;
+  font-size: 11px;
+}
+
+.sidebar-profile-editor .sidebar-disclosure-body > label input {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px;
+  border: 1px solid #35413c;
+  border-radius: 7px;
+  outline: 0;
+  color: #f1f6f3;
+  background: #101614;
+  font-size: 12px;
+}
+
+.sidebar-plan,
+.sidebar-support {
+  min-height: 54px;
+}
+
+.sidebar-foot {
+  padding-top: 14px;
+}
+
 .sidebar-foot b {
   font-size: 12px;
 }
+
 .sidebar-foot small,
 .sidebar-plan small,
 .sidebar-support small {
   font-size: 10px;
 }
+
 .sidebar-plan b,
 .sidebar-support b {
   font-size: 13px;
 }
+
+/* Top bar */
+.topbar {
+  height: 70px;
+  padding-inline: 34px;
+}
+
+.topbar > div {
+  min-width: 0;
+}
+
 .topbar span,
 .topbar b,
 .topbar strong {
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
-/* Page hierarchy. */
+.save-status {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--ui-line);
+  border-radius: 999px;
+  background: var(--ui-surface);
+}
+
+.save-status.error {
+  color: var(--ui-danger);
+  border-color: rgba(181, 75, 65, .25);
+  background: #fff6f4;
+}
+
+:root[data-theme='dark'] .save-status.error {
+  background: #2a1c1a;
+}
+
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.topbar-reset {
+  min-height: 38px;
+}
+
+/* Content hierarchy and page context */
+.content {
+  max-width: 1500px;
+  padding: 44px 42px 78px;
+}
+
+.hero-row {
+  min-height: 92px;
+  margin-bottom: 26px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--ui-line);
+  align-items: flex-end;
+}
+
+.hero-copy {
+  max-width: 790px;
+}
+
 .eyebrow,
 .kicker {
-  font-size: 10px;
-  line-height: 1.3;
+  font-size: 10.5px;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: .12em;
 }
+
 h1 {
-  font-size: 38px;
-  line-height: 1.12;
+  margin: 7px 0 7px;
+  font-size: clamp(34px, 3.1vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -.04em;
 }
+
 h2 {
   font-size: 22px;
   line-height: 1.2;
 }
+
 h3 {
   line-height: 1.3;
 }
-.hero-row {
-  margin-bottom: 34px;
-}
+
 .hero-row p {
-  font-size: 14px;
-  line-height: 1.5;
+  max-width: 760px;
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 14.5px;
+  line-height: 1.55;
 }
+
+.hero-context {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.hero-context > span {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--ui-line);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ui-muted);
+  background: var(--ui-surface);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hero-context b {
+  color: var(--ui-text);
+  font-size: 12px;
+}
+
 .panel {
-  line-height: 1.45;
+  border-color: var(--ui-line);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow);
+  line-height: 1.48;
 }
+
 .panel > header {
-  gap: 14px;
+  gap: 15px;
 }
+
 .panel > header p,
 .properties-toolbar p,
 .projection-toolbar p {
-  font-size: 13px;
-  line-height: 1.5;
+  max-width: 760px;
+  font-size: 13.5px;
+  line-height: 1.52;
 }
 
-/* Controls should be readable without becoming bulky. */
+/* Controls */
 .primary-button,
 .secondary-button,
 .danger-button {
   min-height: 42px;
   padding-inline: 16px;
+  border-radius: 9px;
   font-size: 13px;
 }
+
+.primary-button {
+  background: #185c47;
+  box-shadow: 0 3px 10px rgba(16, 89, 65, .13);
+}
+
+.primary-button:hover {
+  background: #104f3c;
+  transform: translateY(-1px);
+}
+
+.secondary-button {
+  border-color: var(--ui-line);
+  background: var(--ui-surface);
+}
+
+.secondary-button:hover {
+  border-color: var(--ui-line-strong);
+  background: var(--ui-surface-subtle);
+}
+
 .small {
   min-height: 36px;
   font-size: 12px;
 }
+
+.icon-button {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 9px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.icon-button:hover {
+  background: var(--ui-surface-muted);
+}
+
+.text-button {
+  min-height: 34px;
+  border-radius: 8px;
+}
+
 .assumption-pill {
   min-height: 38px;
   font-size: 12px;
 }
+
+.segmented,
+.account-type-toggle,
+.tax-jurisdiction > div {
+  border-radius: 9px;
+}
+
 .segmented button,
 .account-type-toggle button,
 .tax-jurisdiction button {
+  min-height: 34px;
   font-size: 12px;
 }
+
 input,
 select,
 textarea {
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
-/* Core dashboard cards. */
+/* Dashboard and property surfaces */
 .metrics-grid,
 .metrics-grid.three,
 .property-cards,
 .main-grid {
-  gap: 14px;
+  gap: 15px;
 }
+
 .metric-card {
-  padding: 20px;
+  padding: 21px;
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
 }
+
 .metric-card span,
 .metric-card small {
   font-size: 12px;
   line-height: 1.45;
 }
+
 .metric-card strong {
-  font-size: 27px;
-  line-height: 1.15;
+  font-size: 28px;
+  line-height: 1.12;
+  font-variant-numeric: tabular-nums;
 }
+
 .property-card {
-  padding: 20px;
+  padding: 21px;
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
 }
+
 .property-card h3 {
   font-size: 18px;
   line-height: 1.3;
 }
+
 .property-card p,
 .property-card small {
   font-size: 12px;
   line-height: 1.45;
 }
+
 .property-value > span,
 .property-actions button {
   font-size: 12px;
 }
+
 .property-value strong {
-  font-size: 24px;
+  font-size: 25px;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Tables are one of the densest parts of the product. */
+.property-actions {
+  gap: 7px;
+}
+
+.properties-toolbar {
+  align-items: center;
+}
+
+.properties-tools {
+  gap: 9px;
+}
+
+.property-view-mode {
+  min-height: 42px;
+  border-radius: 10px;
+}
+
+.property-view-mode > span {
+  font-size: 12px;
+}
+
+.property-group-toggle {
+  min-height: 82px;
+  padding: 19px 21px;
+}
+
+.property-group-toggle h2 {
+  font-size: 18px;
+}
+
+.property-group-toggle p {
+  margin-top: 3px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+/* Dense data stays readable and horizontally stable. */
 .data-table th,
 .data-table td,
 .projection-table th,
@@ -1591,57 +2019,103 @@ textarea {
 .reconciliation-wrap th,
 .reconciliation-wrap td {
   padding-block: 13px;
-  line-height: 1.4;
+  line-height: 1.42;
 }
+
 .data-table tbody th,
 .data-table tbody td,
 .projection-table tbody th,
 .projection-table tbody td {
   font-size: 13px;
 }
+
 .data-table thead th,
 .projection-table thead th {
-  font-size: 12px;
+  font-size: 11.5px;
 }
+
 .data-table thead button {
   font-size: 13px;
 }
+
 .data-table thead button small {
   font-size: 10px;
 }
 
-/* Forms, drawers and model inputs. */
+.data-table tbody tr:hover td,
+.data-table tbody tr:hover th:not(.advanced-metric-label) {
+  background: var(--ui-surface-subtle);
+}
+
+/* Forms and editors */
 .form-grid label > span,
 .assumptions-grid label > span,
 .private-tax-inputs > label > span,
 .tax-jurisdiction > span,
-.sidebar-input-list label > span,
-.sidebar-profile-editor > label > span {
+.sidebar-input-list label > span {
   font-size: 12px;
   line-height: 1.4;
 }
+
 .form-grid input,
 .form-grid select,
 .assumptions-grid input,
 .assumptions-grid select,
 .private-income-field input,
-.sidebar-input-list input,
-.sidebar-profile-editor > label input {
+.sidebar-input-list input {
+  min-height: 40px;
   font-size: 14px;
 }
+
 .drawer h2 {
-  font-size: 23px;
-}
-.drawer-body {
-  line-height: 1.5;
+  font-size: 24px;
 }
 
-/* Costs, cash flow, tenants, compliance and banking. */
+.drawer-body {
+  line-height: 1.52;
+}
+
+/* Expenses */
+.expenses-hero h2 {
+  font-size: 24px;
+}
+
+.expenses-hero p {
+  max-width: 760px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.expenses-summary-grid {
+  gap: 12px;
+}
+
+.expense-summary {
+  border-radius: var(--ui-radius);
+}
+
+.expense-summary strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.expenses-filter-panel input,
+.expenses-filter-panel select,
+.expenses-search {
+  min-height: 40px;
+}
+
+.expenses-table input {
+  min-height: 36px;
+  font-size: 13px;
+}
+
+/* Costs, tenants, compliance and company information */
 .property-cost-card,
 .tenant-card,
 .bank-account {
-  line-height: 1.48;
+  line-height: 1.5;
 }
+
 .cost-category label,
 .cashflow-line,
 .compliance-list > div,
@@ -1649,122 +2123,316 @@ textarea {
 .bank-account p {
   font-size: 13px;
 }
+
 .cashflow-line input,
 .money-input input {
   font-size: 14px;
 }
+
+.compliance-list > div {
+  min-height: 62px;
+  padding-block: 10px;
+}
+
 .compliance-list b {
   font-size: 13px;
 }
+
 .compliance-list small,
 .compliance-list time {
   font-size: 11px;
 }
 
-/* Projection scenarios. */
+.ch-profile-grid,
+.ch-detail-grid,
+.ch-metrics-grid {
+  gap: 13px;
+}
+
+/* Projections */
 .projections-scenarios > header p {
   font-size: 14px;
 }
+
 .projections-scenarios .scenario {
   padding-block: 22px;
 }
+
 .projections-scenarios .scenario span,
 .projections-scenarios .scenario small {
   font-size: 13px;
 }
+
 .projections-scenarios .scenario b {
   font-size: 19px;
+  font-variant-numeric: tabular-nums;
 }
+
 .projections-scenarios .scenario > div:first-child b {
   font-size: 17px;
 }
 
-/* Remortgage Simulator: user-facing instructions and primary figures. */
+.projection-explorer > header p {
+  max-width: 720px;
+}
+
+.projection-toolbar {
+  gap: 10px;
+}
+
+/* Remortgage Simulator */
+.remortgage-toolbar {
+  align-items: center;
+}
+
 .remortgage-toolbar h2 {
   font-size: 26px;
 }
+
 .remortgage-toolbar p {
-  max-width: 720px;
+  max-width: 700px;
   font-size: 14px;
   line-height: 1.55;
 }
-.remortgage-toolbar > div:first-child > small {
-  display: none;
-}
+
 .remortgage-add label > span,
 .remortgage-field > span,
 .remortgage-fee-heading > span {
   font-size: 12px;
 }
+
 .remortgage-add select {
   min-height: 42px;
   font-size: 14px;
 }
+
+.remortgage-empty {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.remortgage-summary-row {
+  min-height: 92px;
+}
+
 .remortgage-summary-name small,
 .remortgage-summary-option small,
 .remortgage-summary-difference small {
-  font-size: 11px;
+  font-size: 10.5px;
 }
+
 .remortgage-summary-name strong {
   font-size: 17px;
 }
+
 .remortgage-summary-option strong {
-  font-size: 22px;
+  font-size: 23px;
+  font-variant-numeric: tabular-nums;
 }
+
 .remortgage-summary-option span {
   font-size: 12px;
 }
+
+.remortgage-summary-difference {
+  background: var(--ui-accent-soft);
+}
+
 .remortgage-summary-difference strong {
   font-size: 20px;
+  font-variant-numeric: tabular-nums;
 }
+
 .remortgage-scenario-card {
   padding: 20px;
+  border-radius: 12px;
 }
+
 .remortgage-scenario-card > header strong {
   font-size: 28px;
+  font-variant-numeric: tabular-nums;
 }
+
 .remortgage-scenario-card > header > small {
   font-size: 11px;
 }
+
 .remortgage-field > div {
   min-height: 47px;
 }
+
 .remortgage-field input {
   font-size: 18px;
 }
+
 .remortgage-result-strip dt {
   font-size: 10px;
 }
+
 .remortgage-result-strip dd {
   font-size: 13px;
 }
+
 .remortgage-impact strong {
   font-size: 32px;
 }
+
 .remortgage-impact small,
 .remortgage-difference-card dt {
   font-size: 11px;
 }
+
 .remortgage-impact span,
 .remortgage-difference-card dd {
   font-size: 13px;
 }
 
-/* Billing should feel consistent with the rest of the enlarged interface. */
+/* Billing */
+.billing-intro {
+  max-width: 760px;
+}
+
+.billing-intro h2 {
+  font-size: 29px;
+}
+
+.billing-intro p {
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.pricing-grid {
+  gap: 14px;
+}
+
+.pricing-card {
+  padding: 24px;
+  border-radius: var(--ui-radius);
+}
+
 .pricing-card > span,
 .pricing-card > p,
 .billing-features > div,
 .billing-message {
   font-size: 14px;
 }
+
 .pricing-card > strong {
-  font-size: 39px;
+  font-size: 40px;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Preserve the roomy feel on tablets/phones rather than squeezing large type. */
-@media (max-width: 900px) {
+.billing-features {
+  gap: 9px;
+}
+
+/* Authentication */
+.auth-card {
+  border-radius: var(--ui-radius-lg);
+  box-shadow: 0 24px 70px rgba(18, 38, 29, .10);
+}
+
+.auth-card h2 {
+  font-size: 30px;
+}
+
+.auth-card > p {
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.auth-card form label > span {
+  font-size: 12px;
+}
+
+.auth-card form label > div {
+  min-height: 48px;
+}
+
+.auth-card form input {
+  font-size: 14px;
+}
+
+.google-auth-button,
+.auth-submit {
+  min-height: 48px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.auth-promise h1 {
+  max-width: 620px;
+  font-size: clamp(40px, 4.5vw, 56px);
+  line-height: 1.03;
+}
+
+.auth-promise > p {
+  max-width: 600px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.auth-promise li {
+  font-size: 14px;
+}
+
+/* Status and empty states */
+.app-status-screen {
+  padding: 32px;
+  text-align: center;
+}
+
+.app-status-screen h1 {
+  font-size: 28px;
+}
+
+.app-status-screen p {
+  max-width: 560px;
+  margin-inline: auto;
+  color: var(--ui-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.empty-cashflow,
+.ch-empty,
+.expenses-empty,
+.bank-empty-chart {
+  color: var(--ui-muted);
+}
+
+/* Tablet and mobile */
+@media (max-width: 1100px) {
   .content {
+    padding-inline: 28px;
+  }
+
+  .hero-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .hero-context {
+    justify-content: flex-start;
+  }
+
+  .topbar {
     padding-inline: 24px;
+  }
+}
+
+@media (max-width: 840px) {
+  .topbar-reset {
+    padding-inline: 10px;
+  }
+
+  .topbar-reset {
+    font-size: 0;
+  }
+
+  .topbar-reset svg {
+    margin: 0;
   }
 }
 
@@ -1772,40 +2440,89 @@ textarea {
   body {
     font-size: 15px;
   }
+
   .content {
-    padding: 26px 15px 38px;
+    padding: 26px 15px 42px;
   }
+
+  .hero-row {
+    min-height: 0;
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+  }
+
   h1 {
     font-size: 31px;
   }
+
   h2 {
     font-size: 21px;
   }
+
   .hero-row p {
     font-size: 14px;
   }
-  .panel {
-    padding: 18px;
+
+  .hero-context > span {
+    min-height: 32px;
+    font-size: 10px;
   }
+
+  .panel {
+    border-radius: 12px;
+  }
+
   .primary-button,
   .secondary-button,
   .danger-button {
     min-height: 44px;
     font-size: 13px;
   }
+
   .mobile-bottom-nav button span {
     font-size: 11px;
   }
+
   .metric-card {
-    padding: 17px;
+    padding: 18px;
   }
+
   .metric-card strong {
-    font-size: clamp(22px, 6vw, 27px);
+    font-size: clamp(23px, 6vw, 28px);
   }
+
+  .property-group-toggle {
+    min-height: 74px;
+    padding: 15px 16px;
+  }
+
   .data-table tbody th,
   .data-table tbody td,
   .projection-table tbody th,
   .projection-table tbody td {
     font-size: 13px;
+  }
+
+  .remortgage-summary-row {
+    min-height: 0;
+  }
+
+  .auth-promise h1 {
+    font-size: 36px;
+  }
+}
+
+/* Respect reduced-motion preferences while retaining all information. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
   }
 }

@@ -78,18 +78,78 @@ const modelInputFields = [
 ]
 
 const workspaceNavigation = [
-  ['Overview', 'Overview', Gauge],
-  ['Properties', 'Properties', Home],
-  ['Tenants', 'Tenants', Users],
-  ['Costs & Cash Flows', 'Costs', ReceiptText],
-  ['Expenses', 'Expenses', FileText],
-  ['Banking', 'Banking', WalletCards],
-  ['Projections', 'Projections', TrendingUp],
-  ['Remortgage Simulator', 'Remortgage', RefreshCw],
-  ['Compliance', 'Compliance', ShieldCheck],
-  ['Companies House', 'Companies', Landmark],
-  ['Plan & billing', 'Plan', Sparkles],
+  ['Overview', 'Overview', Gauge, 'PORTFOLIO'],
+  ['Properties', 'Properties', Home, 'PORTFOLIO'],
+  ['Tenants', 'Tenants', Users, 'PORTFOLIO'],
+  ['Costs & Cash Flows', 'Costs', ReceiptText, 'PORTFOLIO'],
+  ['Expenses', 'Expenses', FileText, 'PORTFOLIO'],
+  ['Banking', 'Banking', WalletCards, 'PORTFOLIO'],
+  ['Projections', 'Projections', TrendingUp, 'PLANNING'],
+  ['Remortgage Simulator', 'Remortgage', RefreshCw, 'PLANNING'],
+  ['Compliance', 'Compliance', ShieldCheck, 'PLANNING'],
+  ['Companies House', 'Companies', Landmark, 'COMPANY'],
+  ['Plan & billing', 'Plan', Sparkles, 'ACCOUNT'],
 ]
+
+const navigationGroups = ['PORTFOLIO', 'PLANNING', 'COMPANY', 'ACCOUNT']
+
+const sectionMeta = {
+  Overview: {
+    eyebrow: 'PORTFOLIO',
+    title: 'Portfolio overview',
+    description: 'See value, equity, cash flow and resilience across the properties included in your model.',
+  },
+  Properties: {
+    eyebrow: 'PROPERTY DETAILS',
+    title: 'Properties',
+    description: 'Compare the key facts, values, borrowing and performance of each BTL.',
+  },
+  Tenants: {
+    eyebrow: 'TENANCIES',
+    title: 'Tenants',
+    description: 'Keep current and historic tenancy details linked to the right property.',
+  },
+  'Costs & Cash Flows': {
+    eyebrow: 'MONTHLY MODEL',
+    title: 'Costs & Cash Flows',
+    description: 'Review the income and recurring costs that drive your portfolio cash flow.',
+  },
+  Expenses: {
+    eyebrow: 'HISTORICAL LEDGER',
+    title: 'Expenses',
+    description: 'Record actual income and spending, then filter the ledger when you need it.',
+  },
+  Banking: {
+    eyebrow: 'CONNECTED ACCOUNTS',
+    title: 'Banking',
+    description: 'Review connected balances, transactions and actual cash-flow history.',
+  },
+  Projections: {
+    eyebrow: 'FORWARD VIEW',
+    title: 'Projections',
+    description: 'Explore how cash and value may develop under different operating assumptions.',
+  },
+  'Remortgage Simulator': {
+    eyebrow: 'FINANCE DECISIONS',
+    title: 'Remortgage Simulator',
+    description: 'Compare mortgage options side by side and see the monthly cash-flow effect.',
+  },
+  Compliance: {
+    eyebrow: 'KEY DATES',
+    title: 'Compliance',
+    description: 'See upcoming remortgage and compliance dates across the active portfolio.',
+  },
+  'Companies House': {
+    eyebrow: 'COMPANY RECORD',
+    title: 'Companies House',
+    description: 'Check your company against the official public register and upcoming filing dates.',
+  },
+  'Plan & billing': {
+    eyebrow: 'ACCOUNT',
+    title: 'Plan & billing',
+    description: 'Review your access level and manage your subscription.',
+  },
+}
 
 function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disabled = false }) {
   return (
@@ -245,7 +305,17 @@ function CompaniesHouseWorkspace({ settings, onSettingChange }) {
 
 function AccountProfileEditor({ settings, onChange }) {
   const isPrivate = settings.accountType === 'private'
-  return <section className="sidebar-profile-editor"><header><Building2 size={15} /><div><b>Portfolio profile</b><small>Account identity</small></div></header><div className="account-type-toggle"><button className={!isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'company')}>Company</button><button className={isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'private')}>Private</button></div><label className={isPrivate ? 'not-applicable' : ''} title={isPrivate ? 'Not used for private landlords.' : undefined}><span>Company name <small>optional</small></span><input disabled={isPrivate} value={settings.companyName || ''} onChange={(event) => onChange('companyName', event.target.value)} placeholder="Property company" /></label></section>
+  return <details className="sidebar-profile-editor sidebar-disclosure">
+    <summary>
+      <Building2 size={15} />
+      <div><b>Portfolio profile</b><small>{isPrivate ? 'Private landlord' : settings.companyName || 'Limited company'}</small></div>
+      <ChevronDown className="sidebar-disclosure-chevron" size={16} />
+    </summary>
+    <div className="sidebar-disclosure-body">
+      <div className="account-type-toggle"><button className={!isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'company')}>Company</button><button className={isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'private')}>Private</button></div>
+      <label className={isPrivate ? 'not-applicable' : ''} title={isPrivate ? 'Not used for private landlords.' : undefined}><span>Company name <small>optional</small></span><input disabled={isPrivate} value={settings.companyName || ''} onChange={(event) => onChange('companyName', event.target.value)} placeholder="Property company" /></label>
+    </div>
+  </details>
 }
 
 function AccountSetupModal({ onComplete }) {
@@ -311,7 +381,7 @@ function ProjectionExplorer({ properties, settings, portfolio, onSettingChange }
   const isCompany = settings.accountType !== 'private'
   const metricLabels = { cashPot: isCompany ? 'Company cash pot' : 'Cash pot', totalGain: isCompany ? 'Total gain (pre-personal-tax)' : 'Total gain', cashflow: isCompany ? 'Company + extraction cash' : 'Cash flow', appreciation: 'Appreciation' }
   const divisor = perFlat ? Math.max(1, portfolio.count) : 1
-  return <section className="panel projection-explorer"><header><div><span className="kicker">FORWARD VIEW</span><h2>Scenario accumulation over time</h2><p>Compare how cash and value build across the three sheet scenarios.</p></div><div className="projection-duration"><span>Horizon</span><select value={settings.projectionMonths} onChange={(event) => onSettingChange('projectionMonths', Number(event.target.value))}><option value={36}>3 years</option><option value={60}>5 years</option><option value={120}>10 years</option></select></div></header><div className="projection-toolbar"><div className="segmented">{Object.entries(metricLabels).map(([key, label]) => <button className={metric === key ? 'active' : ''} key={key} onClick={() => setMetric(key)}>{label}</button>)}</div><label className="per-flat-toggle"><input type="checkbox" checked={perFlat} onChange={(event) => setPerFlat(event.target.checked)} /><i /><span>Per flat</span></label></div><ProjectionChart points={points} metric={metric} perFlat={perFlat} count={portfolio.count} /><button className="projection-table-toggle" onClick={() => setTableOpen((open) => !open)}>{tableOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}<span><b>{tableOpen ? 'Hide' : 'Expand'} projection table</b><small>Annual snapshots · {metricLabels[metric]}{perFlat ? ' per flat' : ''}</small></span></button>{tableOpen && <div className="projection-table-wrap"><table className="projection-table"><thead><tr><th>Point in time</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{tablePoints.map((point) => <tr key={point.month}><th>{point.month / 12} year{point.month === 12 ? '' : 's'}<small>{shortDate(point.date)}</small></th>{point.scenarios.map((scenario, index) => <td key={index} style={{ '--scenario': scenarioMeta[index].colour }}><b>{currency(scenario[metric] / divisor)}</b><span className={scenario[metric] >= 0 ? 'positive' : 'negative'}>{scenario[metric] >= 0 ? 'Positive' : 'Negative'}</span></td>)}</tr>)}</tbody></table></div>}</section>
+  return <section className="panel projection-explorer"><header><div><span className="kicker">FORWARD VIEW</span><h2>Scenario accumulation over time</h2><p>Compare how cash and value build across the three operating scenarios.</p></div><div className="projection-duration"><span>Horizon</span><select value={settings.projectionMonths} onChange={(event) => onSettingChange('projectionMonths', Number(event.target.value))}><option value={36}>3 years</option><option value={60}>5 years</option><option value={120}>10 years</option></select></div></header><div className="projection-toolbar"><div className="segmented">{Object.entries(metricLabels).map(([key, label]) => <button className={metric === key ? 'active' : ''} key={key} onClick={() => setMetric(key)}>{label}</button>)}</div><label className="per-flat-toggle"><input type="checkbox" checked={perFlat} onChange={(event) => setPerFlat(event.target.checked)} /><i /><span>Per flat</span></label></div><ProjectionChart points={points} metric={metric} perFlat={perFlat} count={portfolio.count} /><button className="projection-table-toggle" onClick={() => setTableOpen((open) => !open)}>{tableOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}<span><b>{tableOpen ? 'Hide' : 'Expand'} projection table</b><small>Annual snapshots · {metricLabels[metric]}{perFlat ? ' per flat' : ''}</small></span></button>{tableOpen && <div className="projection-table-wrap"><table className="projection-table"><thead><tr><th>Point in time</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{tablePoints.map((point) => <tr key={point.month}><th>{point.month / 12} year{point.month === 12 ? '' : 's'}<small>{shortDate(point.date)}</small></th>{point.scenarios.map((scenario, index) => <td key={index} style={{ '--scenario': scenarioMeta[index].colour }}><b>{currency(scenario[metric] / divisor)}</b><span className={scenario[metric] >= 0 ? 'positive' : 'negative'}>{scenario[metric] >= 0 ? 'Positive' : 'Negative'}</span></td>)}</tr>)}</tbody></table></div>}</section>
 }
 
 const propertyCostFields = [
@@ -660,6 +730,11 @@ function PortfolioApp({ user }) {
     if (state.settings.accountType === 'private' && label === 'Companies House') return false
     return true
   })
+  const pageMeta = sectionMeta[section] || {
+    eyebrow: 'PORTFOLIO',
+    title: section,
+    description: 'Review and manage your portfolio.',
+  }
   const navigateMobile = (nextSection) => {
     setSection(nextSection)
     setMobileNavOpen(false)
@@ -673,9 +748,20 @@ function PortfolioApp({ user }) {
         <div className="brand"><span><Building2 size={20} /></span><div><strong>{state.settings.companyName || (state.settings.accountType === 'private' ? 'PRIVATE' : 'PROPERTY')}</strong><small>PORTFOLIO</small></div><button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
         <div className="sidebar-body">
           <nav>
-            <small>WORKSPACE</small>
-            {visibleWorkspaceNavigation.map(([label, , Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => { setSection(label); setMobileNavOpen(false) }}><Icon size={18} />{label}</button>)}
-            <small>PORTFOLIO</small>
+            {navigationGroups.map((group) => {
+              const items = visibleWorkspaceNavigation.filter(([, , , itemGroup]) => itemGroup === group)
+              if (!items.length) return null
+              return <React.Fragment key={group}>
+                <small>{group}</small>
+                {items.map(([label, , Icon]) => <button
+                  key={label}
+                  className={section === label ? 'active' : ''}
+                  aria-current={section === label ? 'page' : undefined}
+                  onClick={() => { setSection(label); setMobileNavOpen(false) }}
+                ><Icon size={18} />{label}</button>)}
+              </React.Fragment>
+            })}
+            <small>YOUR BTLS</small>
             {calculated.map((p) => <div key={p.id} className={`property-nav-row ${p.active ? 'included' : 'excluded'}`}>
               <button className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name); setMobileNavOpen(false) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>
               <label
@@ -692,11 +778,17 @@ function PortfolioApp({ user }) {
               </label>
             </div>)}
           </nav>
-          <section className="sidebar-model-inputs">
-            <header><Sparkles size={15} /><div><b>Model inputs</b><small>Portfolio assumptions</small></div></header>
-            <ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
-            <PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} compact />
-          </section>
+          <details className="sidebar-model-inputs sidebar-disclosure">
+            <summary>
+              <Sparkles size={15} />
+              <div><b>Model inputs</b><small>Portfolio assumptions</small></div>
+              <ChevronDown className="sidebar-disclosure-chevron" size={16} />
+            </summary>
+            <div className="sidebar-disclosure-body">
+              <ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
+              <PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} compact />
+            </div>
+          </details>
           <AccountProfileEditor settings={state.settings} onChange={updateSetting} />
           <button className={`sidebar-plan ${effectiveEntitlement.isPro ? 'pro' : ''}`} onClick={() => { setSection('Plan & billing'); setMobileNavOpen(false) }}><Sparkles size={17} /><span><b>{effectiveEntitlement.isPro ? 'Pro access' : 'Free · 1 BTL'}</b><small>{effectiveEntitlement.isOwner ? 'Owner account' : effectiveEntitlement.isPro ? 'Unlimited properties' : 'View upgrade options'}</small></span></button>
           {SUPPORT.enabled && showFreeSupport(effectiveEntitlement) && <a className="sidebar-support" href={SUPPORT.url} target="_blank" rel="noreferrer"><Coffee size={17} /><span><b>Buy me a coffee</b><small>Support BTL Portfolio</small></span><ExternalLink size={13} /></a>}
@@ -707,12 +799,20 @@ function PortfolioApp({ user }) {
       <main>
         <header className="topbar">
           <div><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span>{portfolioName}</span><b>/</b><strong>{section}</strong></div>
-          <div><button className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><span className={`save-status ${saveStatus}`} title={saveStatus === 'error' ? 'Could not save changes' : 'Your account data is saved securely'}>{saveStatus === 'error' ? <CloudOff size={15} /> : <Cloud size={15} />}{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved'}</span><button className="secondary-button small" onClick={reset}><RotateCcw size={15} /> Reset inputs</button></div>
+          <div><button className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><span className={`save-status ${saveStatus}`} title={saveStatus === 'error' ? 'Could not save changes' : 'Your account data is saved securely'}>{saveStatus === 'error' ? <CloudOff size={15} /> : <Cloud size={15} />}{saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved'}</span><button className="secondary-button small topbar-reset" onClick={reset} title="Reset portfolio model assumptions"><RotateCcw size={15} /> Reset model</button></div>
         </header>
 
         <div className="content">
           <section className="hero-row">
-            <div><span className="eyebrow">LIVE PORTFOLIO MODEL</span><h1>{section === 'Overview' ? 'Portfolio overview' : section}</h1><p>{portfolio.count} active BTLs · Last calculated just now · GBP</p></div>
+            <div className="hero-copy">
+              <span className="eyebrow">{pageMeta.eyebrow}</span>
+              <h1>{pageMeta.title}</h1>
+              <p>{pageMeta.description}</p>
+            </div>
+            <div className="hero-context" aria-label="Portfolio context">
+              <span><b>{portfolio.count}</b> active BTL{portfolio.count === 1 ? '' : 's'}</span>
+              <span>GBP</span>
+            </div>
           </section>
 
           {(section === 'Overview' || section === 'Projections') && <section className="global-model-strip"><div><span className="kicker">LIVE MODEL OPTIONS</span><p>Changes recalculate every overview, property metric and projection.</p></div><ModelControls settings={state.settings} onChange={updateSetting} /></section>}
