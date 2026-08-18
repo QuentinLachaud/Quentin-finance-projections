@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput } from './portfolioFields.js'
+import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput, visiblePropertyRows } from './portfolioFields.js'
 
 describe('portfolio field behaviour', () => {
   it('formats addresses without leading or empty separators', () => {
@@ -20,4 +20,20 @@ describe('portfolio field behaviour', () => {
     expect(formatRateComposition(0.0484, 0.0484)).toBe('4.84%')
     expect(formatRateComposition(0.0484, 0.0384)).toBe('4.84% − 1.00% = 3.84%')
   })
+
+  it('keeps advanced property metrics out of Basic view', () => {
+    const rows = [
+      ['Current LTV', () => 0.7, 'percent'],
+      ['Expected LTV at remortgage', () => 0.68, 'percent', true],
+      ['Releasable equity at 75% LTV', () => 10000, 'money-positive', true],
+    ]
+
+    expect(visiblePropertyRows(rows, false).map(([label]) => label)).toEqual(['Current LTV'])
+    expect(visiblePropertyRows(rows, true).map(([label]) => label)).toEqual([
+      'Current LTV',
+      'Expected LTV at remortgage',
+      'Releasable equity at 75% LTV',
+    ])
+  })
+
 })

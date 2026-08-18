@@ -16,3 +16,6 @@ export const formatRateComposition = (baseRate, effectiveRate) => {
   if (Math.abs(shock) < 0.0000001) return rate(base)
   return `${rate(base)} ${shock > 0 ? '+' : '−'} ${rate(Math.abs(shock))} = ${rate(effective)}`
 }
+
+export const visiblePropertyRows = (rows, advanced = false) =>
+  rows.filter((row) => advanced || row[3] !== true)

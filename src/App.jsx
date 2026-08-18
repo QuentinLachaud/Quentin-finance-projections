@@ -18,7 +18,7 @@ import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
-import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput } from './portfolioFields.js'
+import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput, visiblePropertyRows } from './portfolioFields.js'
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 import { initialTheme, userAvatarUrl } from './preferences.js'
 import { supportConfig } from './support.js'
@@ -40,16 +40,16 @@ const propertyGroups = [
   ]},
   { title: 'Value & leverage', description: 'Acquisition, debt and current equity position', tone: 'ink', rows: [
     ['Purchase price', (p) => currency(p.purchasePrice), 'money'], ['Home report at purchase', (p) => currency(p.homeReportPurchase), 'money'],
-    ['Latest valuation', (p) => currency(p.latestValuation), 'money'], ['Expected value at remortgage', (p) => currency(p.expectedRemortgageValue), 'money'],
+    ['Latest valuation', (p) => currency(p.latestValuation), 'money'], ['Expected value at remortgage', (p) => currency(p.expectedRemortgageValue), 'money', true],
     ['Loan amount', (p) => currency(p.loanAmount), 'money-negative'], ['Equity', (p) => currency(p.equity), 'money-positive'],
-    ['Current LTV', (p) => percent(p.currentLtv), 'percent'], ['Expected LTV at remortgage', (p) => percent(p.expectedRemortgageLtv), 'percent'],
-    ['Releasable equity at 75% LTV', (p) => currency(p.releasableEquity), 'money-positive'],
+    ['Current LTV', (p) => percent(p.currentLtv), 'percent'], ['Expected LTV at remortgage', (p) => percent(p.expectedRemortgageLtv), 'percent', true],
+    ['Releasable equity at 75% LTV', (p) => currency(p.releasableEquity), 'money-positive', true],
   ]},
   { title: 'Income & performance', description: 'Rent, finance costs and return metrics', tone: 'green', rows: [
     ['Monthly rent', (p) => currency(p.rent), 'money-positive'], ['Monthly mortgage', (p) => currency(p.monthlyPayment, 0), 'money-negative'],
     ['Gross yield', (p) => percent(p.grossYield, 2), 'percent'], ['Net yield', (p) => percent(p.netYield, 2), 'percent'],
-    ['Interest coverage ratio', (p) => percent(p.icr, 0), 'percent'], ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive'],
-    ['Voids since ownership', (p) => p.ownedDays ? `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})` : 'Purchase date required', 'text'],
+    ['Interest coverage ratio', (p) => percent(p.icr, 0), 'percent', true], ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive', true],
+    ['Voids since ownership', (p) => p.ownedDays ? `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})` : 'Purchase date required', 'text', true],
     ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent'], ['Current lender', (p) => p.lender, 'text'],
   ]},
   { title: 'Key dates', description: 'Remortgage and compliance milestones', tone: 'amber', rows: [
@@ -453,7 +453,20 @@ function PortfolioApp({ user }) {
   const [pendingProperty, setPendingProperty] = useState(null)
   const [section, setSection] = useState(() => BANKING_ENABLED && new URLSearchParams(window.location.search).get('bank_callback') === '1' ? 'Banking' : 'Overview')
   const [search, setSearch] = useState('')
+  const [advancedPropertyView, setAdvancedPropertyView] = useState(false)
+  const [collapsedPropertyGroups, setCollapsedPropertyGroups] = useState(
+    () => new Set(propertyGroups.map(({ title }) => title)),
+  )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  const togglePropertyGroup = (title) => {
+    setCollapsedPropertyGroups((current) => {
+      const next = new Set(current)
+      if (next.has(title)) next.delete(title)
+      else next.add(title)
+      return next
+    })
+  }
   const [theme, setTheme] = useState(() => initialTheme(window.localStorage.getItem('btl-theme'), window.matchMedia?.('(prefers-color-scheme: dark)').matches))
 
   useEffect(() => {
@@ -704,7 +717,67 @@ function PortfolioApp({ user }) {
             <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
           </>}
 
-          {section === 'Properties' && <><section className="panel properties-toolbar"><div><span className="kicker">CLEAR COMPARISON VIEW</span><h2>Property information by section</h2><p>Basics, performance and dates are separated so each property is easier to scan.</p></div><div className="table-tools"><label><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label><button className="primary-button small" onClick={addProperty}><Plus size={16} /> New BTL</button></div></section><div className="property-group-stack">{propertyGroups.map((group) => <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}><header><div><span className="group-marker" /><div><h2>{group.title}</h2><p>{group.description}</p></div></div></header><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead><tbody>{group.rows.map(([label, getter, kind]) => <tr key={label}><th>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody></table></div></section>)}</div></>}
+          {section === 'Properties' && <>
+            <section className="panel properties-toolbar">
+              <div>
+                <span className="kicker">CLEAR COMPARISON VIEW</span>
+                <h2>Property information by section</h2>
+                <p>Expand a section to compare properties. Advanced reveals projected and specialist metrics.</p>
+              </div>
+              <div className="table-tools properties-tools">
+                <div className={`property-view-mode ${advancedPropertyView ? 'advanced' : ''}`} aria-label="Property detail level">
+                  <span className={!advancedPropertyView ? 'active' : ''}>Basic</span>
+                  <label className="property-view-switch">
+                    <input
+                      aria-label="Show advanced property metrics"
+                      type="checkbox"
+                      checked={advancedPropertyView}
+                      onChange={(event) => setAdvancedPropertyView(event.target.checked)}
+                    />
+                    <i />
+                  </label>
+                  <span className={advancedPropertyView ? 'active' : ''}>Advanced</span>
+                </div>
+                <label><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+                <button className="primary-button small" onClick={addProperty}><Plus size={16} /> New BTL</button>
+              </div>
+            </section>
+
+            <div className="property-group-stack">
+              {propertyGroups.map((group) => {
+                const collapsed = collapsedPropertyGroups.has(group.title)
+                const rows = visiblePropertyRows(group.rows, advancedPropertyView)
+                return (
+                  <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}>
+                    <header className={collapsed ? 'collapsed' : ''}>
+                      <button
+                        type="button"
+                        className="property-group-toggle"
+                        aria-expanded={!collapsed}
+                        onClick={() => togglePropertyGroup(group.title)}
+                      >
+                        <div>
+                          <span className="group-marker" />
+                          <div><h2>{group.title}</h2><p>{group.description}</p></div>
+                        </div>
+                        <span className="property-group-chevron" aria-hidden="true">
+                          {collapsed ? <ChevronDown size={19} /> : <ChevronUp size={19} />}
+                        </span>
+                      </button>
+                    </header>
+                    {!collapsed && (
+                      <div className="data-table-wrap">
+                        <table className="data-table">
+                          <thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead>
+                          <tbody>{rows.map(([label, getter, kind]) => <tr key={label}><th>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                )
+              })}
+            </div>
+          </>}
 
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={state.properties} calculated={calculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} />}
 
