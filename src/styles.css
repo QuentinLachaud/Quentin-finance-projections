@@ -639,3 +639,32 @@ body { font-size: 14px; }
     font-size: 9px;
   }
 }
+
+/* Advanced property metric labels */
+.property-group-panel .data-table tbody th.advanced-metric-label {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  color: #456257;
+  background:
+    linear-gradient(90deg, rgba(28, 107, 80, .10), rgba(28, 107, 80, .035) 72%, rgba(28, 107, 80, 0)),
+    #fafbf9;
+  box-shadow: inset 3px 0 #8bbda6;
+}
+.property-group-panel .data-table tbody tr:hover th.advanced-metric-label {
+  background:
+    linear-gradient(90deg, rgba(28, 107, 80, .14), rgba(28, 107, 80, .055) 72%, rgba(28, 107, 80, 0)),
+    #f1f6f2;
+}
+:root[data-theme='dark'] .property-group-panel .data-table tbody th.advanced-metric-label {
+  color: #a8cfbc;
+  background:
+    linear-gradient(90deg, rgba(83, 160, 123, .16), rgba(83, 160, 123, .05) 72%, rgba(83, 160, 123, 0)),
+    #19211d;
+  box-shadow: inset 3px 0 #4f8c70;
+}
+:root[data-theme='dark'] .property-group-panel .data-table tbody tr:hover th.advanced-metric-label {
+  background:
+    linear-gradient(90deg, rgba(83, 160, 123, .22), rgba(83, 160, 123, .075) 72%, rgba(83, 160, 123, 0)),
+    #1c2722;
+}

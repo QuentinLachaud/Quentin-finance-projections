@@ -35,11 +35,11 @@ const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 const propertyGroups = [
   { title: 'Property basics', description: 'Identity, location and physical details', tone: 'blue', rows: [
     ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address), 'text'], ['Postcode', (p) => p.postcode, 'text'],
-    ['Bedrooms', (p) => p.bedrooms, 'integer'], ['Area', (p) => `${p.areaSqm} m²`, 'integer'],
-    ['EPC rating', (p) => p.epc, 'text'], ['First purchased', (p) => shortDate(p.purchaseDate), 'date'],
+    ['Bedrooms', (p) => p.bedrooms, 'integer'], ['Area', (p) => `${p.areaSqm} m²`, 'integer', true],
+    ['EPC rating', (p) => p.epc, 'text', true], ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true],
   ]},
   { title: 'Value & leverage', description: 'Acquisition, debt and current equity position', tone: 'ink', rows: [
-    ['Purchase price', (p) => currency(p.purchasePrice), 'money'], ['Home report at purchase', (p) => currency(p.homeReportPurchase), 'money'],
+    ['Purchase price', (p) => currency(p.purchasePrice), 'money', true], ['Home report at purchase', (p) => currency(p.homeReportPurchase), 'money', true],
     ['Latest valuation', (p) => currency(p.latestValuation), 'money'], ['Expected value at remortgage', (p) => currency(p.expectedRemortgageValue), 'money', true],
     ['Loan amount', (p) => currency(p.loanAmount), 'money-negative'], ['Equity', (p) => currency(p.equity), 'money-positive'],
     ['Current LTV', (p) => percent(p.currentLtv), 'percent'], ['Expected LTV at remortgage', (p) => percent(p.expectedRemortgageLtv), 'percent', true],
@@ -47,15 +47,15 @@ const propertyGroups = [
   ]},
   { title: 'Income & performance', description: 'Rent, finance costs and return metrics', tone: 'green', rows: [
     ['Monthly rent', (p) => currency(p.rent), 'money-positive'], ['Monthly mortgage', (p) => currency(p.monthlyPayment, 0), 'money-negative'],
-    ['Gross yield', (p) => percent(p.grossYield, 2), 'percent'], ['Net yield', (p) => percent(p.netYield, 2), 'percent'],
+    ['Gross yield', (p) => percent(p.grossYield, 2), 'percent', true], ['Net yield', (p) => percent(p.netYield, 2), 'percent', true],
     ['Interest coverage ratio', (p) => percent(p.icr, 0), 'percent', true], ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive', true],
     ['Voids since ownership', (p) => p.ownedDays ? `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})` : 'Purchase date required', 'text', true],
-    ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent'], ['Current lender', (p) => p.lender, 'text'],
+    ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent', true], ['Current lender', (p) => p.lender, 'text', true],
   ]},
   { title: 'Key dates', description: 'Remortgage and compliance milestones', tone: 'amber', rows: [
     ['Next remortgage', (p) => shortDate(p.nextRemortgage), 'date'], ['Call broker', (p) => shortDate(p.brokerDate), 'date'],
-    ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date'], ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date'],
-    ['PAT testing expiry', (p) => shortDate(p.patExpiry), 'date'], ['EPC expiry', (p) => shortDate(p.epcExpiry), 'date'],
+    ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date', true], ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date', true],
+    ['PAT testing expiry', (p) => shortDate(p.patExpiry), 'date', true], ['EPC expiry', (p) => shortDate(p.epcExpiry), 'date', true],
   ]},
 ]
 
@@ -779,7 +779,7 @@ function PortfolioApp({ user }) {
                       <div className="data-table-wrap">
                         <table className="data-table">
                           <thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead>
-                          <tbody>{rows.map(([label, getter, kind]) => <tr key={label}><th>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody>
+                          <tbody>{rows.map(([label, getter, kind, advanced]) => <tr key={label}><th className={advanced ? 'advanced-metric-label' : undefined}>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody>
                         </table>
                       </div>
                     )}
