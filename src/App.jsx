@@ -85,6 +85,7 @@ const workspaceNavigation = [
   ['Expenses', 'Expenses', FileText],
   ['Banking', 'Banking', WalletCards],
   ['Projections', 'Projections', TrendingUp],
+  ['Remortgage Simulator', 'Remortgage', RefreshCw],
   ['Compliance', 'Compliance', ShieldCheck],
   ['Companies House', 'Companies', Landmark],
   ['Plan & billing', 'Plan', Sparkles],
@@ -822,16 +823,17 @@ function PortfolioApp({ user }) {
               </header>
               <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />
             </section>
-            <RemortgageSimulator
-              properties={calculated}
-              comparisons={state.remortgageComparisons || []}
-              onChange={updateRemortgageComparisons}
-              isPro={effectiveEntitlement.isPro}
-              onUpgrade={() => setUpgradeOpen(true)}
-            />
             <ProjectionExplorer properties={includedProperties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
             <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
           </>}
+
+          {section === 'Remortgage Simulator' && <RemortgageSimulator
+            properties={calculated}
+            comparisons={state.remortgageComparisons || []}
+            onChange={updateRemortgageComparisons}
+            isPro={effectiveEntitlement.isPro}
+            onUpgrade={() => setUpgradeOpen(true)}
+          />}
 
           {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{includedCalculated.flatMap((p) => [['Call broker',p.brokerDate],['Gas certificate',p.gasExpiry],['EICR',p.eicrExpiry],['PAT testing',p.patExpiry],['EPC',p.epcExpiry]].map(([label,date]) => ({ property:p.name,label,date:new Date(date instanceof Date ? date : `${date}T12:00:00`) }))).filter((item) => !Number.isNaN(item.date.getTime())).sort((a,b) => a.date-b.date).map((item, index) => <div key={`${item.property}-${item.label}`}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.property}</small></p><time>{shortDate(item.date)}</time></div>)}</div></section>}
 

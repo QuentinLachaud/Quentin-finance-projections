@@ -4,6 +4,7 @@ import {
   compareRemortgageScenarios,
   createRemortgageComparison,
   createRemortgageScenario,
+  roundedLtv,
   updateRemortgageScenario,
 } from './remortgage.js'
 
@@ -11,8 +12,10 @@ describe('remortgage simulator', () => {
   it('links loan amount and LTV in both directions', () => {
     const base = createRemortgageScenario({ propertyValue: 200000, loanAmount: 150000, rate: 5 })
     expect(base.ltv).toBeCloseTo(75)
+
     const byLtv = updateRemortgageScenario(base, 'ltv', 70)
     expect(byLtv.loanAmount).toBeCloseTo(140000)
+
     const byLoan = updateRemortgageScenario(byLtv, 'loanAmount', 130000)
     expect(byLoan.ltv).toBeCloseTo(65)
   })
@@ -67,7 +70,22 @@ describe('remortgage simulator', () => {
     expect(comparison.annualCashFlowChange).toBeCloseTo(1500)
   })
 
-  it('initializes an existing property from valuation, loan and base rate', () => {
+  it('reports positive equity release when option B increases borrowing', () => {
+    const comparison = compareRemortgageScenarios(
+      createRemortgageScenario({ propertyValue: 200000, loanAmount: 120000, rate: 5 }),
+      createRemortgageScenario({ propertyValue: 200000, loanAmount: 140000, rate: 5 }),
+    )
+    expect(comparison.equityRelease).toBeCloseTo(20000)
+    expect(comparison.equityChange).toBeCloseTo(-20000)
+  })
+
+  it('rounds displayed LTV to the nearest whole percentage point', () => {
+    expect(roundedLtv(69.49)).toBe(69)
+    expect(roundedLtv(69.5)).toBe(70)
+    expect(roundedLtv(75.9)).toBe(76)
+  })
+
+  it('initializes an existing property from its valuation, loan and base rate', () => {
     const comparison = createRemortgageComparison({
       id: 'one',
       name: 'BTL1',

@@ -4,6 +4,8 @@ const makeId = () => globalThis.crypto?.randomUUID?.()
 const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0
 const nonNegative = (value) => Math.max(0, number(value))
 
+export const roundedLtv = (value) => Math.round(nonNegative(value))
+
 export const createRemortgageScenario = ({
   propertyValue = 0,
   loanAmount = 0,
@@ -120,5 +122,6 @@ export const compareRemortgageScenarios = (leftScenario, rightScenario) => {
     feeChange: right.fee - left.fee,
     upfrontFeeChange: right.upfrontFee - left.upfrontFee,
     equityChange: right.equity - left.equity,
+    equityRelease: left.equity - right.equity,
   }
 }
