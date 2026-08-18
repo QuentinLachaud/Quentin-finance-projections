@@ -322,8 +322,7 @@ export default function RemortgageSimulator({
       <div>
         <span className="kicker">PRO · FINANCE DECISION TOOL</span>
         <h2>Remortgage Simulator</h2>
-        <p>Build several comparisons, collapse them to one clean row, then compare the rates and resulting monthly cash flow at a glance.</p>
-        <small>Existing BTLs use current property-level cash flow before tax. Manual cases show finance-only cash flow.</small>
+        <p>Choose a property, add a comparison, then enter the remortgage rate, loan, LTV and product fee. Collapse each comparison to compare your saved options at a glance.</p>
       </div>
 
       <div className="remortgage-add">

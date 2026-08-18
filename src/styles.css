@@ -1398,3 +1398,414 @@ body { font-size: 14px; }
   background: #111713;
   border-color: #37433d;
 }
+
+/* Global readability and spacing pass
+   Keep the existing visual language, but make the product easier to read,
+   scan and operate without turning the interface into oversized UI. */
+body {
+  font-size: 15px;
+  line-height: 1.48;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Give the larger typography enough horizontal room. */
+.app-shell {
+  grid-template-columns: 282px 1fr;
+}
+.sidebar {
+  width: 282px;
+  padding: 27px 18px 18px;
+}
+main {
+  grid-column: 2;
+}
+.content {
+  max-width: 1510px;
+  padding: 46px 44px 76px;
+}
+.topbar {
+  height: 72px;
+  padding-inline: 38px;
+}
+
+/* Navigation and persistent chrome. */
+.brand strong {
+  max-width: 164px;
+  font-size: 15px;
+}
+.brand small {
+  font-size: 9px;
+}
+.sidebar nav > small {
+  font-size: 10px;
+}
+.sidebar nav button {
+  min-height: 42px;
+  padding-block: 10px;
+  font-size: 14px;
+}
+.sidebar nav button.property-nav {
+  min-height: 40px;
+}
+.property-nav > i {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+.property-nav span small {
+  font-size: 10px;
+  line-height: 1.35;
+}
+.sidebar-foot b {
+  font-size: 12px;
+}
+.sidebar-foot small,
+.sidebar-plan small,
+.sidebar-support small {
+  font-size: 10px;
+}
+.sidebar-plan b,
+.sidebar-support b {
+  font-size: 13px;
+}
+.topbar span,
+.topbar b,
+.topbar strong {
+  font-size: 13px;
+}
+
+/* Page hierarchy. */
+.eyebrow,
+.kicker {
+  font-size: 10px;
+  line-height: 1.3;
+}
+h1 {
+  font-size: 38px;
+  line-height: 1.12;
+}
+h2 {
+  font-size: 22px;
+  line-height: 1.2;
+}
+h3 {
+  line-height: 1.3;
+}
+.hero-row {
+  margin-bottom: 34px;
+}
+.hero-row p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.panel {
+  line-height: 1.45;
+}
+.panel > header {
+  gap: 14px;
+}
+.panel > header p,
+.properties-toolbar p,
+.projection-toolbar p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Controls should be readable without becoming bulky. */
+.primary-button,
+.secondary-button,
+.danger-button {
+  min-height: 42px;
+  padding-inline: 16px;
+  font-size: 13px;
+}
+.small {
+  min-height: 36px;
+  font-size: 12px;
+}
+.assumption-pill {
+  min-height: 38px;
+  font-size: 12px;
+}
+.segmented button,
+.account-type-toggle button,
+.tax-jurisdiction button {
+  font-size: 12px;
+}
+input,
+select,
+textarea {
+  line-height: 1.35;
+}
+
+/* Core dashboard cards. */
+.metrics-grid,
+.metrics-grid.three,
+.property-cards,
+.main-grid {
+  gap: 14px;
+}
+.metric-card {
+  padding: 20px;
+}
+.metric-card span,
+.metric-card small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.metric-card strong {
+  font-size: 27px;
+  line-height: 1.15;
+}
+.property-card {
+  padding: 20px;
+}
+.property-card h3 {
+  font-size: 18px;
+  line-height: 1.3;
+}
+.property-card p,
+.property-card small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.property-value > span,
+.property-actions button {
+  font-size: 12px;
+}
+.property-value strong {
+  font-size: 24px;
+}
+
+/* Tables are one of the densest parts of the product. */
+.data-table th,
+.data-table td,
+.projection-table th,
+.projection-table td,
+.reconciliation-wrap th,
+.reconciliation-wrap td {
+  padding-block: 13px;
+  line-height: 1.4;
+}
+.data-table tbody th,
+.data-table tbody td,
+.projection-table tbody th,
+.projection-table tbody td {
+  font-size: 13px;
+}
+.data-table thead th,
+.projection-table thead th {
+  font-size: 12px;
+}
+.data-table thead button {
+  font-size: 13px;
+}
+.data-table thead button small {
+  font-size: 10px;
+}
+
+/* Forms, drawers and model inputs. */
+.form-grid label > span,
+.assumptions-grid label > span,
+.private-tax-inputs > label > span,
+.tax-jurisdiction > span,
+.sidebar-input-list label > span,
+.sidebar-profile-editor > label > span {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.form-grid input,
+.form-grid select,
+.assumptions-grid input,
+.assumptions-grid select,
+.private-income-field input,
+.sidebar-input-list input,
+.sidebar-profile-editor > label input {
+  font-size: 14px;
+}
+.drawer h2 {
+  font-size: 23px;
+}
+.drawer-body {
+  line-height: 1.5;
+}
+
+/* Costs, cash flow, tenants, compliance and banking. */
+.property-cost-card,
+.tenant-card,
+.bank-account {
+  line-height: 1.48;
+}
+.cost-category label,
+.cashflow-line,
+.compliance-list > div,
+.tenant-card p,
+.bank-account p {
+  font-size: 13px;
+}
+.cashflow-line input,
+.money-input input {
+  font-size: 14px;
+}
+.compliance-list b {
+  font-size: 13px;
+}
+.compliance-list small,
+.compliance-list time {
+  font-size: 11px;
+}
+
+/* Projection scenarios. */
+.projections-scenarios > header p {
+  font-size: 14px;
+}
+.projections-scenarios .scenario {
+  padding-block: 22px;
+}
+.projections-scenarios .scenario span,
+.projections-scenarios .scenario small {
+  font-size: 13px;
+}
+.projections-scenarios .scenario b {
+  font-size: 19px;
+}
+.projections-scenarios .scenario > div:first-child b {
+  font-size: 17px;
+}
+
+/* Remortgage Simulator: user-facing instructions and primary figures. */
+.remortgage-toolbar h2 {
+  font-size: 26px;
+}
+.remortgage-toolbar p {
+  max-width: 720px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.remortgage-toolbar > div:first-child > small {
+  display: none;
+}
+.remortgage-add label > span,
+.remortgage-field > span,
+.remortgage-fee-heading > span {
+  font-size: 12px;
+}
+.remortgage-add select {
+  min-height: 42px;
+  font-size: 14px;
+}
+.remortgage-summary-name small,
+.remortgage-summary-option small,
+.remortgage-summary-difference small {
+  font-size: 11px;
+}
+.remortgage-summary-name strong {
+  font-size: 17px;
+}
+.remortgage-summary-option strong {
+  font-size: 22px;
+}
+.remortgage-summary-option span {
+  font-size: 12px;
+}
+.remortgage-summary-difference strong {
+  font-size: 20px;
+}
+.remortgage-scenario-card {
+  padding: 20px;
+}
+.remortgage-scenario-card > header strong {
+  font-size: 28px;
+}
+.remortgage-scenario-card > header > small {
+  font-size: 11px;
+}
+.remortgage-field > div {
+  min-height: 47px;
+}
+.remortgage-field input {
+  font-size: 18px;
+}
+.remortgage-result-strip dt {
+  font-size: 10px;
+}
+.remortgage-result-strip dd {
+  font-size: 13px;
+}
+.remortgage-impact strong {
+  font-size: 32px;
+}
+.remortgage-impact small,
+.remortgage-difference-card dt {
+  font-size: 11px;
+}
+.remortgage-impact span,
+.remortgage-difference-card dd {
+  font-size: 13px;
+}
+
+/* Billing should feel consistent with the rest of the enlarged interface. */
+.pricing-card > span,
+.pricing-card > p,
+.billing-features > div,
+.billing-message {
+  font-size: 14px;
+}
+.pricing-card > strong {
+  font-size: 39px;
+}
+
+/* Preserve the roomy feel on tablets/phones rather than squeezing large type. */
+@media (max-width: 900px) {
+  .content {
+    padding-inline: 24px;
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    font-size: 15px;
+  }
+  .content {
+    padding: 26px 15px 38px;
+  }
+  h1 {
+    font-size: 31px;
+  }
+  h2 {
+    font-size: 21px;
+  }
+  .hero-row p {
+    font-size: 14px;
+  }
+  .panel {
+    padding: 18px;
+  }
+  .primary-button,
+  .secondary-button,
+  .danger-button {
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .mobile-bottom-nav button span {
+    font-size: 11px;
+  }
+  .metric-card {
+    padding: 17px;
+  }
+  .metric-card strong {
+    font-size: clamp(22px, 6vw, 27px);
+  }
+  .data-table tbody th,
+  .data-table tbody td,
+  .projection-table tbody th,
+  .projection-table tbody td {
+    font-size: 13px;
+  }
+}
