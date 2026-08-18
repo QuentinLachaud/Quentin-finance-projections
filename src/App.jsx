@@ -16,6 +16,7 @@ import AuthScreen from './AuthScreen.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
+import RemortgageSimulator from './RemortgageSimulator.jsx'
 import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
@@ -520,6 +521,7 @@ function PortfolioApp({ user }) {
         properties: migratedProperties,
         tenants: migratedTenants,
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
+        remortgageComparisons: Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : [],
         settings: {
           ...defaultSettings,
           ...existingAccountDefaults,
@@ -630,6 +632,7 @@ function PortfolioApp({ user }) {
   const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, taxDeductible: false, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
   const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
   const updateExpenses = (expenses) => setState((current) => ({ ...current, expenses }))
+  const updateRemortgageComparisons = (remortgageComparisons) => setState((current) => ({ ...current, remortgageComparisons }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
     tenants: current.tenants.some((item) => item.id === tenant.id) ? current.tenants.map((item) => item.id === tenant.id ? tenant : item) : [...current.tenants, tenant],
@@ -819,6 +822,13 @@ function PortfolioApp({ user }) {
               </header>
               <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />
             </section>
+            <RemortgageSimulator
+              properties={calculated}
+              comparisons={state.remortgageComparisons || []}
+              onChange={updateRemortgageComparisons}
+              isPro={effectiveEntitlement.isPro}
+              onUpgrade={() => setUpgradeOpen(true)}
+            />
             <ProjectionExplorer properties={includedProperties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
             <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
           </>}

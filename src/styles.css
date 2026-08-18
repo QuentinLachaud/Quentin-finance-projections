@@ -789,3 +789,266 @@ body { font-size: 14px; }
   .projections-scenarios .scenario { min-width: 760px; }
   .projections-scenarios .scenario-list { overflow-x: auto; }
 }
+
+/* Pro remortgage simulator */
+.remortgage-simulator { margin-top: 14px; }
+.remortgage-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.remortgage-toolbar > div:first-child { max-width: 720px; }
+.remortgage-toolbar p, .remortgage-empty p, .remortgage-locked p {
+  margin: 5px 0 0;
+  color: #74807a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.remortgage-add { display: flex; align-items: flex-end; gap: 9px; }
+.remortgage-add label { display: grid; gap: 5px; }
+.remortgage-add label > span { color: #74807a; font-size: 11px; font-weight: 600; }
+.remortgage-add select {
+  min-width: 190px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #27332e;
+  background: #fff;
+}
+.remortgage-empty { margin-top: 10px; padding-block: 28px; text-align: center; }
+.remortgage-empty h3 { margin: 0; }
+.remortgage-comparison-stack { display: grid; gap: 14px; margin-top: 12px; }
+.remortgage-comparison { padding: 0; overflow: hidden; }
+.remortgage-comparison-header {
+  padding: 17px 19px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #fafbf9;
+}
+.remortgage-comparison-header > div:first-child { min-width: 0; display: grid; gap: 4px; }
+.remortgage-comparison-header input {
+  width: min(360px, 100%);
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: #27332e;
+  background: transparent;
+  font: 600 18px 'Manrope';
+}
+.remortgage-comparison-header > div:last-child { display: flex; align-items: center; gap: 7px; }
+.remortgage-comparison-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) 42px minmax(250px, 1fr) minmax(220px, .82fr);
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px;
+}
+.remortgage-arrow { display: grid; place-items: center; color: #6b8278; }
+.remortgage-arrow svg {
+  width: 32px;
+  height: 32px;
+  padding: 7px;
+  border: 1px solid #d8e2dc;
+  border-radius: 50%;
+  background: #f6f9f7;
+}
+.remortgage-scenario-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #dfe5e1;
+  border-radius: 11px;
+  background: #fff;
+}
+.remortgage-scenario-card > header {
+  margin-bottom: 16px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #edf0ed;
+}
+.remortgage-scenario-card > header > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.remortgage-scenario-card > header span {
+  color: #52625b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.remortgage-scenario-card > header strong { color: #1c6b50; font: 600 21px 'Manrope'; }
+.remortgage-scenario-card > header strong small { color: #7d8882; font: 500 11px 'DM Sans'; }
+.remortgage-scenario-card > header > small { color: #8a938f; font-size: 10px; }
+.remortgage-fields { display: grid; gap: 11px; }
+.remortgage-field { display: grid; gap: 5px; }
+.remortgage-field > span, .remortgage-fee-heading > span { color: #647169; font-size: 11px; font-weight: 600; }
+.remortgage-field > div {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #dce2dd;
+  border-radius: 8px;
+  background: #fbfcfb;
+}
+.remortgage-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px;
+  border: 0;
+  outline: 0;
+  color: #27332e;
+  background: transparent;
+  text-align: right;
+}
+.remortgage-field b { padding-inline: 9px; color: #87928d; font-size: 11px; font-weight: 600; }
+.remortgage-field-pair { display: grid; grid-template-columns: 1fr .72fr; gap: 8px; }
+.remortgage-fee-block {
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px solid #edf0ed;
+  display: grid;
+  gap: 10px;
+}
+.remortgage-fee-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.remortgage-segmented { display: flex; padding: 2px; border: 1px solid #dfe5e1; border-radius: 7px; background: #f7f9f7; }
+.remortgage-segmented button {
+  min-height: 25px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 5px;
+  color: #74807a;
+  background: transparent;
+  font-size: 9px;
+}
+.remortgage-segmented button.active { color: #fff; background: #426f5d; }
+.remortgage-switch-row {
+  display: grid;
+  grid-template-columns: 1fr 32px;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+.remortgage-switch-row > span { display: grid; gap: 2px; }
+.remortgage-switch-row b { color: #52625b; font-size: 11px; }
+.remortgage-switch-row small { color: #8a938f; font-size: 9px; }
+.remortgage-switch-row input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.remortgage-switch-row > i { width: 32px; height: 18px; position: relative; border-radius: 999px; background: #cbd4cf; }
+.remortgage-switch-row > i::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .18s ease;
+}
+.remortgage-switch-row input:checked + i { background: #1c6b50; }
+.remortgage-switch-row input:checked + i::after { transform: translateX(14px); }
+.remortgage-result-strip {
+  margin: 15px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #edf0ed;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.remortgage-result-strip div { min-width: 0; display: grid; gap: 2px; }
+.remortgage-result-strip dt { color: #8a938f; font-size: 9px; }
+.remortgage-result-strip dd { margin: 0; color: #34423b; font-size: 11px; font-weight: 700; }
+.remortgage-difference-card {
+  padding: 17px;
+  border: 1px solid #dbe4df;
+  border-radius: 11px;
+  background: #f6f9f7;
+}
+.remortgage-impact {
+  margin: 13px 0 15px;
+  padding: 14px;
+  border: 1px solid #d7e5dd;
+  border-radius: 9px;
+  display: grid;
+  gap: 3px;
+  background: #fff;
+}
+.remortgage-impact small { color: #75817b; font-size: 10px; }
+.remortgage-impact strong { font: 650 26px 'Manrope'; }
+.remortgage-difference-card.positive .remortgage-impact strong { color: #1c6b50; }
+.remortgage-difference-card.negative .remortgage-impact strong { color: #b54b41; }
+.remortgage-impact span { color: #6c7872; font-size: 11px; font-weight: 600; }
+.remortgage-difference-card dl { margin: 0; display: grid; }
+.remortgage-difference-card dl div {
+  padding: 8px 0;
+  border-top: 1px solid #e4e9e6;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.remortgage-difference-card dt { color: #74807a; font-size: 10px; }
+.remortgage-difference-card dd { margin: 0; color: #34423b; font-size: 11px; font-weight: 700; }
+.remortgage-difference-card > p { margin: 12px 0 0; color: #77837d; font-size: 10px; line-height: 1.4; }
+.remortgage-locked {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+}
+.remortgage-lock-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #1c6b50;
+  background: #e7f2ec;
+}
+@media (max-width: 1180px) {
+  .remortgage-comparison-grid { grid-template-columns: 1fr 36px 1fr; }
+  .remortgage-difference-card { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .remortgage-locked { grid-template-columns: 1fr; align-items: stretch; }
+  .remortgage-toolbar { flex-direction: column; align-items: stretch; }
+  .remortgage-add { align-items: stretch; flex-direction: column; }
+  .remortgage-add select { width: 100%; }
+  .remortgage-comparison-header { align-items: stretch; flex-direction: column; }
+  .remortgage-comparison-grid { grid-template-columns: 1fr; }
+  .remortgage-arrow { min-height: 34px; transform: rotate(90deg); }
+  .remortgage-difference-card { grid-column: auto; }
+}
+:root[data-theme='dark'] .remortgage-scenario-card,
+:root[data-theme='dark'] .remortgage-impact {
+  background: #161d19;
+  border-color: #303b35;
+}
+:root[data-theme='dark'] .remortgage-comparison-header,
+:root[data-theme='dark'] .remortgage-difference-card {
+  background: #19211d;
+  border-color: #303b35;
+}
+:root[data-theme='dark'] .remortgage-comparison-header input,
+:root[data-theme='dark'] .remortgage-field input,
+:root[data-theme='dark'] .remortgage-result-strip dd,
+:root[data-theme='dark'] .remortgage-difference-card dd { color: #e7eee9; }
+:root[data-theme='dark'] .remortgage-field > div,
+:root[data-theme='dark'] .remortgage-add select {
+  color: #e7eee9;
+  background: #101612;
+  border-color: #37433d;
+}
+:root[data-theme='dark'] .remortgage-arrow svg {
+  color: #9db0a7;
+  background: #202923;
+  border-color: #37433d;
+}
+:root[data-theme='dark'] .remortgage-segmented {
+  background: #111713;
+  border-color: #37433d;
+}
