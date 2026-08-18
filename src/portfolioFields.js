@@ -19,3 +19,11 @@ export const formatRateComposition = (baseRate, effectiveRate) => {
 
 export const visiblePropertyRows = (rows, advanced = false) =>
   rows.filter((row) => advanced || row[3] !== true)
+
+export const includedPortfolioProperties = (properties = []) =>
+  properties.filter((property) => property?.active === true)
+
+export const tenantsForIncludedProperties = (tenants = [], properties = []) => {
+  const includedIds = new Set(includedPortfolioProperties(properties).map((property) => property.id))
+  return tenants.filter((tenant) => includedIds.has(tenant.propertyId))
+}

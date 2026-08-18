@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPropertyAddress, formatRateComposition, shouldSelectZeroInput, visiblePropertyRows } from './portfolioFields.js'
+import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
 
 describe('portfolio field behaviour', () => {
   it('formats addresses without leading or empty separators', () => {
@@ -34,6 +34,22 @@ describe('portfolio field behaviour', () => {
       'Expected LTV at remortgage',
       'Releasable equity at 75% LTV',
     ])
+  })
+
+
+  it('uses the property active flag as the master portfolio inclusion switch', () => {
+    const properties = [
+      { id: 'one', name: 'BTL1', active: true },
+      { id: 'two', name: 'BTL2', active: false },
+      { id: 'three', name: 'BTL3', active: true },
+    ]
+    const tenants = [
+      { id: 'tenant-one', propertyId: 'one' },
+      { id: 'tenant-two', propertyId: 'two' },
+    ]
+
+    expect(includedPortfolioProperties(properties).map((property) => property.id)).toEqual(['one', 'three'])
+    expect(tenantsForIncludedProperties(tenants, properties).map((tenant) => tenant.id)).toEqual(['tenant-one'])
   })
 
 })

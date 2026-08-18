@@ -535,3 +535,107 @@ body { font-size: 14px; }
   background: #202823;
   border-color: #37433d;
 }
+
+/* Sidebar portfolio inclusion controls */
+.property-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0;
+  border-radius: 8px;
+}
+.sidebar nav .property-nav-row > button.property-nav {
+  width: auto;
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  padding: 8px 7px 8px 9px;
+}
+.property-nav-row.excluded > .property-nav {
+  opacity: .5;
+}
+.property-nav-row.excluded > .property-nav > i {
+  filter: grayscale(1);
+}
+.property-nav-visibility {
+  width: 61px;
+  min-height: 34px;
+  flex: 0 0 61px;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 5px;
+  border: 1px solid #304039;
+  border-radius: 7px;
+  color: #91a39b;
+  background: #141d19;
+  cursor: pointer;
+  user-select: none;
+}
+.property-nav-visibility:hover {
+  color: #e9f4ee;
+  border-color: #496057;
+  background: #1a2520;
+}
+.property-nav-visibility input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.property-nav-visibility > i {
+  width: 18px;
+  height: 10px;
+  position: relative;
+  border-radius: 999px;
+  background: #59645f;
+  transition: background .18s ease;
+}
+.property-nav-visibility > i::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  border-radius: 50%;
+  background: #d7dfdb;
+  transition: transform .18s ease;
+}
+.property-nav-visibility input:checked + i {
+  background: #4b9f78;
+}
+.property-nav-visibility input:checked + i::after {
+  transform: translateX(8px);
+  background: #fff;
+}
+.property-nav-visibility input:focus-visible + i {
+  outline: 2px solid #8fddb9;
+  outline-offset: 2px;
+}
+.property-nav-visibility > span {
+  overflow: hidden;
+  color: inherit;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.property-nav-row.excluded .property-nav-visibility {
+  color: #b58f87;
+  border-color: #4a3935;
+  background: #1e1816;
+}
+
+@media (max-width: 720px) {
+  .property-nav-visibility {
+    width: 68px;
+    flex-basis: 68px;
+    min-height: 40px;
+  }
+  .property-nav-visibility > span {
+    font-size: 9px;
+  }
+}
