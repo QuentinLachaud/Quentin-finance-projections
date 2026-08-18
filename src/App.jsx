@@ -674,10 +674,17 @@ function PortfolioApp({ user }) {
             <small>PORTFOLIO</small>
             {calculated.map((p) => <div key={p.id} className={`property-nav-row ${p.active ? 'included' : 'excluded'}`}>
               <button className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name); setMobileNavOpen(false) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>
-              <label className="property-nav-visibility" title={p.active ? `Exclude ${p.name} from portfolio calculations and other workspaces` : `Show ${p.name} in portfolio calculations and other workspaces`}>
-                <input type="checkbox" checked={Boolean(p.active)} onChange={() => toggleProperty(p.id)} />
+              <label
+                className="property-nav-visibility"
+                title={p.active ? `Exclude ${p.name} from portfolio calculations and other workspaces` : `Include ${p.name} in portfolio calculations and other workspaces`}
+              >
+                <input
+                  aria-label={p.active ? `Exclude ${p.name}` : `Include ${p.name}`}
+                  type="checkbox"
+                  checked={Boolean(p.active)}
+                  onChange={() => toggleProperty(p.id)}
+                />
                 <i />
-                <span>{p.active ? 'Show' : 'Exclude'}</span>
               </label>
             </div>)}
           </nav>

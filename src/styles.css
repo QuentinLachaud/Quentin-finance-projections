@@ -668,3 +668,96 @@ body { font-size: 14px; }
     linear-gradient(90deg, rgba(83, 160, 123, .22), rgba(83, 160, 123, .075) 72%, rgba(83, 160, 123, 0)),
     #1c2722;
 }
+
+/* Aligned property comparison columns + compact sidebar toggles */
+.property-group-panel .data-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.property-group-panel .data-table tr > :first-child {
+  width: 240px;
+  min-width: 240px;
+  max-width: 240px;
+  white-space: nowrap;
+}
+.property-group-panel .data-table tr > :not(:first-child) {
+  width: auto;
+}
+
+/* Replace the text-heavy Show / Exclude control with one compact switch. */
+.property-nav-row {
+  gap: 2px;
+}
+.sidebar nav .property-nav-row > button.property-nav {
+  padding-right: 4px;
+}
+.property-nav-visibility {
+  width: 36px;
+  min-height: 30px;
+  flex: 0 0 36px;
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: inherit;
+  background: transparent;
+}
+.property-nav-visibility:hover {
+  border: 0;
+  background: #1a2520;
+}
+.property-nav-visibility > i {
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: #4a5550;
+}
+.property-nav-visibility > i::after {
+  width: 12px;
+  height: 12px;
+  left: 2px;
+  top: 2px;
+}
+.property-nav-visibility input:checked + i {
+  background: #4b9f78;
+}
+.property-nav-visibility input:checked + i::after {
+  transform: translateX(12px);
+}
+.property-nav-row.excluded .property-nav-visibility {
+  color: inherit;
+  border: 0;
+  background: transparent;
+}
+.property-nav-row.excluded .property-nav-visibility:hover {
+  background: #1a2520;
+}
+
+/* Override the older phone-specific property-table widths:
+   comparison columns must stay aligned and metric labels must stay on one line. */
+@media (max-width: 480px) and (orientation: portrait) {
+  .property-group-panel .data-table tr > :first-child {
+    width: 240px;
+    min-width: 240px;
+    max-width: 240px;
+    padding-inline: 11px;
+    white-space: nowrap;
+    line-height: 1.3;
+  }
+  .property-group-panel .data-table tr > :not(:first-child) {
+    width: 158px;
+    min-width: 158px;
+    padding-inline: 12px;
+  }
+}
+
+@media (max-width: 720px) {
+  .property-nav-visibility {
+    width: 38px;
+    min-height: 36px;
+    flex-basis: 38px;
+  }
+}
