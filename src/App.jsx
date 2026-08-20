@@ -341,8 +341,8 @@ function AssetPositionChart({ properties }) {
         {properties.map((p) => (
           <div className="asset-row" key={p.id}>
             <div className="asset-label"><b>{p.name}</b><small>{p.flatNumber}, {p.address}</small></div>
-            <div className="asset-track-wrap"><div className="asset-track" style={{ width: `${Math.max(30, p.latestValuation / maxValue * 100)}%` }}><span className="asset-value-bar" /><span className="asset-loan-bar" style={{ width: `${Math.min(100, p.currentLtv * 100)}%` }} /></div></div>
-            <div className="asset-numbers"><span><b>{currency(p.latestValuation)}</b><small>Value · 100%</small></span><span><b>{currency(p.loanAmount)}</b><small>Loan · {percent(p.currentLtv, 1)}</small></span><span><b>{currency(p.equity)}</b><small>Equity · {percent(1 - p.currentLtv, 1)}</small></span></div>
+            <div className="asset-track-wrap"><div className="asset-track" style={{ width: `${Math.max(30, p.latestValuation / maxValue * 100)}%` }}><span className="asset-value-bar" /><span className="asset-loan-bar" style={{ width: `${Math.min(100, p.currentLtv * 100)}%` }}><span className="asset-ltv-label">{percent(p.currentLtv, 1)}</span></span></div></div>
+            <div className="asset-numbers"><span><b>{currency(p.latestValuation)}</b><small>Value</small></span><span><b>{currency(p.loanAmount)}</b><small>Loan</small></span><span><b>{currency(p.equity)}</b><small>Equity</small></span></div>
           </div>
         ))}
       </div>
