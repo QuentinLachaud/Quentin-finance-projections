@@ -352,11 +352,11 @@ function AssetPositionChart({ properties }) {
 
 function ModelControls({ settings, onChange, compact = false }) {
   const controls = [
-    ['fullyManaged', 'Fully managed', false, 'Charge the management percentage on rent actually collected in each scenario.'],
+    ['fullyManaged', 'Fully managed', false, 'Applies the management fee to rent actually collected in each scenario.'],
   ]
   return (
     <div className={`model-controls ${compact ? 'compact' : ''}`}>
-      {controls.map(([key, label, disabled, help]) => <label key={key} className={`${settings[key] ? 'selected' : ''} ${disabled ? 'not-applicable' : ''}`} title={help}><input disabled={disabled} type="checkbox" checked={Boolean(settings[key])} onChange={(event) => onChange(key, event.target.checked)} /><i><Check size={12} /></i><span>{label}</span></label>)}
+      {controls.map(([key, label, disabled, help]) => <label key={key} className={`${settings[key] ? 'selected' : ''} ${disabled ? 'not-applicable' : ''}`} title={help}><input disabled={disabled} type="checkbox" checked={Boolean(settings[key])} onChange={(event) => onChange(key, event.target.checked)} /><i><Check size={12} /></i><span>{label}</span><span className="model-help" data-tooltip={help} aria-hidden="true"><CircleHelp size={13} /></span></label>)}
     </div>
   )
 }
@@ -795,6 +795,7 @@ function PortfolioApp({ user }) {
             </summary>
             <div className="sidebar-disclosure-body">
               <ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
+              <ModelControls settings={state.settings} onChange={updateSetting} compact />
               <PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} compact />
             </div>
           </details>
@@ -824,8 +825,6 @@ function PortfolioApp({ user }) {
             </div>
           </section>
 
-          {(section === 'Overview' || section === 'Projections') && <section className="global-model-strip"><div><span className="kicker">LIVE MODEL OPTIONS</span><p>Changes recalculate every overview, property metric and projection.</p></div><ModelControls settings={state.settings} onChange={updateSetting} /></section>}
-
           {(section === 'Overview' || section === 'Projections') && <PrivateTaxSummary portfolio={portfolio} settings={state.settings} />}
 
           {section === 'Overview' && <>
@@ -844,7 +843,7 @@ function PortfolioApp({ user }) {
             <section className="properties-heading"><div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div><button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button></section>
             <section className="property-cards">{calculated.map((p) => <PropertyCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}<button className="add-property-card" onClick={addProperty}><span><Plus /></span><b>Add another BTL</b><small>Start blank or clone an existing property</small></button></section>
 
-            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div><ModelControls settings={state.settings} onChange={updateSetting} compact /></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
+            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
           </>}
 
           {section === 'Properties' && <>
@@ -930,7 +929,6 @@ function PortfolioApp({ user }) {
                   <h2>Cash flow scenarios</h2>
                   <p>Three operating cases using the BTLs currently included in your portfolio model.</p>
                 </div>
-                <ModelControls settings={state.settings} onChange={updateSetting} compact />
               </header>
               <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />
             </section>

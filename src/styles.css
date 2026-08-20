@@ -121,6 +121,10 @@ h2 { font: 600 20px 'Manrope'; letter-spacing: -.025em; margin: 4px 0; }
 .model-controls label.selected { color: #145840; border-color: #83b89f; background: #e4f2ea; }.model-controls input { display: none; }
 .model-controls label > i { width: 17px; height: 17px; display: grid; place-items: center; border: 1px solid #b8c3bd; border-radius: 50%; color: transparent; }.model-controls label.selected > i { background: #1c6b50; color: #fff; border-color: #1c6b50; }
 .model-controls.compact label { min-height: 30px; font-size: 10px; padding-inline: 9px; }
+.sidebar-disclosure-body > .model-controls { width: 100%; margin-top: 14px; padding-top: 14px; border-top: 1px solid #35413c; }
+.sidebar-disclosure-body > .model-controls label { width: 100%; min-height: 36px; justify-content: flex-start; color: #aab5b0; border-color: #35413c; background: #101614; }
+.sidebar-disclosure-body > .model-controls label.selected { color: #eafff4; border-color: #4f806b; background: #20372e; }
+.sidebar-disclosure-body > .model-controls .model-help { margin-left: auto; color: #81918a; }
 
 .asset-position { margin-top: 14px; }.dot.equity { background: #cce9da; }
 .asset-rows { display: flex; flex-direction: column; gap: 7px; margin-top: 15px; }.asset-row { display: grid; grid-template-columns: minmax(100px, .55fr) minmax(160px, 1fr) minmax(270px, 1.25fr); gap: 12px; align-items: center; padding: 13px 0; border-top: 1px solid #edf0ed; }
