@@ -4419,3 +4419,32 @@ textarea {
   color: #f1fff7;
   background: #2a7857;
 }
+
+
+/* Brain Drain 2026-08-21 09:26 BST — Asset Financing in-bar LTV labels */
+@media (max-width: 720px) {
+  .overview-asset-panel > header > div > h2 {
+    margin-top: 0;
+  }
+
+  .asset-mobile-track .asset-track {
+    height: 20px;
+  }
+
+  .asset-mobile-track .asset-loan-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .asset-mobile-track .asset-ltv-label {
+    display: block;
+    padding-inline: 4px;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 750;
+    line-height: 1;
+    white-space: nowrap;
+  }
+}

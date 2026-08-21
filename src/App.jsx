@@ -362,7 +362,7 @@ function AssetPositionChart({ properties }) {
           return <div className={`asset-row mobile-asset-row ${expanded ? 'mobile-expanded' : ''}`} key={p.id}>
             <button type="button" className="asset-mobile-toggle" aria-expanded={expanded} onClick={() => toggleMobileAsset(p.id)}>
               <span className="asset-mobile-identity"><b>{p.name}</b><small>{p.postcode || p.address || 'Property'}</small></span>
-              <span className="asset-mobile-track" aria-hidden="true"><span className="asset-track"><span className="asset-value-bar" /><span className="asset-loan-bar" style={{ width: `${Math.min(100, p.currentLtv * 100)}%` }} /></span></span>
+              <span className="asset-mobile-track" aria-hidden="true"><span className="asset-track"><span className="asset-value-bar" /><span className="asset-loan-bar" style={{ width: `${Math.min(100, p.currentLtv * 100)}%` }}><span className="asset-ltv-label">LTV {percent(p.currentLtv, 1)}</span></span></span></span>
               <span className="asset-mobile-chevron" aria-hidden="true">{expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
             </button>
             <div className="asset-label"><b>{p.name}</b><small>{p.flatNumber}, {p.address}</small></div>
@@ -916,7 +916,7 @@ function PortfolioApp({ user }) {
             </section>
 
             <section className="main-grid">
-              <article className="panel span-2 overview-asset-panel"><header><div><span className="kicker">ASSET POSITION</span><h2>Asset Financing</h2><span className="mobile-portfolio-ltv">{percent(portfolio.totalLoans / portfolio.totalValue, 1)} portfolio LTV</span></div><span className="panel-stat">{percent(portfolio.totalLoans / portfolio.totalValue, 1)} portfolio LTV</span></header><AssetPositionChart properties={portfolio.selected} /></article>
+              <article className="panel span-2 overview-asset-panel"><header><div><h2>Asset Financing</h2><span className="mobile-portfolio-ltv">{percent(portfolio.totalLoans / portfolio.totalValue, 1)} portfolio LTV</span></div><span className="panel-stat">{percent(portfolio.totalLoans / portfolio.totalValue, 1)} portfolio LTV</span></header><AssetPositionChart properties={portfolio.selected} /></article>
               <article className={`panel buffer-panel mobile-buffer-disclosure ${mobileBufferExpanded ? 'mobile-expanded' : ''}`}>
                 <button type="button" className="mobile-buffer-header-toggle" aria-expanded={mobileBufferExpanded} onClick={() => setMobileBufferExpanded((current) => !current)}>
                   <span><span className="kicker">SAFETY BUFFER</span><h2>Safety Cash Buffer</h2></span>
