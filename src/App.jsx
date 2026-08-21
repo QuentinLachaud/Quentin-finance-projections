@@ -24,6 +24,7 @@ import { formatPropertyAddress, formatRateComposition, includedPortfolioProperti
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 import { initialTheme, userAvatarUrl } from './preferences.js'
 import { supportConfig } from './support.js'
+import { exportTabularReport } from './reportExports.js'
 
 // Keep the completed Open Banking workspace dormant until a production data
 // provider is available. It can be restored without code changes at deploy time.
@@ -559,6 +560,55 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
   const propertyName = (id) => properties.find((property) => property.id === id)?.name || 'Unknown BTL'
   const currentTenants = tenants.filter((tenant) => !tenantTenure(tenant).archived)
   const archivedTenants = tenants.filter((tenant) => tenantTenure(tenant).archived)
+  const exportTenantReport = (format) => {
+    const columns = [
+      { key: 'status', label: 'Status' },
+      { key: 'name', label: 'Name' },
+      { key: 'property', label: 'Linked property' },
+      { key: 'address', label: 'Property address' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'occupation', label: 'Occupation' },
+      { key: 'moveIn', label: 'Move-in date' },
+      { key: 'moveOut', label: 'Move-out date' },
+      { key: 'depositHeld', label: 'Deposit held' },
+      { key: 'tenure', label: 'Tenure' },
+    ]
+    const rows = tenants.map((tenant) => {
+      const property = properties.find((candidate) => candidate.id === tenant.propertyId)
+      const tenure = tenantTenure(tenant)
+      return {
+        status: tenure.archived ? 'Archived' : tenure.live ? 'Live tenant' : 'Upcoming',
+        name: tenant.name || '',
+        property: property?.name || 'Unknown BTL',
+        address: property ? formatPropertyAddress(property.flatNumber, property.address) || property.postcode || '' : '',
+        email: tenant.email || '',
+        phone: tenant.phone || '',
+        occupation: tenant.occupation || '',
+        moveIn: tenant.moveIn || '',
+        moveOut: tenant.moveOut || '',
+        depositHeld: tenant.depositHeld || '',
+        tenure: tenure.label,
+      }
+    })
+    const liveCount = tenants.filter((tenant) => tenantTenure(tenant).live).length
+    const archivedCount = tenants.filter((tenant) => tenantTenure(tenant).archived).length
+    const upcomingCount = Math.max(0, tenants.length - liveCount - archivedCount)
+    return exportTabularReport(format, {
+      fileBase: 'btl-portfolio-tenants',
+      title: 'Tenant report',
+      subtitle: 'Current and historic tenant directory',
+      summary: [
+        ['Tenants', String(tenants.length)],
+        ['Live', String(liveCount)],
+        ['Upcoming', String(upcomingCount)],
+        ['Archived', String(archivedCount)],
+      ],
+      columns,
+      rows,
+      recordTitle: (row) => `${row.name || 'Unnamed tenant'} · ${row.property} · ${row.status}`,
+    })
+  }
   const tenantCard = (tenant) => {
     const tenure = tenantTenure(tenant)
     return <article className={`panel tenant-card ${tenure.live ? 'live' : ''}`} key={tenant.id}><header><div><span className={`tenant-status ${tenure.live ? 'live' : tenure.archived ? 'archived' : 'future'}`}>{tenure.live ? 'Live tenant' : tenure.archived ? 'Archived' : 'Upcoming'}</span><h2>{tenant.name || 'Unnamed tenant'}</h2><p>{propertyName(tenant.propertyId)} · {tenure.label}</p></div><Users size={20} /></header><dl><div><dt>Email</dt><dd>{tenant.email || '—'}</dd></div><div><dt>Phone</dt><dd>{tenant.phone || '—'}</dd></div><div><dt>Occupation</dt><dd>{tenant.occupation || '—'}</dd></div><div><dt>Deposit</dt><dd>{tenant.depositHeld || '—'}</dd></div></dl><footer><button className="text-button" onClick={() => edit(tenant)}><Pencil size={15} /> Edit</button><button className="text-button tenant-delete" onClick={() => onRemove(tenant.id)}><Trash2 size={15} /> Remove</button></footer></article>
@@ -571,7 +621,7 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
   }
 
   return <div className="tenants-workspace">
-    <section className="panel tenants-toolbar"><div><span className="kicker">TENANCY DIRECTORY</span><h2>Tenants linked to your BTLs</h2><p>Tenant records are private to your account. Tenure updates automatically from the move-in date.</p></div><button className="primary-button" onClick={startNew} disabled={!properties.length}><Plus size={16} /> Add tenant</button></section>
+    <section className="panel tenants-toolbar"><div><span className="kicker">TENANCY DIRECTORY</span><h2>Tenants linked to your BTLs</h2><p>Tenant records are private to your account. Tenure updates automatically from the move-in date.</p></div><div className="tenants-toolbar-actions"><div className={`report-export-control ${tenants.length ? '' : 'disabled'}`} aria-label="Export tenant report"><span><FileText size={14} /> Export</span><button type="button" disabled={!tenants.length} onClick={() => exportTenantReport('csv')}>CSV</button><button type="button" disabled={!tenants.length} onClick={() => exportTenantReport('xlsx')}>XLSX</button><button type="button" disabled={!tenants.length} onClick={() => exportTenantReport('pdf')}>PDF</button></div><button className="primary-button" onClick={startNew} disabled={!properties.length}><Plus size={16} /> Add tenant</button></div></section>
     {!properties.length && <section className="panel tenants-empty"><Users /><h2>Add a property first</h2><p>Every tenant must be linked to a BTL, so orphaned tenant records cannot be created.</p></section>}
     {properties.length > 0 && tenants.length === 0 && <section className="panel tenants-empty"><Users /><h2>No tenants yet</h2><p>Add a tenant here, or enter tenant details while creating or editing a BTL.</p><button className="secondary-button" onClick={startNew}><Plus size={16} /> Add your first tenant</button></section>}
     <section className="tenant-grid">{currentTenants.map(tenantCard)}</section>

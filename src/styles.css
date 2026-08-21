@@ -4608,3 +4608,67 @@ textarea {
   :root[data-theme='dark'] .expense-mobile-fields input { color: #eaf2ee; background: #101614; border-color: #33413b; }
   :root[data-theme='dark'] .expense-modal > footer { background: #161d19; }
 }
+
+/* Brain Drain: shared report export controls */
+.report-export-control {
+  min-height: 34px;
+  padding: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--white);
+}
+.report-export-control > span {
+  padding: 0 8px 0 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.report-export-control button {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  color: #52605a;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 700;
+}
+.report-export-control button:hover:not(:disabled) {
+  color: var(--green);
+  background: #edf6f1;
+}
+.report-export-control button:disabled { opacity: .38; cursor: default; }
+.report-export-control.disabled { opacity: .62; }
+.tenants-toolbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+:root[data-theme='dark'] .report-export-control {
+  background: #161d19;
+  border-color: #33413b;
+}
+:root[data-theme='dark'] .report-export-control button { color: #bdc9c3; }
+:root[data-theme='dark'] .report-export-control button:hover:not(:disabled) {
+  color: #9ce0be;
+  background: #1d3027;
+}
+
+@media (max-width: 760px) {
+  .tenants-toolbar-actions { width: 100%; justify-content: stretch; }
+  .tenants-toolbar-actions > .primary-button { flex: 1; min-height: 42px; }
+  .report-export-control {
+    width: 100%;
+    min-height: 40px;
+    display: grid;
+    grid-template-columns: auto repeat(3, 1fr);
+  }
+  .report-export-control > span { justify-content: center; }
+  .report-export-control button { min-height: 34px; }
+  .expenses-actions .report-export-control { grid-column: 1 / -1; }
+}

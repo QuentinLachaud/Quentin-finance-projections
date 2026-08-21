@@ -1,9 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react'
-import { ExternalLink, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react'
+import { Download, ExternalLink, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react'
 import {
   createExpense, filterExpenses, inferExpenseType, isReceiptUrl,
   mergeExpenseImports, parseExpenseImport, summarizeExpenses,
 } from './expenses.js'
+import { exportTabularReport } from './reportExports.js'
 
 const money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' })
 const blankFilters = { query: '', from: '', to: '', property: '__all__', type: '__all__', category: '__all__', recurrence: '__all__' }
@@ -65,6 +66,49 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
     }
   }
 
+
+  const exportExpenseReport = (format) => {
+    const columns = [
+      { key: 'date', label: 'Date' },
+      { key: 'property', label: 'Property' },
+      { key: 'type', label: 'Type' },
+      { key: 'category', label: 'Category' },
+      { key: 'amount', label: 'Amount (£)' },
+      { key: 'description', label: 'Description' },
+      { key: 'recurrence', label: 'Recurrence' },
+      { key: 'notes', label: 'Notes' },
+      { key: 'receiptLink', label: 'Receipt link' },
+    ]
+    const rows = filtered.map((item) => ({
+      ...item,
+      type: inferExpenseType(item.amount) === 'income' ? 'Income' : inferExpenseType(item.amount) === 'expense' ? 'Expense' : 'Unspecified',
+      amount: item.amount === '' ? '' : Number(item.amount),
+    }))
+    const activeFilterParts = [
+      filters.from && `from ${filters.from}`,
+      filters.to && `to ${filters.to}`,
+      filters.property !== '__all__' && `property ${filters.property}`,
+      filters.type !== '__all__' && `type ${filters.type}`,
+      filters.category !== '__all__' && `category ${filters.category}`,
+      filters.recurrence !== '__all__' && `recurrence ${filters.recurrence}`,
+      filters.query && `search "${filters.query}"`,
+    ].filter(Boolean)
+    return exportTabularReport(format, {
+      fileBase: 'btl-portfolio-expenses',
+      title: 'Expense report',
+      subtitle: activeFilterParts.length ? `Current filtered ledger · ${activeFilterParts.join(' · ')}` : 'Complete expense ledger',
+      summary: [
+        ['Income', money.format(summary.income)],
+        ['Expenses', money.format(summary.expense)],
+        ['Net movement', money.format(summary.net)],
+        ['Entries', String(summary.count)],
+      ],
+      columns,
+      rows,
+      recordTitle: (row) => `${row.date || 'No date'} · ${row.description || row.category || 'Ledger entry'} · ${row.amount === '' ? '—' : money.format(row.amount)}`,
+    })
+  }
+
   return <div className="expenses-workspace">
     <section className="panel expenses-hero">
       <div>
@@ -73,6 +117,12 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
         <p>Track actual portfolio cash movements. Positive amounts are income and negative amounts are expenses. This ledger stays separate from projections and tax calculations.</p>
       </div>
       <div className="expenses-actions">
+        <div className="report-export-control" aria-label="Export expense report">
+          <span><Download size={14} /> Export</span>
+          <button type="button" onClick={() => exportExpenseReport('csv')}>CSV</button>
+          <button type="button" onClick={() => exportExpenseReport('xlsx')}>XLSX</button>
+          <button type="button" onClick={() => exportExpenseReport('pdf')}>PDF</button>
+        </div>
         <input ref={importRef} type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain" hidden onChange={importFile} />
         <button className="secondary-button small" onClick={() => importRef.current?.click()}><Upload size={15} /> Import CSV / TSV</button>
         <button className="primary-button small" onClick={openAddExpense}><Plus size={15} /> Add expense</button>
