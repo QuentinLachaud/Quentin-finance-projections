@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, ChevronDown, ChevronUp, Copy, LockKeyhole, Plus, Trash2 } from 'lucide-react'
+import { ArrowRight, ChevronDown, ChevronUp, Copy, LockKeyhole, Plus, Trash2, X } from 'lucide-react'
 import {
   calculateRemortgageScenario,
   compareRemortgageScenarios,
@@ -216,6 +216,150 @@ function DifferenceCard({ comparison, property }) {
   </section>
 }
 
+const isMobileRemortgageViewport = () => {
+  if (typeof window === 'undefined') return false
+  if (typeof window.matchMedia === 'function') return window.matchMedia('(max-width: 680px)').matches
+  return Number(window.innerWidth || 1024) <= 680
+}
+
+const scenarioAtPropertyValue = (scenario, propertyValue) => updateRemortgageScenario(
+  { ...scenario, loanBasis: 'loan' },
+  'propertyValue',
+  propertyValue,
+)
+
+const comparisonAtPropertyValue = (comparison, propertyValue) => ({
+  ...comparison,
+  left: scenarioAtPropertyValue(comparison.left, propertyValue),
+  right: scenarioAtPropertyValue(comparison.right, propertyValue),
+})
+
+function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
+  const propertyValue = Number(
+    property?.latestValuation
+    || comparison.left?.propertyValue
+    || comparison.right?.propertyValue
+    || 0
+  )
+  const [draft, setDraft] = useState(() => comparisonAtPropertyValue(comparison, propertyValue))
+
+  useEffect(() => {
+    setDraft(comparisonAtPropertyValue(comparison, propertyValue))
+  }, [comparison.id, propertyValue])
+
+  const updateSide = (side, key, value) => setDraft((current) => {
+    const base = scenarioAtPropertyValue(current[side], propertyValue)
+    return { ...current, [side]: updateRemortgageScenario(base, key, value) }
+  })
+
+  const left = calculateRemortgageScenario(scenarioAtPropertyValue(draft.left, propertyValue))
+  const right = calculateRemortgageScenario(scenarioAtPropertyValue(draft.right, propertyValue))
+  const feeLabel = right.feeMode === 'amount'
+    ? money.format(right.feeValue)
+    : `${rate.format(right.feeValue)}%`
+
+  const save = () => onSave(comparisonAtPropertyValue(draft, propertyValue))
+
+  return <div className="mobile-remortgage-layer">
+    <section className="mobile-remortgage-modal" role="dialog" aria-modal="true" aria-labelledby={`mobile-remortgage-title-${comparison.id}`}>
+      <header>
+        <div>
+          <small>{property ? `${property.name} · ${property.postcode || 'No postcode'}` : 'Manual comparison'}</small>
+          <h3 id={`mobile-remortgage-title-${comparison.id}`}>Edit remortgage</h3>
+        </div>
+        <button type="button" className="mobile-remortgage-close" onClick={onClose} aria-label="Close without saving"><X size={19} /></button>
+      </header>
+
+      <div className="mobile-remortgage-primary-fields">
+        <FriendlyNumberField
+          label="Current interest rate"
+          suffix="%"
+          value={draft.left.rate}
+          decimals={2}
+          onChange={(value) => updateSide('left', 'rate', value)}
+        />
+        <FriendlyNumberField
+          label="Current loan amount"
+          prefix="£"
+          value={draft.left.loanAmount}
+          onChange={(value) => updateSide('left', 'loanAmount', value)}
+        />
+        <FriendlyNumberField
+          label="Remortgage rate"
+          suffix="%"
+          value={draft.right.rate}
+          decimals={2}
+          onChange={(value) => updateSide('right', 'rate', value)}
+        />
+        <FriendlyNumberField
+          label="Remortgage loan"
+          prefix="£"
+          value={draft.right.loanAmount}
+          onChange={(value) => updateSide('right', 'loanAmount', value)}
+        />
+      </div>
+
+      <dl className="mobile-remortgage-derived">
+        <div><dt>Property value</dt><dd>{money.format(propertyValue)}</dd></div>
+        <div><dt>Current LTV</dt><dd>{roundedLtv(left.ltv)}%</dd></div>
+        <div><dt>New LTV</dt><dd>{roundedLtv(right.resultingLtv)}%</dd></div>
+      </dl>
+
+      <details className="mobile-remortgage-details">
+        <summary>
+          <span><b>Product fee & details</b><small>{feeLabel} · {right.addFeeToLoan ? 'added to loan' : 'paid upfront'}</small></span>
+          <ChevronDown size={18} aria-hidden="true" />
+        </summary>
+        <div className="mobile-remortgage-details-body">
+          <div className="mobile-remortgage-fee-row">
+            <div className="remortgage-segmented" aria-label="Product fee type">
+              <button
+                type="button"
+                className={draft.right.feeMode !== 'amount' ? 'active' : ''}
+                onClick={() => updateSide('right', 'feeMode', 'percent')}
+              >% of loan</button>
+              <button
+                type="button"
+                className={draft.right.feeMode === 'amount' ? 'active' : ''}
+                onClick={() => updateSide('right', 'feeMode', 'amount')}
+              >£ amount</button>
+            </div>
+            <FriendlyNumberField
+              label={draft.right.feeMode === 'amount' ? 'Fee amount' : 'Fee percentage'}
+              prefix={draft.right.feeMode === 'amount' ? '£' : undefined}
+              suffix={draft.right.feeMode === 'amount' ? undefined : '%'}
+              value={draft.right.feeValue}
+              decimals={draft.right.feeMode === 'amount' ? 0 : 2}
+              onChange={(value) => updateSide('right', 'feeValue', value)}
+            />
+          </div>
+
+          <label className="remortgage-switch-row mobile-remortgage-fee-switch">
+            <span><b>Add fee to loan</b><small>Off = paid upfront</small></span>
+            <input
+              type="checkbox"
+              checked={Boolean(draft.right.addFeeToLoan)}
+              onChange={(event) => updateSide('right', 'addFeeToLoan', event.target.checked)}
+            />
+            <i />
+          </label>
+
+          <dl className="mobile-remortgage-result-row">
+            <div><dt>Resulting loan</dt><dd>{money.format(right.effectiveLoan)}</dd></div>
+            <div><dt>Resulting LTV</dt><dd>{roundedLtv(right.resultingLtv)}%</dd></div>
+            <div><dt>Mortgage / mo</dt><dd>{money.format(right.monthlyInterest)}</dd></div>
+          </dl>
+        </div>
+      </details>
+
+      <footer>
+        <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
+        <button type="button" className="primary-button mobile-remortgage-save" onClick={save}>Save Changes</button>
+      </footer>
+    </section>
+  </div>
+}
+
 function CollapsedSummary({ comparison, property, expanded, onToggle }) {
   const diff = compareRemortgageScenarios(comparison.left, comparison.right)
   const leftCashFlow = optionCashFlow(property, diff.left)
@@ -228,6 +372,16 @@ function CollapsedSummary({ comparison, property, expanded, onToggle }) {
     aria-expanded={expanded}
     onClick={onToggle}
   >
+    <div className="remortgage-summary-mobile">
+      <span className="remortgage-summary-mobile-name">{property?.name || comparison.name || 'Manual'}</span>
+      <span className="remortgage-summary-mobile-rates">
+        <b>{rate.format(diff.left.rate)}%</b><ArrowRight size={16} aria-hidden="true" /><b>{rate.format(diff.right.rate)}%</b>
+      </span>
+      <span className={`remortgage-summary-mobile-cash ${cashFlowChange >= 0 ? 'positive' : 'negative'}`}>
+        <b>{signedMoney(cashFlowChange)}</b><small>/ mo</small>
+      </span>
+    </div>
+
     <div className="remortgage-summary-name">
       <small>{property?.name || 'Manual'}</small>
       <strong>{comparison.name || 'Remortgage comparison'}</strong>
@@ -267,6 +421,7 @@ export default function RemortgageSimulator({
 }) {
   const [sourceId, setSourceId] = useState(properties[0]?.id || 'manual')
   const [expandedIds, setExpandedIds] = useState(() => new Set())
+  const [mobileEditorId, setMobileEditorId] = useState(null)
   const selectedSource = properties.some((property) => property.id === sourceId) ? sourceId : 'manual'
 
   const propertiesById = useMemo(
@@ -299,7 +454,8 @@ export default function RemortgageSimulator({
     const property = properties.find((item) => item.id === selectedSource) || null
     const nextComparison = createRemortgageComparison(property)
     onChange([...comparisons, nextComparison])
-    setExpanded(nextComparison.id, true)
+    if (isMobileRemortgageViewport()) setMobileEditorId(nextComparison.id)
+    else setExpanded(nextComparison.id, true)
   }
 
   const updateComparison = (id, updater) => {
@@ -311,12 +467,14 @@ export default function RemortgageSimulator({
     if (!window.confirm(`Delete ${comparison?.name || 'this remortgage comparison'}? This cannot be undone.`)) return
     onChange(comparisons.filter((item) => item.id !== id))
     setExpanded(id, false)
+    if (mobileEditorId === id) setMobileEditorId(null)
   }
 
   const duplicateComparison = (comparison) => {
     const copy = duplicateRemortgageComparison(comparison)
     onChange([...comparisons, copy])
-    setExpanded(copy.id, true)
+    if (isMobileRemortgageViewport()) setMobileEditorId(copy.id)
+    else setExpanded(copy.id, true)
   }
 
   return <section className="remortgage-simulator">
@@ -359,7 +517,10 @@ export default function RemortgageSimulator({
               comparison={comparison}
               property={property}
               expanded={expanded}
-              onToggle={() => setExpanded(comparison.id, !expanded)}
+              onToggle={() => {
+                if (isMobileRemortgageViewport()) setMobileEditorId(comparison.id)
+                else setExpanded(comparison.id, !expanded)
+              }}
             />
             <div className="remortgage-summary-actions">
               <button
@@ -381,7 +542,7 @@ export default function RemortgageSimulator({
             </div>
           </div>
 
-          {expanded && <>
+          {expanded && <div className="remortgage-desktop-details">
             <div className="remortgage-comparison-name">
               <span>Comparison name</span>
               <input
@@ -423,9 +584,25 @@ export default function RemortgageSimulator({
 
               <DifferenceCard comparison={comparison} property={property} />
             </div>
-          </>}
+          </div>}
         </article>
       })}
     </div>
+
+    {mobileEditorId && (() => {
+      const comparison = comparisons.find((item) => item.id === mobileEditorId)
+      if (!comparison) return null
+      const property = propertiesById.get(comparison.sourcePropertyId) || null
+      return <MobileRemortgageEditor
+        comparison={comparison}
+        property={property}
+        onClose={() => setMobileEditorId(null)}
+        onSave={(nextComparison) => {
+          updateComparison(comparison.id, () => nextComparison)
+          setExpanded(comparison.id, false)
+          setMobileEditorId(null)
+        }}
+      />
+    })()}
   </section>
 }
