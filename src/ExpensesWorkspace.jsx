@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react'
-import { Download, ExternalLink, Plus, RotateCcw, Search, Trash2, Upload, X } from 'lucide-react'
+import { Download, ExternalLink, Plus, RotateCcw, Search, SlidersHorizontal, Trash2, Upload, X } from 'lucide-react'
 import {
   createExpense, filterExpenses, inferExpenseType, isReceiptUrl,
   mergeExpenseImports, parseExpenseImport, summarizeExpenses,
@@ -20,6 +20,8 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
   const [filters, setFilters] = useState(blankFilters)
   const [importStatus, setImportStatus] = useState('')
   const [draftExpense, setDraftExpense] = useState(null)
+  const [mobileTransferOpen, setMobileTransferOpen] = useState(false)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const importRef = useRef(null)
 
   const filtered = useMemo(() => filterExpenses(expenses, filters), [expenses, filters])
@@ -109,6 +111,15 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
     })
   }
 
+  const activeFilterCount = [
+    filters.from,
+    filters.to,
+    filters.property !== '__all__' ? filters.property : '',
+    filters.type !== '__all__' ? filters.type : '',
+    filters.category !== '__all__' ? filters.category : '',
+    filters.recurrence !== '__all__' ? filters.recurrence : '',
+  ].filter(Boolean).length
+
   return <div className="expenses-workspace">
     <section className="panel expenses-hero">
       <div>
@@ -117,14 +128,15 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
         <p>Track actual portfolio cash movements. Positive amounts are income and negative amounts are expenses. This ledger stays separate from projections and tax calculations.</p>
       </div>
       <div className="expenses-actions">
-        <div className="report-export-control" aria-label="Export expense report">
+        <div className="report-export-control desktop-expense-transfer" aria-label="Export expense report">
           <span><Download size={14} /> Export</span>
           <button type="button" onClick={() => exportExpenseReport('csv')}>CSV</button>
           <button type="button" onClick={() => exportExpenseReport('xlsx')}>XLSX</button>
           <button type="button" onClick={() => exportExpenseReport('pdf')}>PDF</button>
         </div>
         <input ref={importRef} type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain" hidden onChange={importFile} />
-        <button className="secondary-button small" onClick={() => importRef.current?.click()}><Upload size={15} /> Import CSV / TSV</button>
+        <button className="secondary-button small desktop-expense-transfer" onClick={() => importRef.current?.click()}><Upload size={15} /> Import CSV / TSV</button>
+        <button className="secondary-button small mobile-expense-transfer-button" onClick={() => setMobileTransferOpen(true)}><Download size={15} /> Import / Export</button>
         <button className="primary-button small" onClick={openAddExpense}><Plus size={15} /> Add expense</button>
       </div>
       {importStatus && <p className="expenses-import-status">{importStatus}</p>}
@@ -137,15 +149,22 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
       <article className="panel expense-summary"><span>Entries</span><strong>{summary.count}</strong><small>{summary.count === expenses.length ? 'all entries' : `of ${expenses.length}`}</small></article>
     </section>
 
-    <section className="panel expenses-filter-panel">
-      <div className="expenses-search"><Search size={16} /><input value={filters.query} onChange={(event) => setFilter('query', event.target.value)} placeholder="Search description, notes, category, link…" /></div>
-      <label><span>From</span><input type="date" value={filters.from} onChange={(event) => setFilter('from', event.target.value)} /></label>
-      <label><span>To</span><input type="date" value={filters.to} onChange={(event) => setFilter('to', event.target.value)} /></label>
-      <label><span>Property</span><select value={filters.property} onChange={(event) => setFilter('property', event.target.value)}><option value="__all__">All</option>{allPropertyValues.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-      <label><span>Type</span><select value={filters.type} onChange={(event) => setFilter('type', event.target.value)}><option value="__all__">All</option><option value="income">Income</option><option value="expense">Expense</option><option value="neutral">Zero</option><option value="unspecified">Unspecified</option></select></label>
-      <label><span>Category</span><select value={filters.category} onChange={(event) => setFilter('category', event.target.value)}><option value="__all__">All</option>{categories.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-      <label><span>Recurrence</span><select value={filters.recurrence} onChange={(event) => setFilter('recurrence', event.target.value)}><option value="__all__">All</option>{recurrences.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-      <button className="text-button expenses-clear" onClick={() => setFilters(blankFilters)}><RotateCcw size={14} /> Clear</button>
+    <section className={`panel expenses-filter-panel ${mobileFiltersOpen ? 'mobile-filters-open' : ''}`}>
+      <div className="expenses-search"><Search size={16} /><input value={filters.query} onChange={(event) => setFilter('query', event.target.value)} placeholder="Search expenses…" /></div>
+      <button type="button" className="mobile-expense-filter-toggle" aria-expanded={mobileFiltersOpen} onClick={() => setMobileFiltersOpen((current) => !current)}>
+        <SlidersHorizontal size={15} />
+        <span>Filters</span>
+        {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
+      </button>
+      <div className="expenses-filter-fields">
+        <label><span>From</span><input type="date" value={filters.from} onChange={(event) => setFilter('from', event.target.value)} /></label>
+        <label><span>To</span><input type="date" value={filters.to} onChange={(event) => setFilter('to', event.target.value)} /></label>
+        <label><span>Property</span><select value={filters.property} onChange={(event) => setFilter('property', event.target.value)}><option value="__all__">All</option>{allPropertyValues.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        <label><span>Type</span><select value={filters.type} onChange={(event) => setFilter('type', event.target.value)}><option value="__all__">All</option><option value="income">Income</option><option value="expense">Expense</option><option value="neutral">Zero</option><option value="unspecified">Unspecified</option></select></label>
+        <label><span>Category</span><select value={filters.category} onChange={(event) => setFilter('category', event.target.value)}><option value="__all__">All</option>{categories.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        <label><span>Recurrence</span><select value={filters.recurrence} onChange={(event) => setFilter('recurrence', event.target.value)}><option value="__all__">All</option>{recurrences.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        <button className="text-button expenses-clear" onClick={() => { setFilters(blankFilters); setMobileFiltersOpen(false) }}><RotateCcw size={14} /> Clear filters</button>
+      </div>
     </section>
 
     <section className="panel expenses-table-panel">
@@ -199,6 +218,31 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
       <datalist id="expense-property-options">{allPropertyValues.map((value) => <option key={value} value={value} />)}</datalist>
     </section>
 
+
+    {mobileTransferOpen && <div className="expense-transfer-layer" role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) setMobileTransferOpen(false)
+    }}>
+      <section className="expense-transfer-sheet" role="dialog" aria-modal="true" aria-labelledby="expense-transfer-title">
+        <header>
+          <div><span className="kicker">EXPENSE DATA</span><h2 id="expense-transfer-title">Import or export</h2><p>Choose what you want to do with this ledger.</p></div>
+          <button type="button" className="icon-button" aria-label="Close import or export" onClick={() => setMobileTransferOpen(false)}><X size={19} /></button>
+        </header>
+        <button type="button" className="expense-transfer-primary" onClick={() => {
+          setMobileTransferOpen(false)
+          importRef.current?.click()
+        }}><Upload size={18} /><span><b>Import transactions</b><small>CSV or TSV file</small></span></button>
+        <div className="expense-transfer-export">
+          <span>Export current report</span>
+          <div>
+            <button type="button" onClick={() => { setMobileTransferOpen(false); exportExpenseReport('csv') }}>CSV</button>
+            <button type="button" onClick={() => { setMobileTransferOpen(false); exportExpenseReport('xlsx') }}>XLSX</button>
+            <button type="button" onClick={() => { setMobileTransferOpen(false); exportExpenseReport('pdf') }}>PDF</button>
+          </div>
+          <small>Exports respect the filters currently applied.</small>
+        </div>
+      </section>
+    </div>}
+
     {draftExpense && <div className="expense-modal-layer" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) setDraftExpense(null)
     }}>
@@ -219,12 +263,12 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
         </div>
 
         <div className="expense-modal-fields">
-          <label className="expense-modal-wide"><span>Description</span><input value={draftExpense.description || ''} onChange={(event) => updateDraft('description', event.target.value)} placeholder="What was this for?" /></label>
+          <label className="expense-modal-description"><span>Description</span><input value={draftExpense.description || ''} onChange={(event) => updateDraft('description', event.target.value)} placeholder="What was this for?" /></label>
           <label><span>Property</span><input list="expense-property-options" value={draftExpense.property || ''} onChange={(event) => updateDraft('property', event.target.value)} placeholder="All" /></label>
           <label><span>Category</span><input value={draftExpense.category || ''} onChange={(event) => updateDraft('category', event.target.value)} placeholder="Repairs, insurance…" /></label>
           <label><span>Recurrence</span><input value={draftExpense.recurrence || ''} onChange={(event) => updateDraft('recurrence', event.target.value)} placeholder="One-off, monthly…" /></label>
-          <label className="expense-modal-wide"><span>Receipt link</span><input type="url" value={draftExpense.receiptLink || ''} onChange={(event) => updateDraft('receiptLink', event.target.value)} placeholder="https://…" /></label>
-          <label className="expense-modal-wide"><span>Notes</span><textarea value={draftExpense.notes || ''} onChange={(event) => updateDraft('notes', event.target.value)} rows="3" placeholder="Optional notes" /></label>
+          <label className="expense-modal-receipt"><span>Receipt link</span><input type="url" value={draftExpense.receiptLink || ''} onChange={(event) => updateDraft('receiptLink', event.target.value)} placeholder="https://…" /></label>
+          <label className="expense-modal-notes"><span>Notes</span><textarea value={draftExpense.notes || ''} onChange={(event) => updateDraft('notes', event.target.value)} rows="3" placeholder="Optional notes" /></label>
         </div>
 
         <footer>

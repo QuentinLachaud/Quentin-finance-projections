@@ -4672,3 +4672,234 @@ textarea {
   .report-export-control button { min-height: 34px; }
   .expenses-actions .report-export-control { grid-column: 1 / -1; }
 }
+
+/* Brain Drain 2026-08-21 14:05 BST — expense mobile controls polish */
+.mobile-expense-transfer-button,
+.mobile-expense-filter-toggle,
+.expense-transfer-layer {
+  display: none;
+}
+
+.expenses-filter-fields {
+  display: contents;
+}
+
+/* Desktop: all fields fit in one compact modal with no internal scrolling. */
+@media (min-width: 681px) {
+  .expense-modal {
+    width: min(760px, calc(100vw - 48px));
+    max-height: none;
+    overflow: visible;
+    padding: 18px 20px;
+  }
+  .expense-modal > header { margin-bottom: 13px; }
+  .expense-modal > header h2 { font-size: 22px; }
+  .expense-modal-required { gap: 10px; padding: 10px; }
+  .expense-modal label { gap: 4px; }
+  .expense-modal input,
+  .expense-modal textarea { min-height: 38px; padding: 7px 9px; }
+  .expense-modal-money { min-height: 38px; }
+  .expense-modal-type { margin: 9px 0 11px; }
+  .expense-modal-type button { min-height: 32px; }
+  .expense-modal-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px 10px;
+  }
+  .expense-modal-description { grid-column: span 2; }
+  .expense-modal-receipt { grid-column: auto; }
+  .expense-modal-notes { grid-column: 1 / -1; }
+  .expense-modal-notes textarea {
+    min-height: 54px;
+    max-height: 54px;
+  }
+  .expense-modal > footer {
+    margin-top: 12px;
+    padding-top: 11px;
+  }
+  .expense-modal > footer button { min-height: 38px; }
+}
+
+@media (max-width: 680px) {
+  .desktop-expense-transfer { display: none !important; }
+  .mobile-expense-transfer-button { display: inline-flex; }
+
+  .expenses-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Search remains visible; detailed filters are progressive. */
+  .expenses-filter-panel {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+  }
+  .expenses-search {
+    min-width: 0;
+    grid-column: auto;
+  }
+  .expenses-search input { font-size: 16px; }
+  .mobile-expense-filter-toggle {
+    min-height: 40px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #56645d;
+    background: var(--white);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .mobile-expense-filter-toggle b {
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: var(--green);
+    font-size: 10px;
+  }
+  .expenses-filter-fields {
+    grid-column: 1 / -1;
+    display: none;
+  }
+  .expenses-filter-panel.mobile-filters-open .expenses-filter-fields {
+    padding-top: 3px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px 8px;
+  }
+  .expenses-filter-fields label { min-width: 0; }
+  .expenses-filter-fields label > span { font-size: 10px; }
+  .expenses-filter-fields input,
+  .expenses-filter-fields select {
+    min-width: 0;
+    font-size: 16px;
+  }
+  .expenses-filter-fields .expenses-clear {
+    grid-column: 1 / -1;
+    min-height: 40px;
+    justify-self: stretch;
+    justify-content: center;
+    border: 1px solid var(--line);
+    background: var(--white);
+  }
+
+  /* Mobile import/export is one action opening a bottom-sheet choice. */
+  .expense-transfer-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 130;
+    padding: 0;
+    display: grid;
+    place-items: end center;
+    background: rgba(8, 14, 11, .5);
+    backdrop-filter: blur(5px);
+  }
+  .expense-transfer-sheet {
+    width: 100%;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    background: var(--white);
+    box-shadow: 0 -12px 40px rgba(10, 20, 15, .18);
+  }
+  .expense-transfer-sheet > header {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .expense-transfer-sheet h2 {
+    margin: 3px 0 3px;
+    font-size: 21px;
+  }
+  .expense-transfer-sheet p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .expense-transfer-primary {
+    width: 100%;
+    min-height: 58px;
+    padding: 10px 13px;
+    border: 1px solid #cfe0d7;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    color: #245742;
+    background: #f0f7f3;
+    text-align: left;
+  }
+  .expense-transfer-primary > span {
+    display: grid;
+    gap: 2px;
+  }
+  .expense-transfer-primary b { font-size: 14px; }
+  .expense-transfer-primary small {
+    color: #728078;
+    font-size: 11px;
+  }
+  .expense-transfer-export {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .expense-transfer-export > span {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .expense-transfer-export > div {
+    margin-top: 7px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+  }
+  .expense-transfer-export button {
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    color: #405149;
+    background: var(--white);
+    font-size: 13px;
+    font-weight: 750;
+  }
+  .expense-transfer-export > small {
+    margin-top: 8px;
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .expense-modal-description,
+  .expense-modal-receipt,
+  .expense-modal-notes {
+    grid-column: auto;
+  }
+
+  :root[data-theme='dark'] .mobile-expense-filter-toggle,
+  :root[data-theme='dark'] .expenses-filter-fields .expenses-clear,
+  :root[data-theme='dark'] .expense-transfer-sheet,
+  :root[data-theme='dark'] .expense-transfer-export button {
+    color: #dbe5df;
+    background: #161d19;
+    border-color: #33413b;
+  }
+  :root[data-theme='dark'] .expense-transfer-primary {
+    color: #a9dfc2;
+    background: #1b2c24;
+    border-color: #315541;
+  }
+}
