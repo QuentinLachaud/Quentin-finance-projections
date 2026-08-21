@@ -2961,6 +2961,7 @@ textarea {
 .mobile-detail-chevron { display: none; flex: 0 0 auto; transition: transform .2s ease; }
 
 .mobile-line-summary { display: none; }
+.mobile-line-details { display: block; }
 .cashflow-line-fields {
   display: grid;
   grid-template-columns: 30px minmax(130px, 1fr) 130px 145px 120px 32px;
