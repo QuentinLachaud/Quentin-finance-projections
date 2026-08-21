@@ -368,9 +368,15 @@ function ModelControls({ settings, onChange, compact = false }) {
   )
 }
 
-function ScenarioTable({ scenarios, count, accountType = 'company' }) {
+function ScenarioTable({ scenarios, count, accountType = 'company', mobileToggle = false }) {
   const isPrivate = accountType === 'private'
-  return <div className="scenario-list">{scenarios.map((scenario, index) => <div className="scenario" key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Tax / mo</span><b className="negative">{currency(scenario.tax)}</b></div><div><span>{isPrivate ? 'Cashflow / mo' : 'Company + extraction / mo'}</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>{isPrivate ? 'Total gain / yr' : 'Total gain / yr (pre-personal-tax)'}</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div></div>)}</div>
+  const [mobileScenario, setMobileScenario] = useState(0)
+  return <div className={`scenario-table ${mobileToggle ? 'mobile-scenario-toggle-enabled' : ''}`} data-mobile-scenario={mobileScenario}>
+    {mobileToggle && <div className="overview-scenario-toggle" role="group" aria-label="Cashflow scenario">
+      {scenarioMeta.map((scenario, index) => <button type="button" key={scenario.name} className={mobileScenario === index ? 'active' : ''} aria-pressed={mobileScenario === index} style={{ '--scenario': scenario.colour }} onClick={() => setMobileScenario(index)}>{scenario.name}</button>)}
+    </div>}
+    <div className="scenario-list">{scenarios.map((scenario, index) => <div className={`scenario scenario-${index}`} key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Tax / mo</span><b className="negative">{currency(scenario.tax)}</b></div><div><span>{isPrivate ? 'Cashflow / mo' : 'Company + extraction / mo'}</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>{isPrivate ? 'Total gain / yr' : 'Total gain / yr (pre-personal-tax)'}</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div></div>)}</div>
+  </div>
 }
 
 function ProjectionChart({ points, metric, perFlat, count }) {
@@ -585,6 +591,7 @@ function PortfolioApp({ user }) {
   const [section, setSection] = useState(() => BANKING_ENABLED && new URLSearchParams(window.location.search).get('bank_callback') === '1' ? 'Banking' : 'Overview')
   const [search, setSearch] = useState('')
   const [advancedPropertyView, setAdvancedPropertyView] = useState(false)
+  const [mobilePropertyId, setMobilePropertyId] = useState('')
   const [collapsedPropertyGroups, setCollapsedPropertyGroups] = useState(
     () => new Set(propertyGroups.map(({ title }) => title)),
   )
@@ -786,6 +793,7 @@ function PortfolioApp({ user }) {
   const portfolioName = state.settings.accountType === 'private' ? `${displayName}'s portfolio` : state.settings.companyName || 'Property portfolio'
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
+  const mobileProperty = calculated.find((property) => property.id === mobilePropertyId) || filtered[0] || calculated[0] || null
   const visibleWorkspaceNavigation = workspaceNavigation.filter(([label]) => {
     if (!BANKING_ENABLED && label === 'Banking') return false
     if (state.settings.accountType === 'private' && label === 'Companies House') return false
@@ -824,7 +832,7 @@ function PortfolioApp({ user }) {
             })}
             <small>YOUR BTLS</small>
             {calculated.map((p) => <div key={p.id} className={`property-nav-row ${p.active ? 'included' : 'excluded'}`}>
-              <button className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name); setMobileNavOpen(false) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>
+              <button className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name); setMobilePropertyId(p.id); setMobileNavOpen(false) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>
               <label
                 className="property-nav-visibility"
                 title={p.active ? `Exclude ${p.name} from portfolio calculations and other workspaces` : `Include ${p.name} in portfolio calculations and other workspaces`}
@@ -895,7 +903,7 @@ function PortfolioApp({ user }) {
             <section className="properties-heading"><div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div><button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button></section>
             <section className="property-cards">{calculated.map((p) => <PropertyCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}<button className="add-property-card" onClick={addProperty}><span><Plus /></span><b>Add another BTL</b><small>Start blank or clone an existing property</small></button></section>
 
-            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
+            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} mobileToggle /></section>
           </>}
 
           {section === 'Properties' && <>
@@ -924,6 +932,16 @@ function PortfolioApp({ user }) {
               </div>
             </section>
 
+            <section className="mobile-property-switcher" aria-label="Choose property">
+              <div className="mobile-property-segments" role="tablist" aria-label="BTLs">
+                {calculated.map((property) => <button type="button" role="tab" aria-selected={mobileProperty?.id === property.id} className={mobileProperty?.id === property.id ? 'active' : ''} key={property.id} onClick={() => { setMobilePropertyId(property.id); setSearch('') }}>{property.name}</button>)}
+              </div>
+              {mobileProperty && <div className="mobile-property-context">
+                <div><b>{mobileProperty.name}</b><span>{formatPropertyAddress(mobileProperty.flatNumber, mobileProperty.address) || 'Address not set'}{mobileProperty.postcode ? ` · ${mobileProperty.postcode}` : ''}</span></div>
+                <button type="button" className="mobile-property-edit" onClick={() => setEditingId(mobileProperty.id)}><Pencil size={15} /> Edit</button>
+              </div>}
+            </section>
+
             <div className="property-group-stack">
               {propertyGroups.map((group) => {
                 const collapsed = collapsedPropertyGroups.has(group.title)
@@ -946,14 +964,17 @@ function PortfolioApp({ user }) {
                         </span>
                       </button>
                     </header>
-                    {!collapsed && (
+                    {!collapsed && <>
+                      <div className="mobile-property-group-list">
+                        {mobileProperty ? rows.map(([label, getter, kind, advanced]) => <div className={`mobile-property-row ${advanced ? 'advanced' : ''}`} key={label}><span>{label}</span><strong className={kind}>{getter(mobileProperty)}</strong></div>) : <div className="mobile-property-empty">No BTL selected</div>}
+                      </div>
                       <div className="data-table-wrap">
                         <table className="data-table">
                           <thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead>
                           <tbody>{rows.map(([label, getter, kind, advanced]) => <tr key={label}><th className={advanced ? 'advanced-metric-label' : undefined}>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody>
                         </table>
                       </div>
-                    )}
+                    </>}
                   </section>
                 )
               })}
