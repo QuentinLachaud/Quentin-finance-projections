@@ -4903,3 +4903,62 @@ textarea {
     border-color: #315541;
   }
 }
+
+/* Brain Drain 2026-08-21 14:13 BST — smooth buffer and property toggles */
+@property --value {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+@property --buffer-colour {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #27795c;
+}
+
+.buffer-ring {
+  transition:
+    --value 1s cubic-bezier(.22, .61, .36, 1),
+    --buffer-colour 1s ease,
+    border-color .45s ease,
+    background-color .45s ease;
+}
+
+.property-card {
+  transition:
+    opacity .46s cubic-bezier(.22, .61, .36, 1),
+    filter .46s cubic-bezier(.22, .61, .36, 1),
+    transform .46s cubic-bezier(.22, .61, .36, 1),
+    border-color .46s ease,
+    background-color .46s ease,
+    box-shadow .46s ease;
+}
+
+.property-card.muted {
+  transform: scale(.992);
+}
+
+.switch-label > i,
+.property-nav-switch > i {
+  transition:
+    background-color .38s ease,
+    border-color .38s ease,
+    box-shadow .38s ease;
+}
+
+.switch-label > i::after,
+.property-nav-switch > i::after {
+  transition: transform .38s cubic-bezier(.22, .61, .36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buffer-ring,
+  .property-card,
+  .switch-label > i,
+  .property-nav-switch > i,
+  .switch-label > i::after,
+  .property-nav-switch > i::after {
+    transition-duration: .01ms !important;
+  }
+}

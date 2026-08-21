@@ -167,6 +167,39 @@ const sectionMeta = {
   },
 }
 
+
+function AnimatedNumber({ value, duration = 1000, decimals = 1 }) {
+  const numericValue = Number(value || 0)
+  const [displayValue, setDisplayValue] = useState(numericValue)
+  const previousValue = useRef(numericValue)
+
+  useEffect(() => {
+    const from = previousValue.current
+    const to = numericValue
+    previousValue.current = to
+
+    if (from === to || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setDisplayValue(to)
+      return undefined
+    }
+
+    let frame = 0
+    const startedAt = performance.now()
+    const ease = (progress) => 1 - Math.pow(1 - progress, 3)
+
+    const animate = (now) => {
+      const progress = Math.min(1, (now - startedAt) / duration)
+      setDisplayValue(from + (to - from) * ease(progress))
+      if (progress < 1) frame = requestAnimationFrame(animate)
+    }
+
+    frame = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(frame)
+  }, [numericValue, duration])
+
+  return displayValue.toFixed(decimals)
+}
+
 function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disabled = false, className = '', children = null }) {
   return (
     <article className={`metric-card ${tone} ${className} ${disabled ? 'not-applicable' : ''}`} title={disabled ? 'Not used for private landlords.' : undefined}>
@@ -1002,7 +1035,7 @@ function PortfolioApp({ user }) {
                   <span><span className="kicker">SAFETY BUFFER</span><h2>Safety Cash Buffer</h2></span>
                   <span className="mobile-expand-cue">{mobileBufferExpanded ? 'Hide' : 'Expand'}{mobileBufferExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
                 </button>
-                <button type="button" className="buffer-ring mobile-buffer-toggle" aria-expanded={mobileBufferExpanded} aria-label={`${mobileBufferExpanded ? 'Hide' : 'Show'} safety cash buffer details`} onClick={() => setMobileBufferExpanded((current) => !current)} style={{ '--value': `${Math.min(100, portfolio.cashHeld / Math.max(1, portfolio.safeCashNeeded) * 100)}%`, '--buffer-colour': cashBufferColour(portfolio.cashHeld, portfolio.safeCashNeeded) }}><div><strong>{portfolio.bufferMonths.toFixed(1)}</strong><span>months</span></div></button>
+                <button type="button" className="buffer-ring mobile-buffer-toggle" aria-expanded={mobileBufferExpanded} aria-label={`${mobileBufferExpanded ? 'Hide' : 'Show'} safety cash buffer details`} onClick={() => setMobileBufferExpanded((current) => !current)} style={{ '--value': `${Math.min(100, portfolio.cashHeld / Math.max(1, portfolio.safeCashNeeded) * 100)}%`, '--buffer-colour': cashBufferColour(portfolio.cashHeld, portfolio.safeCashNeeded) }}><div><strong><AnimatedNumber value={portfolio.bufferMonths} duration={1000} decimals={1} /></strong><span>months</span></div></button>
                 <div className="buffer-lines"><p><span>Cash held</span><b>{currency(portfolio.cashHeld)}</b></p><p><span>Six-month target</span><b>{currency(portfolio.safeCashNeeded)}</b></p><p className={portfolio.extraCashNeeded ? 'warn' : 'ok'}><span>{portfolio.extraCashNeeded ? 'Additional cash needed' : 'Buffer status'}</span><b>{portfolio.extraCashNeeded ? currency(portfolio.extraCashNeeded) : 'Safe'}</b></p></div>
               </article>
             </section>
