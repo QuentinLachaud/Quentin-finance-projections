@@ -898,10 +898,6 @@ function PortfolioApp({ user }) {
               <h1>{pageMeta.title}</h1>
               <p>{pageMeta.description}</p>
             </div>
-            <div className="hero-context" aria-label="Portfolio context">
-              <span><b>{portfolio.count}</b> active BTL{portfolio.count === 1 ? '' : 's'}</span>
-              <span>GBP</span>
-            </div>
           </section>
 
           {(section === 'Overview' || section === 'Projections') && <PrivateTaxSummary portfolio={portfolio} settings={state.settings} />}
