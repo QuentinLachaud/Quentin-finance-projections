@@ -100,29 +100,13 @@ function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
       <small>{property ? 'After mortgage and property costs' : 'Mortgage cost only'}</small>
     </header>
 
-    <div className="remortgage-fields">
+    <div className="remortgage-fields remortgage-cashflow-fields">
       <FriendlyNumberField
-        label="Property value"
+        label="Loan amount"
         prefix="£"
-        value={scenario.propertyValue}
-        onChange={update('propertyValue')}
+        value={scenario.loanAmount}
+        onChange={update('loanAmount')}
       />
-
-      <div className="remortgage-field-pair">
-        <FriendlyNumberField
-          label="Loan amount"
-          prefix="£"
-          value={scenario.loanAmount}
-          onChange={update('loanAmount')}
-        />
-        <FriendlyNumberField
-          label="LTV"
-          suffix="%"
-          value={roundedLtv(scenario.ltv)}
-          integer
-          onChange={update('ltv')}
-        />
-      </div>
 
       <FriendlyNumberField
         label={rateLabel}
@@ -165,7 +149,7 @@ function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
         <label className="remortgage-switch-row">
           <span>
             <b>Add fee to loan</b>
-            <small>Otherwise paid upfront.</small>
+            <small>Only financed fees affect monthly cash flow.</small>
           </span>
           <input
             type="checkbox"
@@ -176,12 +160,6 @@ function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
         </label>
       </div>
     </div>
-
-    <dl className="remortgage-result-strip">
-      <div><dt>Resulting loan</dt><dd>{money.format(result.effectiveLoan)}</dd></div>
-      <div><dt>Resulting LTV</dt><dd>{roundedLtv(result.resultingLtv)}%</dd></div>
-      <div><dt>Mortgage cost</dt><dd>{money.format(result.monthlyInterest)} / mo</dd></div>
-    </dl>
   </section>
 }
 
