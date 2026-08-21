@@ -3545,3 +3545,207 @@ textarea {
   border-color: #315b48;
   background: #17281f;
 }
+
+
+/* Brain Drain 2026-08-21 07:48 BST — polish mobile Overview disclosures */
+
+/* The map itself is the location target; no visible overlay button. */
+.property-map iframe { pointer-events: none; }
+.property-map .property-map-hit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+.property-map .property-map-hit:hover { background: transparent; }
+.property-card-edit {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+}
+
+.property-mobile-disclosure { display: none; }
+
+.mobile-buffer-header-toggle {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+.mobile-expand-cue { display: none; }
+
+@media (max-width: 760px) {
+  .weighted-rate-card { min-height: 154px; }
+  .weighted-rate-card .rate-shock-stepper {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .weighted-rate-card .rate-shock-stepper > button {
+    min-height: 42px;
+    padding: 0 8px;
+    border-radius: 9px;
+    flex-direction: row;
+    font-size: 13px;
+    font-weight: 750;
+    letter-spacing: .01em;
+  }
+  .weighted-rate-card .rate-shock-stepper > button.decrease {
+    border: 2px solid #2c7358;
+    color: #185c47;
+    background: #fff;
+  }
+  .weighted-rate-card .rate-shock-stepper > button.increase {
+    border: 2px solid #185c47;
+    color: #fff;
+    background: #185c47;
+  }
+
+  .overview-asset-panel > header { padding-bottom: 8px; }
+  .overview-asset-panel h2 { font-size: 20px; }
+  .mobile-portfolio-ltv { margin-top: 4px; font-size: 13px; }
+  .mobile-asset-row { gap: 7px; padding: 8px 0; }
+  .mobile-asset-row .asset-mobile-toggle {
+    min-height: 54px;
+    display: grid;
+    grid-template-columns: minmax(72px, .8fr) minmax(120px, 1.35fr) 28px;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 2px;
+    border-radius: 9px;
+  }
+  .mobile-asset-row .asset-mobile-toggle:active { background: #f2f6f3; }
+  .asset-mobile-identity b { font-size: 15px; }
+  .asset-mobile-identity small { font-size: 11px; }
+  .asset-mobile-track { width: 100%; display: block; }
+  .asset-mobile-track .asset-track {
+    width: 100% !important;
+    height: 13px;
+    border-radius: 7px;
+    overflow: hidden;
+  }
+  .asset-mobile-track .asset-value-bar,
+  .asset-mobile-track .asset-loan-bar { border-radius: 7px; }
+  .asset-mobile-chevron {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #446157;
+    background: #edf4f0;
+  }
+  .mobile-asset-row > .asset-track-wrap { display: none; }
+  .mobile-asset-row.mobile-expanded > .asset-numbers { margin-top: 1px; }
+
+  .mobile-buffer-disclosure { padding: 14px 15px 15px; }
+  .mobile-buffer-disclosure:not(.mobile-expanded) > header { display: none; }
+  .mobile-buffer-header-toggle {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 0 5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .mobile-buffer-header-toggle > span:first-child {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .mobile-buffer-header-toggle h2 { margin-top: 3px; font-size: 19px; }
+  .mobile-expand-cue {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 0 9px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #336650;
+    background: #edf5f1;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .mobile-buffer-disclosure:not(.mobile-expanded) > .buffer-lines { display: none; }
+  .mobile-buffer-toggle { margin-top: 5px; margin-bottom: 4px; }
+  .mobile-buffer-toggle small { display: none; }
+
+  .overview-property-card {
+    grid-template-areas:
+      "head head"
+      "identity map"
+      "value map"
+      "bar bar"
+      "mini mini"
+      "actions actions"
+      "disclosure disclosure";
+  }
+  .overview-property-card .property-actions {
+    grid-area: actions;
+    min-height: 44px;
+    padding-top: 7px;
+  }
+  .overview-property-card .property-card-edit {
+    width: 38px;
+    height: 38px;
+    border: 1px solid #dbe2dd;
+    background: #f7f9f7;
+  }
+  .property-mobile-disclosure {
+    grid-area: disclosure;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #315a49;
+    background: #eef5f1;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+  }
+  .property-mobile-disclosure:active { background: #e4efe9; }
+  .overview-property-card .property-map .property-map-hit {
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .overview-property-card .property-map .property-map-hit:hover { background: transparent; }
+  .overview-property-card.mobile-expanded .property-secondary-action {
+    min-height: 38px;
+    padding-inline: 8px;
+  }
+}
+
+:root[data-theme='dark'] .weighted-rate-card .rate-shock-stepper > button.decrease {
+  color: #9ee0bf;
+  border-color: #4d9a76;
+  background: #17221d;
+}
+:root[data-theme='dark'] .weighted-rate-card .rate-shock-stepper > button.increase {
+  color: #f2fff8;
+  border-color: #41906c;
+  background: #286d50;
+}
+:root[data-theme='dark'] .asset-mobile-chevron,
+:root[data-theme='dark'] .mobile-expand-cue,
+:root[data-theme='dark'] .property-mobile-disclosure,
+:root[data-theme='dark'] .overview-property-card .property-card-edit {
+  color: #a9dcc1;
+  border-color: #37433d;
+  background: #202a25;
+}
