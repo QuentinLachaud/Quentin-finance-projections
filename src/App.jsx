@@ -166,27 +166,29 @@ const sectionMeta = {
   },
 }
 
-function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disabled = false }) {
+function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disabled = false, className = '', children = null }) {
   return (
-    <article className={`metric-card ${tone} ${disabled ? 'not-applicable' : ''}`} title={disabled ? 'Not used for private landlords.' : undefined}>
+    <article className={`metric-card ${tone} ${className} ${disabled ? 'not-applicable' : ''}`} title={disabled ? 'Not used for private landlords.' : undefined}>
       <div className="metric-top"><span>{eyebrow}</span><Icon size={18} strokeWidth={1.8} /></div>
       <strong>{value}</strong>
       {delta && <small>{delta}</small>}
+      {children}
     </article>
   )
 }
 
 function PropertyCard({ property, onEdit, onClone, onToggle }) {
+  const [mobileExpanded, setMobileExpanded] = useState(false)
   const equityPercent = property.latestValuation ? property.equity / property.latestValuation : 0
   const mapQuery = [property.flatNumber, property.address, property.postcode, 'UK'].filter(Boolean).join(', ')
   const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}`
   return (
-    <article className={`property-card ${property.active ? '' : 'muted'}`}>
+    <article className={`property-card overview-property-card ${mobileExpanded ? 'mobile-expanded' : ''} ${property.active ? '' : 'muted'}`}>
       <div className="property-card-head">
         <span className="property-index">{property.name.replace(/\D/g, '') || '•'}</span>
         <button className="icon-button" aria-label={`Edit ${property.name}`} onClick={() => onEdit(property.id)}><MoreHorizontal size={20} /></button>
       </div>
-      <div>
+      <div className="property-card-identity">
         <span className="kicker">{property.name}</span>
         <h3>{formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'}</h3>
         <p>{property.postcode} · {property.bedrooms} bed · {property.areaSqm}m²</p>
@@ -207,8 +209,9 @@ function PropertyCard({ property, onEdit, onClone, onToggle }) {
       </div>
       <div className="property-actions">
         <label className="switch-label"><input type="checkbox" checked={property.active} onChange={() => onToggle(property.id)} /><i /><span>In totals</span></label>
-        <button className="text-button" onClick={() => onClone(property.id)}><Copy size={15} /> Clone</button>
-        <button className="text-button" onClick={() => onEdit(property.id)}><Pencil size={15} /> Edit</button>
+        <button type="button" className="property-mobile-expand" aria-expanded={mobileExpanded} onClick={() => setMobileExpanded((current) => !current)}>{mobileExpanded ? 'Less' : 'Details'}{mobileExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
+        <button className="text-button property-secondary-action" onClick={() => onClone(property.id)}><Copy size={15} /> Clone</button>
+        <button className="text-button property-secondary-action" onClick={() => onEdit(property.id)}><Pencil size={15} /> Edit</button>
       </div>
     </article>
   )
@@ -341,17 +344,26 @@ function AccountSetupModal({ onComplete }) {
 }
 
 function AssetPositionChart({ properties }) {
+  const [mobileExpanded, setMobileExpanded] = useState(() => new Set())
   const maxValue = Math.max(1, ...properties.map((p) => p.latestValuation))
+  const toggleMobileAsset = (id) => setMobileExpanded((current) => {
+    const next = new Set(current)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
   return (
-    <div className="asset-position" role="img" aria-label="Overlapping property valuation and loan bars">
+    <div className="asset-position" aria-label="Property loan-to-value positions">
       <div className="asset-rows">
-        {properties.map((p) => (
-          <div className="asset-row" key={p.id}>
+        {properties.map((p) => {
+          const expanded = mobileExpanded.has(p.id)
+          return <div className={`asset-row mobile-asset-row ${expanded ? 'mobile-expanded' : ''}`} key={p.id}>
+            <button type="button" className="asset-mobile-toggle" aria-expanded={expanded} onClick={() => toggleMobileAsset(p.id)}><span><b>{p.name}</b><small>{p.postcode || p.address || 'Property'}</small></span>{expanded ? <ChevronUp size={17} /> : <ChevronDown size={17} />}</button>
             <div className="asset-label"><b>{p.name}</b><small>{p.flatNumber}, {p.address}</small></div>
             <div className="asset-track-wrap"><div className="asset-track" style={{ width: `${Math.max(30, p.latestValuation / maxValue * 100)}%` }}><span className="asset-value-bar" /><span className="asset-loan-bar" style={{ width: `${Math.min(100, p.currentLtv * 100)}%` }}><span className="asset-ltv-label">LTV {percent(p.currentLtv, 1)}</span></span></div></div>
             <div className="asset-numbers"><span><b>{currency(p.latestValuation)}</b><small>Value</small></span><span><b>{currency(p.loanAmount)}</b><small>Loan</small></span><span><b>{currency(p.equity)}</b><small>Equity</small></span></div>
           </div>
-        ))}
+        })}
       </div>
     </div>
   )
@@ -596,6 +608,7 @@ function PortfolioApp({ user }) {
     () => new Set(propertyGroups.map(({ title }) => title)),
   )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [mobileBufferExpanded, setMobileBufferExpanded] = useState(false)
 
   const togglePropertyGroup = (title) => {
     setCollapsedPropertyGroups((current) => {
@@ -892,12 +905,22 @@ function PortfolioApp({ user }) {
               <MetricCard eyebrow="PORTFOLIO VALUE" value={currency(portfolio.totalValue)} delta={`${currency(portfolio.totalEquity)} total equity`} icon={Landmark} tone="dark" />
               <MetricCard eyebrow="MONTHLY RENT" value={currency(portfolio.rent)} delta={`${currency(portfolio.rent * 12)} annually`} icon={PoundSterling} tone="green" />
               <MetricCard eyebrow={state.settings.accountType === 'private' ? 'MONTHLY CASHFLOW' : 'COMPANY + EXTRACTION / MONTH'} value={currency(portfolio.scenarios[0]?.cashflow)} delta={state.settings.accountType === 'private' ? 'Conservative scenario' : `${currency(portfolio.scenarios[0]?.bankCashflow)} company bank cashflow · before personal tax on extraction`} icon={portfolio.scenarios[0]?.cashflow >= 0 ? ArrowUpRight : ArrowDownRight} />
-              <MetricCard eyebrow="WEIGHTED RATE" value={percent(portfolio.weightedRate, 2)} delta={`${percent(state.settings.rateShock, 2)} rate shock included`} icon={TrendingUp} />
+              <MetricCard eyebrow="WEIGHTED RATE" value={percent(portfolio.weightedRate, 2)} delta={`${percent(state.settings.rateShock, 2)} rate shock included`} icon={TrendingUp} className="weighted-rate-card">
+                <div className="rate-shock-stepper" aria-label="Rate shock controls">
+                  <button type="button" aria-label="Decrease rate shock by 10 basis points" onClick={() => updateSetting('rateShock', Number((Number(state.settings.rateShock || 0) - 0.001).toFixed(4)))}>−<span>10 bp</span></button>
+                  <span><small>Rate shock</small><b>{percent(state.settings.rateShock, 2)}</b></span>
+                  <button type="button" aria-label="Increase rate shock by 10 basis points" onClick={() => updateSetting('rateShock', Number((Number(state.settings.rateShock || 0) + 0.001).toFixed(4)))}>+<span>10 bp</span></button>
+                </div>
+              </MetricCard>
             </section>
 
             <section className="main-grid">
-              <article className="panel span-2"><header><div><span className="kicker">ASSET POSITION</span><h2>How much of each flat is financed?</h2></div><span className="panel-stat">{percent(portfolio.totalLoans / portfolio.totalValue, 1)} portfolio LTV</span></header><AssetPositionChart properties={portfolio.selected} /></article>
-              <article className="panel buffer-panel"><header><div><span className="kicker">SAFETY BUFFER</span><h2>Cash resilience</h2></div><ShieldCheck size={20} /></header><div className="buffer-ring" style={{ '--value': `${Math.min(100, portfolio.cashHeld / Math.max(1, portfolio.safeCashNeeded) * 100)}%`, '--buffer-colour': cashBufferColour(portfolio.cashHeld, portfolio.safeCashNeeded) }}><div><strong>{portfolio.bufferMonths.toFixed(1)}</strong><span>months</span></div></div><div className="buffer-lines"><p><span>Cash held</span><b>{currency(portfolio.cashHeld)}</b></p><p><span>Six-month target</span><b>{currency(portfolio.safeCashNeeded)}</b></p><p className={portfolio.extraCashNeeded ? 'warn' : 'ok'}><span>{portfolio.extraCashNeeded ? 'Additional cash needed' : 'Buffer status'}</span><b>{portfolio.extraCashNeeded ? currency(portfolio.extraCashNeeded) : 'Safe'}</b></p></div></article>
+              <article className="panel span-2 overview-asset-panel"><header><div><span className="kicker">ASSET POSITION</span><h2>How much of each flat is financed?</h2><span className="mobile-portfolio-ltv">{percent(portfolio.totalLoans / portfolio.totalValue, 1)} portfolio LTV</span></div><span className="panel-stat">{percent(portfolio.totalLoans / portfolio.totalValue, 1)} portfolio LTV</span></header><AssetPositionChart properties={portfolio.selected} /></article>
+              <article className={`panel buffer-panel mobile-buffer-disclosure ${mobileBufferExpanded ? 'mobile-expanded' : ''}`}>
+                <header><div><span className="kicker">SAFETY BUFFER</span><h2>Cash resilience</h2></div><ShieldCheck size={20} /></header>
+                <button type="button" className="buffer-ring mobile-buffer-toggle" aria-expanded={mobileBufferExpanded} aria-label={`${mobileBufferExpanded ? 'Hide' : 'Show'} cash resilience details`} onClick={() => setMobileBufferExpanded((current) => !current)} style={{ '--value': `${Math.min(100, portfolio.cashHeld / Math.max(1, portfolio.safeCashNeeded) * 100)}%`, '--buffer-colour': cashBufferColour(portfolio.cashHeld, portfolio.safeCashNeeded) }}><div><strong>{portfolio.bufferMonths.toFixed(1)}</strong><span>months</span><small>{mobileBufferExpanded ? 'Hide details' : 'Show details'}</small></div></button>
+                <div className="buffer-lines"><p><span>Cash held</span><b>{currency(portfolio.cashHeld)}</b></p><p><span>Six-month target</span><b>{currency(portfolio.safeCashNeeded)}</b></p><p className={portfolio.extraCashNeeded ? 'warn' : 'ok'}><span>{portfolio.extraCashNeeded ? 'Additional cash needed' : 'Buffer status'}</span><b>{portfolio.extraCashNeeded ? currency(portfolio.extraCashNeeded) : 'Safe'}</b></p></div>
+              </article>
             </section>
 
             <section className="properties-heading"><div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div><button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button></section>
