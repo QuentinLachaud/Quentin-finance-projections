@@ -234,6 +234,118 @@ const comparisonAtPropertyValue = (comparison, propertyValue) => ({
   right: scenarioAtPropertyValue(comparison.right, propertyValue),
 })
 
+function MobileSingleValueEditor({
+  title,
+  value,
+  prefix,
+  suffix,
+  decimals = 0,
+  onCancel,
+  onCommit,
+}) {
+  const [draftValue, setDraftValue] = useState(String(Number(value || 0)))
+  const parsed = parseFriendlyNumber(draftValue)
+
+  return <div className="mobile-remortgage-field-layer">
+    <section className="mobile-remortgage-field-modal" role="dialog" aria-modal="true" aria-label={`Edit ${title}`}>
+      <header>
+        <small>EDIT ONE VALUE</small>
+        <h3>{title}</h3>
+      </header>
+      <div className="mobile-remortgage-focused-input">
+        {prefix && <b>{prefix}</b>}
+        <input
+          autoFocus
+          aria-label={title}
+          type="text"
+          inputMode="decimal"
+          value={draftValue}
+          onFocus={(event) => event.target.select()}
+          onChange={(event) => setDraftValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && parsed != null) onCommit(parsed)
+            if (event.key === 'Escape') onCancel()
+          }}
+        />
+        {suffix && <b>{suffix}</b>}
+      </div>
+      <footer>
+        <button type="button" className="secondary-button" onClick={onCancel}>Cancel</button>
+        <button type="button" className="primary-button" disabled={parsed == null} onClick={() => onCommit(parsed)}>
+          Done
+        </button>
+      </footer>
+    </section>
+  </div>
+}
+
+function MobileFeeEditor({ scenario, onCancel, onCommit }) {
+  const [draftScenario, setDraftScenario] = useState(() => ({ ...scenario }))
+  const [draftValue, setDraftValue] = useState(String(Number(scenario.feeValue || 0)))
+  const parsed = parseFriendlyNumber(draftValue)
+  const update = (key, value) => setDraftScenario((current) => updateRemortgageScenario(current, key, value))
+
+  const save = () => {
+    if (parsed == null) return
+    onCommit(updateRemortgageScenario(draftScenario, 'feeValue', parsed))
+  }
+
+  return <div className="mobile-remortgage-field-layer">
+    <section className="mobile-remortgage-field-modal mobile-remortgage-fee-modal" role="dialog" aria-modal="true" aria-label="Edit product fee">
+      <header>
+        <small>REMORTGAGE FEE</small>
+        <h3>Product fee</h3>
+      </header>
+
+      <div className="remortgage-segmented mobile-remortgage-fee-mode" aria-label="Product fee type">
+        <button
+          type="button"
+          className={draftScenario.feeMode !== 'amount' ? 'active' : ''}
+          onClick={() => update('feeMode', 'percent')}
+        >% of loan</button>
+        <button
+          type="button"
+          className={draftScenario.feeMode === 'amount' ? 'active' : ''}
+          onClick={() => update('feeMode', 'amount')}
+        >£ amount</button>
+      </div>
+
+      <div className="mobile-remortgage-focused-input">
+        {draftScenario.feeMode === 'amount' && <b>£</b>}
+        <input
+          autoFocus
+          aria-label={draftScenario.feeMode === 'amount' ? 'Fee amount' : 'Fee percentage'}
+          type="text"
+          inputMode="decimal"
+          value={draftValue}
+          onFocus={(event) => event.target.select()}
+          onChange={(event) => setDraftValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && parsed != null) save()
+            if (event.key === 'Escape') onCancel()
+          }}
+        />
+        {draftScenario.feeMode !== 'amount' && <b>%</b>}
+      </div>
+
+      <label className="remortgage-switch-row mobile-remortgage-fee-switch mobile-remortgage-fee-switch-focused">
+        <span><b>Add fee to loan</b><small>Off = paid upfront</small></span>
+        <input
+          type="checkbox"
+          checked={Boolean(draftScenario.addFeeToLoan)}
+          onChange={(event) => update('addFeeToLoan', event.target.checked)}
+        />
+        <i />
+      </label>
+
+      <footer>
+        <button type="button" className="secondary-button" onClick={onCancel}>Cancel</button>
+        <button type="button" className="primary-button" disabled={parsed == null} onClick={save}>Done</button>
+      </footer>
+    </section>
+  </div>
+}
+
 function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
   const propertyValue = Number(
     property?.latestValuation
@@ -242,9 +354,11 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
     || 0
   )
   const [draft, setDraft] = useState(() => comparisonAtPropertyValue(comparison, propertyValue))
+  const [fieldEditor, setFieldEditor] = useState(null)
 
   useEffect(() => {
     setDraft(comparisonAtPropertyValue(comparison, propertyValue))
+    setFieldEditor(null)
   }, [comparison.id, propertyValue])
 
   const updateSide = (side, key, value) => setDraft((current) => {
@@ -252,16 +366,78 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
     return { ...current, [side]: updateRemortgageScenario(base, key, value) }
   })
 
+  const replaceSide = (side, scenario) => setDraft((current) => ({
+    ...current,
+    [side]: scenarioAtPropertyValue(scenario, propertyValue),
+  }))
+
   const left = calculateRemortgageScenario(scenarioAtPropertyValue(draft.left, propertyValue))
   const right = calculateRemortgageScenario(scenarioAtPropertyValue(draft.right, propertyValue))
-  const feeLabel = right.feeMode === 'amount'
-    ? money.format(right.feeValue)
-    : `${rate.format(right.feeValue)}%`
+  const feeLabel = right.feeValue === 0
+    ? 'No fee'
+    : right.feeMode === 'amount'
+      ? money.format(right.feeValue)
+      : `${rate.format(right.feeValue)}%`
+  const feeTreatment = right.feeValue === 0
+    ? 'No product fee entered'
+    : right.addFeeToLoan ? 'Added to loan' : 'Paid upfront'
+
+  const primaryRows = [
+    {
+      key: 'remortgage-rate',
+      step: '1',
+      label: 'Remortgage rate',
+      value: `${rate.format(right.rate)}%`,
+      note: 'Tap to edit',
+    },
+    {
+      key: 'remortgage-ltv',
+      step: '2',
+      label: 'Remortgage LTV',
+      value: `${roundedLtv(right.ltv)}%`,
+      note: 'Sets the remortgage loan automatically',
+    },
+    {
+      key: 'product-fee',
+      step: '3',
+      label: 'Product fee',
+      value: feeLabel,
+      note: feeTreatment,
+    },
+  ]
 
   const save = () => onSave(comparisonAtPropertyValue(draft, propertyValue))
 
+  const openNumericEditor = (key, title, value, options = {}) => {
+    setFieldEditor({ key, title, value, ...options })
+  }
+
+  const commitNumericEditor = (value) => {
+    if (!fieldEditor) return
+    if (fieldEditor.key === 'remortgage-rate') updateSide('right', 'rate', value)
+    if (fieldEditor.key === 'remortgage-ltv') updateSide('right', 'ltv', value)
+    if (fieldEditor.key === 'current-rate') updateSide('left', 'rate', value)
+    if (fieldEditor.key === 'current-loan') updateSide('left', 'loanAmount', value)
+    if (fieldEditor.key === 'property-value' && !property) {
+      setDraft((current) => comparisonAtPropertyValue(current, value))
+    }
+    setFieldEditor(null)
+  }
+
+  const openPrimary = (key) => {
+    if (key === 'remortgage-rate') {
+      openNumericEditor(key, 'Remortgage rate', draft.right.rate, { suffix: '%', decimals: 2 })
+      return
+    }
+    if (key === 'remortgage-ltv') {
+      openNumericEditor(key, 'Remortgage LTV', draft.right.ltv, { suffix: '%', decimals: 1 })
+      return
+    }
+    if (key === 'product-fee') setFieldEditor({ key: 'product-fee' })
+  }
+
   return <div className="mobile-remortgage-layer">
-    <section className="mobile-remortgage-modal" role="dialog" aria-modal="true" aria-labelledby={`mobile-remortgage-title-${comparison.id}`}>
+    <section className="mobile-remortgage-modal mobile-remortgage-decision-modal" role="dialog" aria-modal="true" aria-labelledby={`mobile-remortgage-title-${comparison.id}`}>
       <header>
         <div>
           <small>{property ? `${property.name} · ${property.postcode || 'No postcode'}` : 'Manual comparison'}</small>
@@ -270,85 +446,58 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
         <button type="button" className="mobile-remortgage-close" onClick={onClose} aria-label="Close without saving"><X size={19} /></button>
       </header>
 
-      <div className="mobile-remortgage-primary-fields">
-        <FriendlyNumberField
-          label="Current interest rate"
-          suffix="%"
-          value={draft.left.rate}
-          decimals={2}
-          onChange={(value) => updateSide('left', 'rate', value)}
-        />
-        <FriendlyNumberField
-          label="Current loan amount"
-          prefix="£"
-          value={draft.left.loanAmount}
-          onChange={(value) => updateSide('left', 'loanAmount', value)}
-        />
-        <FriendlyNumberField
-          label="Remortgage rate"
-          suffix="%"
-          value={draft.right.rate}
-          decimals={2}
-          onChange={(value) => updateSide('right', 'rate', value)}
-        />
-        <FriendlyNumberField
-          label="Remortgage loan"
-          prefix="£"
-          value={draft.right.loanAmount}
-          onChange={(value) => updateSide('right', 'loanAmount', value)}
-        />
+      <div className="mobile-remortgage-decision-list">
+        {primaryRows.map((row) => <button
+          key={row.key}
+          type="button"
+          className="mobile-remortgage-decision-row"
+          onClick={() => openPrimary(row.key)}
+        >
+          <span className="mobile-remortgage-step">{row.step}</span>
+          <span className="mobile-remortgage-decision-copy">
+            <b>{row.label}</b>
+            <small>{row.note}</small>
+          </span>
+          <strong>{row.value}</strong>
+          <ArrowRight size={17} aria-hidden="true" />
+        </button>)}
       </div>
 
-      <dl className="mobile-remortgage-derived">
-        <div><dt>Property value</dt><dd>{money.format(propertyValue)}</dd></div>
-        <div><dt>Current LTV</dt><dd>{roundedLtv(left.ltv)}%</dd></div>
-        <div><dt>New LTV</dt><dd>{roundedLtv(right.resultingLtv)}%</dd></div>
-      </dl>
-
-      <details className="mobile-remortgage-details">
+      <details className="mobile-remortgage-details mobile-remortgage-supporting-details">
         <summary>
-          <span><b>Product fee & details</b><small>{feeLabel} · {right.addFeeToLoan ? 'added to loan' : 'paid upfront'}</small></span>
+          <span><b>Details</b><small>Current, property and derived values</small></span>
           <ChevronDown size={18} aria-hidden="true" />
         </summary>
         <div className="mobile-remortgage-details-body">
-          <div className="mobile-remortgage-fee-row">
-            <div className="remortgage-segmented" aria-label="Product fee type">
-              <button
-                type="button"
-                className={draft.right.feeMode !== 'amount' ? 'active' : ''}
-                onClick={() => updateSide('right', 'feeMode', 'percent')}
-              >% of loan</button>
-              <button
-                type="button"
-                className={draft.right.feeMode === 'amount' ? 'active' : ''}
-                onClick={() => updateSide('right', 'feeMode', 'amount')}
-              >£ amount</button>
-            </div>
-            <FriendlyNumberField
-              label={draft.right.feeMode === 'amount' ? 'Fee amount' : 'Fee percentage'}
-              prefix={draft.right.feeMode === 'amount' ? '£' : undefined}
-              suffix={draft.right.feeMode === 'amount' ? undefined : '%'}
-              value={draft.right.feeValue}
-              decimals={draft.right.feeMode === 'amount' ? 0 : 2}
-              onChange={(value) => updateSide('right', 'feeValue', value)}
-            />
+          <div className="mobile-remortgage-detail-list">
+            <button
+              type="button"
+              className="mobile-remortgage-detail-row editable"
+              onClick={() => openNumericEditor('current-rate', 'Current interest rate', draft.left.rate, { suffix: '%', decimals: 2 })}
+            >
+              <span>Current interest rate</span><b>{rate.format(left.rate)}%</b><small>Edit</small>
+            </button>
+            <button
+              type="button"
+              className="mobile-remortgage-detail-row editable"
+              onClick={() => openNumericEditor('current-loan', 'Current loan amount', draft.left.loanAmount, { prefix: '£' })}
+            >
+              <span>Current loan amount</span><b>{money.format(left.loanAmount)}</b><small>Edit</small>
+            </button>
+            {property
+              ? <div className="mobile-remortgage-detail-row"><span>Property value</span><b>{money.format(propertyValue)}</b></div>
+              : <button
+                  type="button"
+                  className="mobile-remortgage-detail-row editable"
+                  onClick={() => openNumericEditor('property-value', 'Property value', propertyValue, { prefix: '£' })}
+                >
+                  <span>Property value</span><b>{money.format(propertyValue)}</b><small>Edit</small>
+                </button>}
+            <div className="mobile-remortgage-detail-row"><span>Current LTV</span><b>{roundedLtv(left.ltv)}%</b></div>
+            <div className="mobile-remortgage-detail-row"><span>Remortgage loan</span><b>{money.format(right.loanAmount)}</b></div>
+            <div className="mobile-remortgage-detail-row"><span>New LTV</span><b>{roundedLtv(right.resultingLtv)}%</b></div>
+            <div className="mobile-remortgage-detail-row"><span>Mortgage cost</span><b>{money.format(right.monthlyInterest)} / mo</b></div>
           </div>
-
-          <label className="remortgage-switch-row mobile-remortgage-fee-switch">
-            <span><b>Add fee to loan</b><small>Off = paid upfront</small></span>
-            <input
-              type="checkbox"
-              checked={Boolean(draft.right.addFeeToLoan)}
-              onChange={(event) => updateSide('right', 'addFeeToLoan', event.target.checked)}
-            />
-            <i />
-          </label>
-
-          <dl className="mobile-remortgage-result-row">
-            <div><dt>Resulting loan</dt><dd>{money.format(right.effectiveLoan)}</dd></div>
-            <div><dt>Resulting LTV</dt><dd>{roundedLtv(right.resultingLtv)}%</dd></div>
-            <div><dt>Mortgage / mo</dt><dd>{money.format(right.monthlyInterest)}</dd></div>
-          </dl>
         </div>
       </details>
 
@@ -357,6 +506,25 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
         <button type="button" className="primary-button mobile-remortgage-save" onClick={save}>Save Changes</button>
       </footer>
     </section>
+
+    {fieldEditor?.key === 'product-fee' && <MobileFeeEditor
+      scenario={draft.right}
+      onCancel={() => setFieldEditor(null)}
+      onCommit={(scenario) => {
+        replaceSide('right', scenario)
+        setFieldEditor(null)
+      }}
+    />}
+
+    {fieldEditor && fieldEditor.key !== 'product-fee' && <MobileSingleValueEditor
+      title={fieldEditor.title}
+      value={fieldEditor.value}
+      prefix={fieldEditor.prefix}
+      suffix={fieldEditor.suffix}
+      decimals={fieldEditor.decimals}
+      onCancel={() => setFieldEditor(null)}
+      onCommit={commitNumericEditor}
+    />}
   </div>
 }
 
@@ -482,7 +650,7 @@ export default function RemortgageSimulator({
       <div>
         <span className="kicker">PRO · FINANCE DECISION TOOL</span>
         <h2>Remortgage Simulator</h2>
-        <p>Choose a property, add a comparison, then enter the remortgage rate, loan, LTV and product fee. Collapse each comparison to compare your saved options at a glance.</p>
+        <p>Choose a property, add a comparison, then set the remortgage rate, LTV and product fee. Saved comparisons stay compact so you can compare them at a glance.</p>
       </div>
 
       <div className="remortgage-add">

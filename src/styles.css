@@ -4108,3 +4108,251 @@ textarea {
 }
 :root[data-theme='dark'] .remortgage-summary-mobile-rates { color: #e7eee9; }
 :root[data-theme='dark'] .mobile-remortgage-details-body { border-color: #303b35; }
+
+
+/* Brain Drain 2026-08-21 08:20 BST — simplified mobile remortgage decisions */
+@media (max-width: 680px) {
+  .mobile-remortgage-decision-modal {
+    gap: 10px;
+  }
+
+  .mobile-remortgage-decision-list {
+    display: grid;
+    gap: 7px;
+  }
+
+  .mobile-remortgage-decision-row {
+    width: 100%;
+    min-height: 64px;
+    padding: 9px 10px;
+    border: 1px solid var(--ui-line);
+    border-radius: 11px;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto 20px;
+    align-items: center;
+    gap: 8px;
+    color: var(--ui-text);
+    background: var(--ui-surface-subtle);
+    text-align: left;
+  }
+
+  .mobile-remortgage-decision-row:active {
+    background: var(--ui-surface-muted);
+  }
+
+  .mobile-remortgage-step {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: #185c47;
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  .mobile-remortgage-decision-copy {
+    min-width: 0;
+    display: grid;
+    gap: 1px;
+  }
+
+  .mobile-remortgage-decision-copy b {
+    font-size: 13px;
+  }
+
+  .mobile-remortgage-decision-copy small {
+    overflow: hidden;
+    color: var(--ui-muted);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-remortgage-decision-row > strong {
+    color: var(--ui-text);
+    font: 700 17px 'Manrope';
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .mobile-remortgage-supporting-details {
+    margin-top: 0;
+  }
+
+  .mobile-remortgage-supporting-details > summary {
+    min-height: 46px;
+  }
+
+  .mobile-remortgage-detail-list {
+    display: grid;
+  }
+
+  .mobile-remortgage-detail-row {
+    width: 100%;
+    min-height: 40px;
+    padding: 7px 2px;
+    border: 0;
+    border-top: 1px solid var(--ui-line);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    color: var(--ui-text);
+    background: transparent;
+    text-align: left;
+  }
+
+  .mobile-remortgage-detail-row:first-child {
+    border-top: 0;
+  }
+
+  .mobile-remortgage-detail-row > span {
+    color: var(--ui-muted);
+    font-size: 11px;
+  }
+
+  .mobile-remortgage-detail-row > b {
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mobile-remortgage-detail-row > small {
+    min-width: 34px;
+    color: #1c6b50;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .mobile-remortgage-detail-row.editable {
+    cursor: pointer;
+  }
+
+  .mobile-remortgage-detail-row.editable:active {
+    background: var(--ui-surface-muted);
+  }
+
+  .mobile-remortgage-field-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    padding: 18px;
+    display: grid;
+    place-items: center;
+    background: rgba(13, 22, 18, .52);
+    backdrop-filter: blur(4px);
+  }
+
+  .mobile-remortgage-field-modal {
+    width: min(100%, 360px);
+    padding: 18px;
+    border: 1px solid var(--ui-line);
+    border-radius: 16px;
+    display: grid;
+    gap: 15px;
+    background: var(--ui-surface);
+    box-shadow: 0 18px 60px rgba(8, 18, 13, .22);
+  }
+
+  .mobile-remortgage-field-modal > header {
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobile-remortgage-field-modal > header small {
+    color: var(--ui-muted);
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: .12em;
+  }
+
+  .mobile-remortgage-field-modal > header h3 {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .mobile-remortgage-focused-input {
+    min-height: 64px;
+    padding: 0 14px;
+    border: 2px solid #4f8b70;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    background: var(--ui-surface-subtle);
+    box-shadow: 0 0 0 3px rgba(39, 121, 92, .08);
+  }
+
+  .mobile-remortgage-focused-input input {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 4px;
+    border: 0;
+    outline: 0;
+    color: var(--ui-text);
+    background: transparent;
+    text-align: center;
+    font: 750 27px 'Manrope';
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mobile-remortgage-focused-input b {
+    color: var(--ui-muted);
+    font-size: 16px;
+  }
+
+  .mobile-remortgage-field-modal > footer {
+    display: grid;
+    grid-template-columns: .72fr 1fr;
+    gap: 8px;
+  }
+
+  .mobile-remortgage-field-modal > footer button {
+    min-height: 46px;
+  }
+
+  .mobile-remortgage-fee-modal {
+    gap: 12px;
+  }
+
+  .mobile-remortgage-fee-mode {
+    width: 100%;
+  }
+
+  .mobile-remortgage-fee-mode button {
+    min-height: 38px;
+    flex: 1;
+    font-size: 11px;
+  }
+
+  .mobile-remortgage-fee-switch-focused {
+    min-height: 50px;
+    padding: 8px 2px 2px;
+  }
+
+  .mobile-remortgage-fee-switch-focused > i {
+    width: 46px;
+    height: 27px;
+  }
+
+  .mobile-remortgage-fee-switch-focused > i::after {
+    width: 23px;
+    height: 23px;
+  }
+
+  .mobile-remortgage-fee-switch-focused input:checked + i::after {
+    transform: translateX(19px);
+  }
+}
+
+:root[data-theme='dark'] .mobile-remortgage-decision-row,
+:root[data-theme='dark'] .mobile-remortgage-field-modal,
+:root[data-theme='dark'] .mobile-remortgage-focused-input {
+  border-color: #3b4942;
+}
+
+:root[data-theme='dark'] .mobile-remortgage-step {
+  background: #2a7857;
+}
