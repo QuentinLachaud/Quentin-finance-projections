@@ -386,14 +386,44 @@ function ModelControls({ settings, onChange, compact = false }) {
   )
 }
 
-function ScenarioTable({ scenarios, count, accountType = 'company', mobileToggle = false }) {
+function ScenarioTable({ scenarios, count, accountType = 'company' }) {
   const isPrivate = accountType === 'private'
   const [mobileScenario, setMobileScenario] = useState(0)
-  return <div className={`scenario-table ${mobileToggle ? 'mobile-scenario-toggle-enabled' : ''}`} data-mobile-scenario={mobileScenario}>
-    {mobileToggle && <div className="overview-scenario-toggle" role="group" aria-label="Cashflow scenario">
-      {scenarioMeta.map((scenario, index) => <button type="button" key={scenario.name} className={mobileScenario === index ? 'active' : ''} aria-pressed={mobileScenario === index} style={{ '--scenario': scenario.colour }} onClick={() => setMobileScenario(index)}>{scenario.name}</button>)}
-    </div>}
-    <div className="scenario-list">{scenarios.map((scenario, index) => <div className={`scenario scenario-${index}`} key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Tax / mo</span><b className="negative">{currency(scenario.tax)}</b></div><div><span>{isPrivate ? 'Cashflow / mo' : 'Company + extraction / mo'}</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>{isPrivate ? 'Total gain / yr' : 'Total gain / yr (pre-personal-tax)'}</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div></div>)}</div>
+  const [desktopScenarios, setDesktopScenarios] = useState(() => new Set([0, 1, 2]))
+
+  const selectScenario = (index) => {
+    if (window.matchMedia?.('(max-width: 760px)').matches) {
+      setMobileScenario(index)
+      return
+    }
+
+    setDesktopScenarios((current) => {
+      const next = new Set(current)
+      if (next.has(index)) {
+        if (next.size === 1) return current
+        next.delete(index)
+      } else {
+        next.add(index)
+      }
+      return next
+    })
+  }
+
+  return <div className="scenario-table scenario-selector-enabled" data-mobile-scenario={mobileScenario}>
+    <div className="overview-scenario-toggle scenario-selector" role="group" aria-label="Cashflow scenarios">
+      {scenarioMeta.map((scenario, index) => {
+        const desktopSelected = desktopScenarios.has(index)
+        return <button
+          type="button"
+          key={scenario.name}
+          className={`${mobileScenario === index ? 'mobile-active' : ''} ${desktopSelected ? 'desktop-active' : ''}`}
+          aria-pressed={desktopSelected}
+          style={{ '--scenario': scenario.colour }}
+          onClick={() => selectScenario(index)}
+        >{scenario.name}</button>
+      })}
+    </div>
+    <div className="scenario-list">{scenarios.map((scenario, index) => <div className={`scenario scenario-${index} ${desktopScenarios.has(index) ? 'desktop-selected' : 'desktop-hidden'}`} key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><div><i>{scenario.id}</i><span><b>{scenarioMeta[index].name}</b><small>{scenarioMeta[index].note}</small></span></div><div><span>Tax / mo</span><b className="negative">{currency(scenario.tax)}</b></div><div><span>{isPrivate ? 'Cashflow / mo' : 'Company + extraction / mo'}</span><b className={scenario.cashflow >= 0 ? 'positive' : 'negative'}>{currency(scenario.cashflow)}</b></div><div><span>{isPrivate ? 'Total gain / yr' : 'Total gain / yr (pre-personal-tax)'}</span><b>{currency(scenario.totalGain * 12)}</b></div><div><span>Per flat / mo</span><b>{currency(count ? scenario.cashflow / count : 0)}</b></div></div>)}</div>
   </div>
 }
 
@@ -930,7 +960,7 @@ function PortfolioApp({ user }) {
             <section className="properties-heading"><div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div><button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button></section>
             <section className="property-cards">{calculated.map((p) => <PropertyCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}<button className="add-property-card" onClick={addProperty}><span><Plus /></span><b>Add another BTL</b><small>Start blank or clone an existing property</small></button></section>
 
-            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} mobileToggle /></section>
+            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
           </>}
 
           {section === 'Properties' && <>
