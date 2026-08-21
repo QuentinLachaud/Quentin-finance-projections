@@ -941,18 +941,23 @@ function PortfolioApp({ user }) {
                 <p>Expand a section to compare properties. Advanced reveals projected and specialist metrics.</p>
               </div>
               <div className="table-tools properties-tools">
-                <div className={`property-view-mode ${advancedPropertyView ? 'advanced' : ''}`} aria-label="Property detail level">
-                  <span className={!advancedPropertyView ? 'active' : ''}>Basic</span>
-                  <label className="property-view-switch">
-                    <input
-                      aria-label="Show advanced property metrics"
-                      type="checkbox"
-                      checked={advancedPropertyView}
-                      onChange={(event) => setAdvancedPropertyView(event.target.checked)}
-                    />
-                    <i />
-                  </label>
-                  <span className={advancedPropertyView ? 'active' : ''}>Advanced</span>
+                <div className="property-view-mode" role="group" aria-label="Property detail level">
+                  <button
+                    type="button"
+                    className={`property-view-choice ${!advancedPropertyView ? 'active' : ''}`}
+                    aria-pressed={!advancedPropertyView}
+                    onClick={() => setAdvancedPropertyView(false)}
+                  >
+                    Basic
+                  </button>
+                  <button
+                    type="button"
+                    className={`property-view-choice ${advancedPropertyView ? 'active' : ''}`}
+                    aria-pressed={advancedPropertyView}
+                    onClick={() => setAdvancedPropertyView(true)}
+                  >
+                    Advanced
+                  </button>
                 </div>
                 <label><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
                 <button className="primary-button small" onClick={addProperty}><Plus size={16} /> New BTL</button>

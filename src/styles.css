@@ -4356,3 +4356,66 @@ textarea {
 :root[data-theme='dark'] .mobile-remortgage-step {
   background: #2a7857;
 }
+
+
+/* Brain Drain 2026-08-21 08:35 BST — reliable Basic / Advanced property toggle */
+.property-view-mode {
+  padding: 3px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.property-view-choice {
+  min-width: 72px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ui-muted, #68756f);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.property-view-choice:hover {
+  background: var(--ui-surface-muted, #f1f5f2);
+}
+
+.property-view-choice.active {
+  color: #fff;
+  background: #185c47;
+  box-shadow: 0 1px 3px rgba(21, 66, 51, .16);
+}
+
+.property-view-choice:focus-visible {
+  outline: 3px solid var(--ui-focus, rgba(39, 121, 92, .30));
+  outline-offset: 1px;
+}
+
+@media (max-width: 720px) {
+  .properties-tools .property-view-mode {
+    width: 100%;
+    min-height: 48px;
+    padding: 4px;
+  }
+
+  .property-view-choice {
+    width: 100%;
+    min-height: 40px;
+    font-size: 13px;
+  }
+}
+
+:root[data-theme='dark'] .property-view-choice {
+  color: #95a49d;
+}
+
+:root[data-theme='dark'] .property-view-choice:hover {
+  background: #202923;
+}
+
+:root[data-theme='dark'] .property-view-choice.active {
+  color: #f1fff7;
+  background: #2a7857;
+}
