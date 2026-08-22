@@ -957,7 +957,14 @@ function PortfolioApp({ user }) {
     <div className="app-shell" onFocusCapture={(event) => { if (shouldSelectZeroInput(event.target)) event.target.select() }}>
       <button className={`mobile-nav-backdrop ${mobileNavOpen ? 'open' : ''}`} onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" tabIndex={mobileNavOpen ? 0 : -1} />
       <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`} aria-label="Portfolio navigation">
-        <div className="brand"><span><Building2 size={20} /></span><div><strong>{state.settings.companyName || (state.settings.accountType === 'private' ? 'PRIVATE' : 'PROPERTY')}</strong><small>PORTFOLIO</small></div><button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
+        <div className="brand">
+          <span className="brand-logo" aria-hidden="true"><Building2 size={20} /></span>
+          <div className="brand-copy">
+            <strong>BTL Portfolio</strong>
+            {state.settings.companyName && <small>{state.settings.companyName}</small>}
+          </div>
+          <button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20} /></button>
+        </div>
         <div className="sidebar-body">
           <nav>
             {navigationGroups.map((group) => {
