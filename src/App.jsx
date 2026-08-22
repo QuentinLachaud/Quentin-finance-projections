@@ -13,6 +13,7 @@ import {
   identityVerificationSummary, officialCompanyUrl, outstandingCharges,
 } from './companiesHouse.js'
 import AuthScreen from './AuthScreen.jsx'
+import BrandLogo from './BrandLogo.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
@@ -1021,6 +1022,7 @@ function PortfolioApp({ user }) {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     window.localStorage.setItem('btl-theme', theme)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#091A1E' : '#f5f7f4')
     return () => { delete document.documentElement.dataset.theme }
   }, [theme])
 
@@ -1245,10 +1247,9 @@ function PortfolioApp({ user }) {
       <button className={`mobile-nav-backdrop ${mobileNavOpen ? 'open' : ''}`} onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" tabIndex={mobileNavOpen ? 0 : -1} />
       <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`} aria-label="Portfolio navigation">
         <div className="brand">
-          <span className="brand-logo" aria-hidden="true"><Building2 size={20} /></span>
-          <div className="brand-copy">
-            <strong>BTL Portfolio</strong>
-            {state.settings.companyName && <small>{state.settings.companyName}</small>}
+          <div className="brand-identity">
+            <BrandLogo surface="dark" className="sidebar-brand-wordmark" />
+            {state.settings.companyName && <small className="brand-company-name">{state.settings.companyName}</small>}
           </div>
           <button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20} /></button>
         </div>
@@ -1566,6 +1567,6 @@ export default function App() {
   }, [])
 
   if (!isSupabaseConfigured) return <div className="app-status-screen"><CloudOff size={32} /><h1>Authentication is not configured</h1><p>Add the Supabase project URL and publishable key to the deployment environment.</p></div>
-  if (session === undefined) return <div className="app-status-screen"><span className="loading-mark"><Building2 /></span><h1>Checking your session…</h1></div>
+  if (session === undefined) return <div className="app-status-screen"><BrandLogo surface="auto" className="status-brand-wordmark" /><h1>Checking your session…</h1></div>
   return session ? <PortfolioApp user={session.user} /> : <AuthScreen />
 }
