@@ -7391,3 +7391,98 @@ textarea {
   .brand > .brand-identity .sidebar-brand-wordmark { width: min(164px, 100%); }
   .auth-brand > .brand-wordmark { width: min(190px, 62vw); }
 }
+
+/* Brain Drain 2026-08-23 00:09 BST — remortgage small-screen card squeeze fix */
+
+@media (max-width: 920px) {
+  .remortgage-comparison-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .remortgage-scenario-card,
+  .remortgage-difference-card {
+    width: 100%;
+    min-width: 0;
+    grid-column: auto;
+  }
+
+  .remortgage-arrow {
+    width: 100%;
+    min-height: 34px;
+    transform: rotate(90deg);
+  }
+
+  .remortgage-fields,
+  .remortgage-field,
+  .remortgage-fee-block,
+  .remortgage-switch-row {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .remortgage-summary-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .remortgage-summary-main {
+    width: 100%;
+    min-width: 0;
+    padding: 9px 11px;
+  }
+
+  .remortgage-summary-mobile {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, .62fr) minmax(0, 1.55fr) minmax(0, .78fr);
+    gap: 6px;
+  }
+
+  .remortgage-summary-mobile > *,
+  .remortgage-summary-mobile-rates,
+  .remortgage-summary-mobile-rates > *,
+  .remortgage-summary-mobile-cash {
+    min-width: 0;
+  }
+
+  .remortgage-summary-actions {
+    min-height: 38px;
+    padding: 2px 7px 3px;
+    border-left: 0;
+    border-top: 1px solid var(--ui-line);
+    justify-content: flex-end;
+    gap: 2px;
+  }
+
+  .remortgage-summary-actions .icon-button {
+    width: 34px;
+    height: 32px;
+    padding: 4px;
+  }
+}
+
+@media (max-width: 420px) {
+  .remortgage-summary-mobile {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name cash"
+      "rates rates";
+    row-gap: 7px;
+    column-gap: 10px;
+  }
+
+  .remortgage-summary-mobile-name {
+    grid-area: name;
+  }
+
+  .remortgage-summary-mobile-rates {
+    grid-area: rates;
+    width: 100%;
+  }
+
+  .remortgage-summary-mobile-cash {
+    grid-area: cash;
+    justify-self: end;
+    text-align: right;
+  }
+}
