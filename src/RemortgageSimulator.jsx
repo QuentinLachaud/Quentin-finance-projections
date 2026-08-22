@@ -93,11 +93,17 @@ function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
 
   return <section className="remortgage-scenario-card">
     <header>
-      <div>
-        <span>{title}</span>
-        <strong>{money.format(cashFlow)}<small> / month</small></strong>
+      <span className="remortgage-scenario-title">{title}</span>
+      <div className="remortgage-scenario-cost-metric">
+        <small>Monthly mortgage cost</small>
+        <strong>{money.format(result.monthlyInterest)}<small> / month</small></strong>
       </div>
-      <small>{property ? 'After mortgage and property costs' : 'Mortgage cost only'}</small>
+      {property && <div className="remortgage-scenario-cashflow-metric">
+        <small>True cash flow</small>
+        <b>{money.format(cashFlow)} / month</b>
+        <span>Rent minus property costs and mortgage</span>
+      </div>}
+      {!property && <small className="remortgage-scenario-manual-note">Mortgage-only comparison · property cash flow unavailable</small>}
     </header>
 
     <div className="remortgage-fields remortgage-cashflow-fields">
@@ -172,10 +178,10 @@ function DifferenceCard({ comparison, property }) {
   const equityReleasePositive = diff.equityRelease >= 0
 
   return <section className={`remortgage-difference-card ${positive ? 'positive' : 'negative'}`}>
-    <span className="kicker">OPTION B VS OPTION A</span>
+    <span className="kicker">NEW MORTGAGE VS CURRENT</span>
 
     <div className="remortgage-impact">
-      <small>Monthly cash-flow difference</small>
+      <small>{property ? 'True cash-flow difference' : 'Monthly mortgage saving'}</small>
       <strong>{signedMoney(cashFlowChange)}</strong>
       <span>{signedMoney(cashFlowChange * 12)} / year</span>
     </div>
@@ -366,6 +372,8 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
 
   const left = calculateRemortgageScenario(editorScenario(draft.left))
   const right = calculateRemortgageScenario(editorScenario(draft.right))
+  const leftCashFlow = optionCashFlow(property, left)
+  const rightCashFlow = optionCashFlow(property, right)
   const feeLabel = right.feeValue === 0
     ? 'No fee'
     : right.feeMode === 'amount'
@@ -476,6 +484,20 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
         </button>)}
       </div>
 
+      <div className="mobile-remortgage-cost-strip" aria-label="Current and new monthly mortgage costs">
+        <div>
+          <small>Current mortgage cost</small>
+          <strong>{money.format(left.monthlyInterest)} / mo</strong>
+          {property && <span>True cash flow {money.format(leftCashFlow)} / mo</span>}
+        </div>
+        <ArrowRight size={18} aria-hidden="true" />
+        <div>
+          <small>New mortgage cost</small>
+          <strong>{money.format(right.monthlyInterest)} / mo</strong>
+          {property && <span>True cash flow {money.format(rightCashFlow)} / mo</span>}
+        </div>
+      </div>
+
       <details className="mobile-remortgage-details mobile-remortgage-supporting-details">
         <summary>
           <span><b>Details</b><small>Current, property and derived values</small></span>
@@ -517,7 +539,10 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
                   <span>Remortgage loan</span><b>{money.format(right.loanAmount)}</b><small>Edit</small>
                 </button>}
             <div className="mobile-remortgage-detail-row"><span>New LTV</span><b>{roundedLtv(right.resultingLtv)}%</b></div>
-            <div className="mobile-remortgage-detail-row"><span>Mortgage cost</span><b>{money.format(right.monthlyInterest)} / mo</b></div>
+            <div className="mobile-remortgage-detail-row"><span>Current mortgage cost</span><b>{money.format(left.monthlyInterest)} / mo</b></div>
+            <div className="mobile-remortgage-detail-row"><span>New mortgage cost</span><b>{money.format(right.monthlyInterest)} / mo</b></div>
+            {property && <div className="mobile-remortgage-detail-row"><span>Current true cash flow</span><b>{money.format(leftCashFlow)} / mo</b></div>}
+            {property && <div className="mobile-remortgage-detail-row"><span>New true cash flow</span><b>{money.format(rightCashFlow)} / mo</b></div>}
           </div>
         </div>
       </details>
@@ -563,11 +588,13 @@ function CollapsedSummary({ comparison, property, expanded, onToggle }) {
   >
     <div className="remortgage-summary-mobile">
       <span className="remortgage-summary-mobile-name">{property?.name || comparison.name || 'Manual'}</span>
-      <span className="remortgage-summary-mobile-rates">
-        <b>{rate.format(diff.left.rate)}%</b><ArrowRight size={16} aria-hidden="true" /><b>{rate.format(diff.right.rate)}%</b>
+      <span className="remortgage-summary-mobile-costs" aria-label="Current and new monthly mortgage costs">
+        <span><small>Current</small><b>{money.format(diff.left.monthlyInterest)}</b></span>
+        <ArrowRight size={15} aria-hidden="true" />
+        <span><small>New</small><b>{money.format(diff.right.monthlyInterest)}</b></span>
       </span>
       <span className={`remortgage-summary-mobile-cash ${cashFlowChange >= 0 ? 'positive' : 'negative'}`}>
-        <b>{signedMoney(cashFlowChange)}</b><small>/ mo</small>
+        <small>{property ? 'True CF Δ' : 'Saving'}</small><b>{signedMoney(cashFlowChange)}</b><small>/ mo</small>
       </span>
     </div>
 
@@ -577,21 +604,23 @@ function CollapsedSummary({ comparison, property, expanded, onToggle }) {
     </div>
 
     <div className="remortgage-summary-option">
-      <small>Current rate</small>
-      <strong>{rate.format(diff.left.rate)}%</strong>
-      <span>Cash flow {money.format(leftCashFlow)} / mo</span>
+      <small>Current mortgage cost</small>
+      <strong>{money.format(diff.left.monthlyInterest)} / mo</strong>
+      <span>{rate.format(diff.left.rate)}% rate</span>
+      {property && <em>True cash flow {money.format(leftCashFlow)} / mo</em>}
     </div>
 
     <ArrowRight className="remortgage-summary-arrow" size={20} aria-hidden="true" />
 
     <div className="remortgage-summary-option">
-      <small>Remortgage rate</small>
-      <strong>{rate.format(diff.right.rate)}%</strong>
-      <span>Cash flow {money.format(rightCashFlow)} / mo</span>
+      <small>New mortgage cost</small>
+      <strong>{money.format(diff.right.monthlyInterest)} / mo</strong>
+      <span>{rate.format(diff.right.rate)}% rate</span>
+      {property && <em>True cash flow {money.format(rightCashFlow)} / mo</em>}
     </div>
 
     <div className={`remortgage-summary-difference ${cashFlowChange >= 0 ? 'positive' : 'negative'}`}>
-      <small>Cash-flow difference</small>
+      <small>{property ? 'True cash-flow difference' : 'Monthly mortgage saving'}</small>
       <strong>{signedMoney(cashFlowChange)} / mo</strong>
     </div>
 
@@ -746,7 +775,7 @@ export default function RemortgageSimulator({
 
             <div className="remortgage-comparison-grid">
               <ScenarioCard
-                title="Option A"
+                title="Current mortgage"
                 rateLabel="Current interest rate"
                 scenario={comparison.left}
                 property={property}
@@ -761,7 +790,7 @@ export default function RemortgageSimulator({
               </div>
 
               <ScenarioCard
-                title="Option B"
+                title="New mortgage"
                 rateLabel="Remortgage interest rate"
                 scenario={comparison.right}
                 property={property}
