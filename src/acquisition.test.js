@@ -31,3 +31,19 @@ describe('Simplified acquisition model', () => {
   })
   it('prepends confirmed acquisitions', () => expect(prependAcquisition([{id:'old'}], {id:'new'}).map((item) => item.id)).toEqual(['new','old']))
 })
+
+describe('Acquisition ordering', () => {
+  it('reorders acquisition arrays by index and preserves object identity', async () => {
+    const { reorderAcquisitions } = await import('./acquisition.js')
+    const source = [
+      createAcquisition({ id:'one' }),
+      createAcquisition({ id:'two' }),
+      createAcquisition({ id:'three' }),
+    ]
+    const result = reorderAcquisitions(source, 2, 0)
+    expect(result.map((item) => item.id)).toEqual(['three', 'one', 'two'])
+    expect(result[0]).toBe(source[2])
+    expect(source.map((item) => item.id)).toEqual(['one', 'two', 'three'])
+  })
+})
+

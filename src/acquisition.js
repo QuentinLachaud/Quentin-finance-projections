@@ -79,3 +79,20 @@ export const acquisitionCosts = (acquisition) => {
     grossYield: price > 0 ? expectedMonthlyRent * 12 / price : 0,
   }
 }
+
+export const reorderAcquisitions = (acquisitions, fromIndex, toIndex) => {
+  const source = Array.isArray(acquisitions) ? acquisitions : []
+  if (
+    fromIndex === toIndex
+    || fromIndex < 0
+    || toIndex < 0
+    || fromIndex >= source.length
+    || toIndex >= source.length
+  ) return source
+
+  const next = [...source]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  return next
+}
+

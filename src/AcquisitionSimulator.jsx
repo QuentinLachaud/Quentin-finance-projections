@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Building2, ChevronDown, ChevronUp, Link2, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
-import { acquisitionCosts, acquisitionJurisdictions, createAcquisition, nextAcquisitionName, prependAcquisition } from './acquisition.js'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Building2, ChevronDown, ChevronUp, GripVertical, Link2, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { acquisitionCosts, acquisitionJurisdictions, createAcquisition, nextAcquisitionName, prependAcquisition, reorderAcquisitions } from './acquisition.js'
 import { currency } from './calculations.js'
 import { supabase } from './supabase.js'
 
@@ -78,69 +78,284 @@ export function AcquisitionEditorModal({ draft, mode, warning = '', onChange, on
   </div>
 }
 
-export function AcquisitionCard({ acquisition, expanded, onToggle, onEdit, onRemove }) {
+export function AcquisitionCard({
+  acquisition,
+  expanded,
+  onToggle,
+  onEdit,
+  onRemove,
+  reorder = {},
+}) {
   const costs = useMemo(() => acquisitionCosts(acquisition), [acquisition])
   const yieldLabel = costs.grossYield ? `${(costs.grossYield * 100).toFixed(2)}%` : '—'
   const isScotland = acquisition.jurisdiction === 'scotland'
-  return <article className={`panel acq-card ${expanded ? 'expanded' : 'collapsed'}`}>
+
+  return <article
+    ref={reorder.ref}
+    className={`panel acq-card ${expanded ? 'expanded' : 'collapsed'} ${reorder.dragging ? 'is-dragging' : ''}`}
+    style={reorder.style}
+  >
     <header className="acq-card-header">
-      <button className="acq-card-main" type="button" aria-expanded={expanded} onClick={onToggle}>
-        <div className="acq-card-name"><span>POTENTIAL ACQUISITION</span><h2>{acquisition.name || 'Untitled acquisition'}</h2></div>
-        <div className="acq-card-metrics"><div><span>Price</span><b>{costs.price ? currency(costs.price) : '—'}</b></div><div><span>Rent / mo</span><b>{Number(acquisition.expectedMonthlyRent || 0) ? currency(acquisition.expectedMonthlyRent) : '—'}</b></div><div className="yield"><span>Gross yield</span><b>{yieldLabel}</b></div><div className="cash"><span>Cash to deploy</span><b>{costs.price ? currency(costs.cashRequired) : '—'}</b></div></div>
-        <span className="acq-card-chevron">{expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
+      <button
+        type="button"
+        className="acq-reorder-handle"
+        aria-label={`Reorder ${acquisition.name || 'acquisition'}`}
+        title="Drag to reorder"
+        onPointerDown={reorder.onPointerDown}
+        onPointerMove={reorder.onPointerMove}
+        onPointerUp={reorder.onPointerUp}
+        onPointerCancel={reorder.onPointerCancel}
+        onKeyDown={reorder.onKeyDown}
+      >
+        <GripVertical size={17} aria-hidden="true" />
       </button>
-      <div className="acq-card-actions"><button type="button" className="icon-button" aria-label={`Edit ${acquisition.name || 'acquisition'}`} onClick={onEdit}><Pencil size={16} /></button><button type="button" className="icon-button acquisition-remove" aria-label={`Remove ${acquisition.name || 'acquisition'}`} onClick={onRemove}><Trash2 size={16} /></button></div>
+
+      <button className="acq-card-main" type="button" aria-expanded={expanded} onClick={onToggle}>
+        <div className="acq-card-name">
+          <span>POTENTIAL ACQUISITION</span>
+          <h2>{acquisition.name || 'Untitled acquisition'}</h2>
+        </div>
+
+        <div className="acq-card-metrics" aria-label="Acquisition summary">
+          <div>
+            <span>Price</span>
+            <b>{costs.price ? currency(costs.price) : '—'}</b>
+          </div>
+          <div className="yield">
+            <span>Gross yield</span>
+            <b>{yieldLabel}</b>
+          </div>
+          <div className="cash">
+            <span>Cash needed</span>
+            <b>{costs.price ? currency(costs.cashRequired) : '—'}</b>
+          </div>
+        </div>
+
+        <span className="acq-card-chevron" aria-hidden="true">
+          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </span>
+      </button>
+
+      <div className="acq-card-actions" aria-label="Acquisition actions">
+        <div className="acq-card-action-capsule">
+          <button
+            type="button"
+            className="icon-button acq-edit-button"
+            aria-label={`Edit ${acquisition.name || 'acquisition'}`}
+            title="Edit acquisition"
+            onClick={onEdit}
+          >
+            <Pencil size={15} />
+          </button>
+          <button
+            type="button"
+            className="icon-button acq-delete-button"
+            aria-label={`Remove ${acquisition.name || 'acquisition'}`}
+            title="Remove acquisition"
+            onClick={onRemove}
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      </div>
     </header>
-    <div className="acq-card-body-shell" aria-hidden={!expanded}><div className="acq-card-body-inner"><section className="acq-cash-breakdown"><div className="acq-cash-total"><span>CASH TO DEPLOY</span><strong>{currency(costs.cashRequired)}</strong></div><dl><div><dt>Deposit</dt><dd>{currency(costs.deposit)}</dd></div>{isScotland ? <><div><dt>LBTT</dt><dd>{currency(costs.baseTax)}</dd></div><div><dt>ADS</dt><dd>{currency(costs.supplement)}</dd></div></> : <div><dt>{costs.taxLabel}</dt><dd>{currency(costs.baseTax)}</dd></div>}<div><dt>Legal fees</dt><dd>{currency(costs.legalFees)}</dd></div><div><dt>Mortgage fee paid now</dt><dd>{currency(costs.upfrontMortgageFee)}</dd></div></dl></section></div></div>
+
+    <div className="acq-card-body-shell" aria-hidden={!expanded}>
+      <div className="acq-card-body-inner">
+        <section className="acq-cash-breakdown">
+          <div className="acq-cash-total">
+            <span>CASH TO DEPLOY</span>
+            <strong>{currency(costs.cashRequired)}</strong>
+          </div>
+          <dl>
+            <div><dt>Deposit</dt><dd>{currency(costs.deposit)}</dd></div>
+            {isScotland
+              ? <>
+                  <div><dt>LBTT</dt><dd>{currency(costs.baseTax)}</dd></div>
+                  <div><dt>ADS</dt><dd>{currency(costs.supplement)}</dd></div>
+                </>
+              : <div><dt>{costs.taxLabel}</dt><dd>{currency(costs.baseTax)}</dd></div>}
+            <div><dt>Legal fees</dt><dd>{currency(costs.legalFees)}</dd></div>
+            <div><dt>Mortgage fee paid now</dt><dd>{currency(costs.upfrontMortgageFee)}</dd></div>
+          </dl>
+        </section>
+      </div>
+    </div>
   </article>
 }
 
-export default function AcquisitionSimulator({ acquisitions, onChange, defaultJurisdiction = 'england-ni', existingPropertyCount = 0 }) {
+export default function AcquisitionSimulator({
+  acquisitions,
+  onChange,
+  defaultJurisdiction = 'england-ni',
+  existingPropertyCount = 0,
+}) {
   const [listingUrl, setListingUrl] = useState('')
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const [expandedId, setExpandedId] = useState(() => acquisitions[0]?.id || '')
   const [editor, setEditor] = useState(null)
+  const [dragState, setDragState] = useState(null)
+  const acquisitionNodes = useRef(new Map())
 
-  useEffect(() => { if (!expandedId || !acquisitions.some((item) => item.id === expandedId)) setExpandedId(acquisitions[0]?.id || '') }, [acquisitions, expandedId])
+  useEffect(() => {
+    if (!expandedId || !acquisitions.some((item) => item.id === expandedId)) {
+      setExpandedId(acquisitions[0]?.id || '')
+    }
+  }, [acquisitions, expandedId])
 
-  const openNew = (values = {}, warning = '') => setEditor({ mode: 'create', warning, draft: createAcquisition({ name: nextAcquisitionName(existingPropertyCount, acquisitions), ...values, expectedMonthlyRent: '' }, values.jurisdiction || defaultJurisdiction) })
-  const openManual = () => { setError(''); openNew() }
+  const openNew = (values = {}, warning = '') => setEditor({
+    mode: 'create',
+    warning,
+    draft: createAcquisition({
+      name: nextAcquisitionName(existingPropertyCount, acquisitions),
+      ...values,
+      expectedMonthlyRent: '',
+    }, values.jurisdiction || defaultJurisdiction),
+  })
+  const openManual = () => {
+    setError('')
+    openNew()
+  }
 
   const importUrl = async (value = listingUrl) => {
     const url = String(value || '').trim()
     if (!url || importing) return
-    setImporting(true); setError('')
+    setImporting(true)
+    setError('')
     try {
       const result = await listingRequest(url)
-      openNew({ purchasePrice: result.listing?.purchasePrice ?? '', sourceUrl: url, sourceProvider: result.provider }, result.warning || '')
+      openNew({
+        purchasePrice: result.listing?.purchasePrice ?? '',
+        sourceUrl: url,
+        sourceProvider: result.provider,
+      }, result.warning || '')
       setListingUrl('')
-    } catch (err) { setError(err.message) } finally { setImporting(false) }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setImporting(false)
+    }
   }
 
-  const edit = (item) => setEditor({ mode: 'edit', warning: '', draft: createAcquisition({ ...item, name: item.name || nextAcquisitionName(existingPropertyCount, acquisitions) }, item.jurisdiction || defaultJurisdiction) })
-  const updateDraft = (key, value) => setEditor((current) => current ? { ...current, draft: { ...current.draft, [key]: value } } : current)
+  const edit = (item) => setEditor({
+    mode: 'edit',
+    warning: '',
+    draft: createAcquisition({
+      ...item,
+      name: item.name || nextAcquisitionName(existingPropertyCount, acquisitions),
+    }, item.jurisdiction || defaultJurisdiction),
+  })
+
+  const updateDraft = (key, value) => setEditor((current) => current
+    ? { ...current, draft: { ...current.draft, [key]: value } }
+    : current)
+
   const confirm = () => {
     if (!editor) return
     const confirmed = createAcquisition(editor.draft, editor.draft.jurisdiction || defaultJurisdiction)
-    if (editor.mode === 'edit') onChange(acquisitions.map((item) => item.id === confirmed.id ? { ...item, ...confirmed } : item))
-    else onChange(prependAcquisition(acquisitions, confirmed))
+    if (editor.mode === 'edit') {
+      onChange(acquisitions.map((item) => item.id === confirmed.id ? { ...item, ...confirmed } : item))
+    } else {
+      onChange(prependAcquisition(acquisitions, confirmed))
+    }
     setExpandedId(confirmed.id)
     setEditor(null)
   }
+
   const remove = (id) => {
     if (!window.confirm('Remove this potential acquisition?')) return
     const next = acquisitions.filter((item) => item.id !== id)
     onChange(next)
     if (expandedId === id) setExpandedId(next[0]?.id || '')
   }
+
+  const moveAcquisition = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= acquisitions.length) return
+    onChange(reorderAcquisitions(acquisitions, fromIndex, toIndex))
+  }
+
+  const dragShift = (index) => {
+    if (!dragState || index === dragState.fromIndex) return 0
+    const distance = dragState.height + dragState.gap
+    if (dragState.fromIndex < dragState.toIndex && index > dragState.fromIndex && index <= dragState.toIndex) return -distance
+    if (dragState.fromIndex > dragState.toIndex && index >= dragState.toIndex && index < dragState.fromIndex) return distance
+    return 0
+  }
+
+  const beginAcquisitionDrag = (event, acquisition, index) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const node = acquisitionNodes.current.get(acquisition.id)
+    if (!node) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+
+    const rect = node.getBoundingClientRect()
+    const stack = node.parentElement
+    const gap = Number.parseFloat(stack ? window.getComputedStyle(stack).rowGap : '12') || 12
+
+    setDragState({
+      id: acquisition.id,
+      pointerId: event.pointerId,
+      fromIndex: index,
+      toIndex: index,
+      startY: event.clientY,
+      currentY: event.clientY,
+      height: rect.height,
+      gap,
+    })
+  }
+
+  const updateAcquisitionDrag = (event) => {
+    if (!dragState || dragState.pointerId !== event.pointerId) return
+    event.preventDefault()
+
+    const pointerY = event.clientY
+    let targetIndex = dragState.fromIndex
+
+    for (let index = 0; index < acquisitions.length; index += 1) {
+      if (index === dragState.fromIndex) continue
+      const node = acquisitionNodes.current.get(acquisitions[index].id)
+      if (!node) continue
+      const rect = node.getBoundingClientRect()
+      const midpoint = rect.top + (rect.height / 2)
+
+      if (index < dragState.fromIndex && pointerY < midpoint) {
+        targetIndex = index
+        break
+      }
+      if (index > dragState.fromIndex && pointerY > midpoint) targetIndex = index
+    }
+
+    setDragState((current) => current && current.pointerId === event.pointerId
+      ? { ...current, currentY: pointerY, toIndex: targetIndex }
+      : current)
+  }
+
+  const finishAcquisitionDrag = (event, cancelled = false) => {
+    if (!dragState || dragState.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+
+    const { fromIndex, toIndex } = dragState
+    setDragState(null)
+    if (!cancelled && fromIndex !== toIndex) {
+      onChange(reorderAcquisitions(acquisitions, fromIndex, toIndex))
+    }
+  }
+
   const droppedUrl = (event) => {
-    event.preventDefault(); setDragging(false)
+    event.preventDefault()
+    setDragging(false)
     const value = event.dataTransfer.getData('text/uri-list') || event.dataTransfer.getData('text/plain')
     const url = value.split(/\s+/).find((item) => /^https?:\/\//i.test(item)) || ''
     if (!url) return setError('Drop a Rightmove or Zoopla property link.')
-    setListingUrl(url); importUrl(url)
+    setListingUrl(url)
+    importUrl(url)
   }
 
   return <div className="acquisition-workspace acq-simplified">
@@ -150,7 +365,50 @@ export default function AcquisitionSimulator({ acquisitions, onChange, defaultJu
       {error && <p className="acquisition-import-message error">{error} <button type="button" onClick={openManual}>Enter manually</button></p>}
       <div className="acquisition-import-hint"><Building2 size={15} /><span>Review before saving · 75% LTV · £1,500 legal fees · Scottish ADS 8% by default.</span></div>
     </section>
-    {!acquisitions.length ? <section className="panel acquisition-empty"><Building2 size={24} /><h2>No potential acquisitions yet</h2><p>Import a listing or create a manual entry above.</p></section> : <div className="acquisition-list acq-list">{acquisitions.map((item) => <AcquisitionCard key={item.id} acquisition={item} expanded={expandedId === item.id} onToggle={() => setExpandedId((current) => current === item.id ? '' : item.id)} onEdit={() => edit(item)} onRemove={() => remove(item.id)} />)}</div>}
+
+    {!acquisitions.length
+      ? <section className="panel acquisition-empty"><Building2 size={24} /><h2>No potential acquisitions yet</h2><p>Import a listing or create a manual entry above.</p></section>
+      : <div className={`acquisition-list acq-list ${dragState ? 'is-reordering' : ''}`}>
+          {acquisitions.map((item, index) => {
+            const isDragging = dragState?.id === item.id
+            const shift = dragShift(index)
+            const dragOffset = isDragging ? dragState.currentY - dragState.startY : 0
+            return <AcquisitionCard
+              key={item.id}
+              acquisition={item}
+              expanded={expandedId === item.id}
+              onToggle={() => setExpandedId((current) => current === item.id ? '' : item.id)}
+              onEdit={() => edit(item)}
+              onRemove={() => remove(item.id)}
+              reorder={{
+                dragging: isDragging,
+                style: {
+                  '--acq-reorder-y': `${isDragging ? dragOffset : shift}px`,
+                  '--acq-reorder-scale': isDragging ? '1.018' : '1',
+                },
+                ref: (node) => {
+                  if (node) acquisitionNodes.current.set(item.id, node)
+                  else acquisitionNodes.current.delete(item.id)
+                },
+                onPointerDown: (event) => beginAcquisitionDrag(event, item, index),
+                onPointerMove: updateAcquisitionDrag,
+                onPointerUp: (event) => finishAcquisitionDrag(event),
+                onPointerCancel: (event) => finishAcquisitionDrag(event, true),
+                onKeyDown: (event) => {
+                  if (event.key === 'ArrowUp') {
+                    event.preventDefault()
+                    moveAcquisition(index, index - 1)
+                  }
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault()
+                    moveAcquisition(index, index + 1)
+                  }
+                },
+              }}
+            />
+          })}
+        </div>}
+
     {editor && <AcquisitionEditorModal draft={editor.draft} mode={editor.mode} warning={editor.warning} onChange={updateDraft} onCancel={() => setEditor(null)} onConfirm={confirm} />}
   </div>
 }

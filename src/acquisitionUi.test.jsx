@@ -2,7 +2,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { AcquisitionCard, AcquisitionEditorModal } from './AcquisitionSimulator.jsx'
-import { createAcquisition } from './acquisition.js'
+import { createAcquisition, reorderAcquisitions } from './acquisition.js'
 const noop = () => {}
 
 describe('Simplified Acquisition UI', () => {
@@ -11,9 +11,10 @@ describe('Simplified Acquisition UI', () => {
     expect(html).toContain('Review acquisition'); expect(html).toContain('value="180000"'); expect(html).toContain('placeholder="1,200"'); expect(html).toContain('Funding &amp; purchase costs')
     for (const text of ['Address','Postcode','Bedrooms','EPC','Property type']) expect(html).not.toContain(text)
   })
-  it('keeps the card summary to name, price, rent, yield and cash', () => {
+  it('keeps a collapsed card summary to price, gross yield and cash needed only', () => {
     const html = renderToStaticMarkup(<AcquisitionCard acquisition={createAcquisition({ id:'x', name:'BTL3', purchasePrice:200000, expectedMonthlyRent:1200, jurisdiction:'scotland' })} expanded={false} onToggle={noop} onEdit={noop} onRemove={noop} />)
-    for (const text of ['BTL3','Price','Rent / mo','Gross yield','7.20%','Cash to deploy']) expect(html).toContain(text)
+    for (const text of ['BTL3','Price','Gross yield','7.20%','Cash needed']) expect(html).toContain(text)
+    expect(html).not.toContain('Rent / mo')
     for (const text of ['Mortgage advance','Effective loan','Total acquisition cost']) expect(html).not.toContain(text)
   })
   it('shows only completion-cash components when expanded', () => {
@@ -22,3 +23,31 @@ describe('Simplified Acquisition UI', () => {
     for (const text of ['Purchase tax regime','Solicitor / legal fees','Expected gross yield']) expect(html).not.toContain(text)
   })
 })
+
+describe('Acquisition card controls and ordering', () => {
+  it('renders native-style edit/delete controls and a reorder handle', () => {
+    const html = renderToStaticMarkup(<AcquisitionCard
+      acquisition={createAcquisition({ id:'x', name:'BTL3', purchasePrice:200000 })}
+      expanded={false}
+      onToggle={noop}
+      onEdit={noop}
+      onRemove={noop}
+    />)
+    expect(html).toContain('aria-label="Reorder BTL3"')
+    expect(html).toContain('aria-label="Edit BTL3"')
+    expect(html).toContain('aria-label="Remove BTL3"')
+    expect(html).toContain('acq-card-action-capsule')
+  })
+
+  it('reorders acquisition cards without mutating the original list', () => {
+    const source = [
+      createAcquisition({ id:'a', name:'A' }),
+      createAcquisition({ id:'b', name:'B' }),
+      createAcquisition({ id:'c', name:'C' }),
+    ]
+    const reordered = reorderAcquisitions(source, 0, 2)
+    expect(reordered.map((item) => item.id)).toEqual(['b', 'c', 'a'])
+    expect(source.map((item) => item.id)).toEqual(['a', 'b', 'c'])
+  })
+})
+

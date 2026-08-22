@@ -6368,3 +6368,143 @@ textarea {
   @keyframes acq-mobile-in{from{opacity:.75;transform:translateY(100%)}to{opacity:1;transform:none}}@keyframes acq-mobile-out{from{opacity:1;transform:none}to{opacity:.75;transform:translateY(100%)}}
 }
 @media(prefers-reduced-motion:reduce){.acq-card,.acq-card-body-shell,.acq-sheet-layer,.acq-sheet,.acq-sheet-switch i,.acq-sheet-switch i:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Brain Drain 2026-08-22 21:49 BST — acquisition collapse, reorder and native actions */
+.acq-card {
+  position: relative;
+  transform: translate3d(0, var(--acq-reorder-y, 0), 0) scale(var(--acq-reorder-scale, 1));
+  transform-origin: center center;
+  transition: transform 260ms cubic-bezier(.22, 1, .36, 1), border-color .2s ease, box-shadow .2s ease, opacity 180ms ease;
+  will-change: transform;
+}
+.acq-list.is-reordering { user-select: none; }
+.acq-card.is-dragging {
+  z-index: 12;
+  opacity: .985;
+  box-shadow: 0 20px 48px rgba(20, 34, 27, .18), 0 5px 14px rgba(20, 34, 27, .10);
+  transition: box-shadow 150ms ease, opacity 150ms ease;
+}
+.acq-card-header {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+.acq-reorder-handle {
+  width: 40px;
+  min-height: 100%;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--ui-line);
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  color: color-mix(in srgb, var(--ui-muted) 72%, transparent);
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .16s ease, background .16s ease;
+}
+.acq-reorder-handle:hover,
+.acq-reorder-handle:focus-visible {
+  color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 6%, transparent);
+  outline: none;
+}
+.acq-reorder-handle:active,
+.acq-card.is-dragging .acq-reorder-handle {
+  color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 10%, transparent);
+  cursor: grabbing;
+}
+.acq-card-main {
+  padding-left: 14px;
+  grid-template-columns: minmax(145px, .75fr) minmax(270px, 1.25fr) 30px;
+}
+.acq-card-metrics { grid-template-columns: repeat(3, minmax(78px, 1fr)); gap: 7px; }
+.acq-card-metrics .cash b { color: var(--ui-text); font-weight: 750; }
+.acq-card-actions { padding: 0 12px 0 8px; display: flex; align-items: center; }
+.acq-card-action-capsule {
+  min-height: 39px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--ui-line) 90%, transparent);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: color-mix(in srgb, var(--ui-surface) 94%, var(--ui-surface-subtle) 6%);
+  box-shadow: 0 1px 2px rgba(20, 34, 27, .04), inset 0 1px 0 rgba(255, 255, 255, .55);
+}
+.acq-card-action-capsule .icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  transition: color .15s ease, background .15s ease, transform .12s ease;
+}
+.acq-card-action-capsule .icon-button:active { transform: scale(.92); }
+.acq-edit-button { color: var(--ui-accent); }
+.acq-edit-button:hover,
+.acq-edit-button:focus-visible {
+  color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 10%, transparent);
+  outline: none;
+}
+.acq-delete-button { color: #b85f58; }
+.acq-delete-button:hover,
+.acq-delete-button:focus-visible {
+  color: #a8463f;
+  background: rgba(184, 95, 88, .10);
+  outline: none;
+}
+:root[data-theme='dark'] .acq-card-action-capsule {
+  border-color: #35413b;
+  background: #1b2420;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .035);
+}
+:root[data-theme='dark'] .acq-reorder-handle { border-color: #303b36; }
+
+@media (max-width: 900px) {
+  .acq-card-main { grid-template-columns: minmax(130px, .7fr) minmax(245px, 1.3fr) 30px; }
+  .acq-card-metrics { grid-template-columns: repeat(3, minmax(70px, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .acq-card-header { grid-template-columns: 34px minmax(0, 1fr) auto; }
+  .acq-reorder-handle {
+    width: 34px;
+    border-right-color: color-mix(in srgb, var(--ui-line) 74%, transparent);
+  }
+  .acq-card-main {
+    padding: 13px 7px 12px 11px;
+    grid-template-columns: minmax(0, 1fr) 30px;
+    gap: 7px;
+  }
+  .acq-card-name { grid-column: 1; }
+  .acq-card-metrics {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: 7px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .acq-card-metrics > div { min-height: 43px; padding: 7px 6px; align-content: center; }
+  .acq-card-metrics span { font-size: 8px; }
+  .acq-card-metrics b { font-size: 10.5px; }
+  .acq-card-chevron { grid-column: 2; grid-row: 1; align-self: start; }
+  .acq-card-actions { padding: 10px 8px 0 3px; align-items: flex-start; }
+  .acq-card-action-capsule { min-height: 35px; padding: 2px; border-radius: 11px; gap: 1px; }
+  .acq-card-action-capsule .icon-button { width: 30px; height: 30px; border-radius: 9px; }
+  .acq-card.is-dragging {
+    box-shadow: 0 20px 46px rgba(20, 34, 27, .22), 0 5px 14px rgba(20, 34, 27, .11);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acq-card,
+  .acq-reorder-handle,
+  .acq-card-action-capsule .icon-button { transition-duration: .01ms !important; }
+}
