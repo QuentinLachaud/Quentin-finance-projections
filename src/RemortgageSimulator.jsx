@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, ChevronDown, ChevronUp, Copy, LockKeyhole, Plus, Trash2, X } from 'lucide-react'
 import {
   calculateRemortgageScenario,
@@ -20,6 +20,53 @@ const rate = new Intl.NumberFormat('en-GB', {
 })
 const signedMoney = (value) => `${value >= 0 ? '+' : '−'}${money.format(Math.abs(value))}`
 const signedPercent = (value) => `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(2)} pp`
+
+const RESULT_ANIMATION_MS = 1250
+
+const easeOutCubic = (progress) => 1 - ((1 - progress) ** 3)
+
+function useAnimatedNumber(targetValue, duration = RESULT_ANIMATION_MS) {
+  const target = Number(targetValue || 0)
+  const [displayValue, setDisplayValue] = useState(target)
+  const currentValueRef = useRef(target)
+
+  useEffect(() => {
+    if (!Number.isFinite(target)) return undefined
+
+    const prefersReducedMotion = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion || typeof requestAnimationFrame !== 'function') {
+      currentValueRef.current = target
+      setDisplayValue(target)
+      return undefined
+    }
+
+    const startValue = currentValueRef.current
+    const delta = target - startValue
+    if (Math.abs(delta) < 0.005) {
+      currentValueRef.current = target
+      setDisplayValue(target)
+      return undefined
+    }
+
+    let animationFrame = 0
+    const startTime = performance.now()
+    const tick = (now) => {
+      const progress = Math.min(1, (now - startTime) / duration)
+      const nextValue = startValue + (delta * easeOutCubic(progress))
+      currentValueRef.current = nextValue
+      setDisplayValue(nextValue)
+      if (progress < 1) animationFrame = requestAnimationFrame(tick)
+      else currentValueRef.current = target
+    }
+
+    animationFrame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(animationFrame)
+  }, [target, duration])
+
+  return displayValue
+}
 
 const parseFriendlyNumber = (value) => {
   const cleaned = String(value ?? '').replace(/[£,%\s]/g, '').replace(/,/g, '')
@@ -89,18 +136,24 @@ const optionCashFlow = (property, scenarioResult) =>
 function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
   const result = calculateRemortgageScenario(scenario)
   const cashFlow = optionCashFlow(property, result)
+  const animatedMortgageCost = useAnimatedNumber(result.monthlyInterest)
+  const animatedCashFlow = useAnimatedNumber(cashFlow)
   const update = (key) => (value) => onChange(updateRemortgageScenario(scenario, key, value))
 
   return <section className="remortgage-scenario-card">
     <header>
       <span className="remortgage-scenario-title">{title}</span>
+      <div className="remortgage-scenario-rate-metric">
+        <small>{rateLabel}</small>
+        <strong>{rate.format(scenario.rate)}%</strong>
+      </div>
       <div className="remortgage-scenario-cost-metric">
         <small>Monthly mortgage cost</small>
-        <strong>{money.format(result.monthlyInterest)}<small> / month</small></strong>
+        <strong>{money.format(animatedMortgageCost)}<small> / month</small></strong>
       </div>
       {property && <div className="remortgage-scenario-cashflow-metric">
         <small>True cash flow</small>
-        <b>{money.format(cashFlow)} / month</b>
+        <b>{money.format(animatedCashFlow)} / month</b>
         <span>Rent minus property costs and mortgage</span>
       </div>}
       {!property && <small className="remortgage-scenario-manual-note">Mortgage-only comparison · property cash flow unavailable</small>}
@@ -108,18 +161,18 @@ function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
 
     <div className="remortgage-fields remortgage-cashflow-fields">
       <FriendlyNumberField
-        label="Loan amount"
-        prefix="£"
-        value={scenario.loanAmount}
-        onChange={update('loanAmount')}
-      />
-
-      <FriendlyNumberField
         label={rateLabel}
         suffix="%"
         value={scenario.rate}
         decimals={2}
         onChange={update('rate')}
+      />
+
+      <FriendlyNumberField
+        label="Loan amount"
+        prefix="£"
+        value={scenario.loanAmount}
+        onChange={update('loanAmount')}
       />
 
       <div className="remortgage-fee-block">
@@ -174,27 +227,34 @@ function DifferenceCard({ comparison, property }) {
   const leftCashFlow = optionCashFlow(property, diff.left)
   const rightCashFlow = optionCashFlow(property, diff.right)
   const cashFlowChange = rightCashFlow - leftCashFlow
-  const positive = cashFlowChange >= 0
-  const equityReleasePositive = diff.equityRelease >= 0
+  const animatedCashFlowChange = useAnimatedNumber(cashFlowChange)
+  const animatedLoanChange = useAnimatedNumber(diff.loanChange)
+  const animatedLtvChange = useAnimatedNumber(diff.ltvChange)
+  const animatedRateChange = useAnimatedNumber(diff.rateChange)
+  const animatedFeeChange = useAnimatedNumber(diff.feeChange)
+  const animatedUpfrontFeeChange = useAnimatedNumber(diff.upfrontFeeChange)
+  const animatedEquityRelease = useAnimatedNumber(diff.equityRelease)
+  const positive = animatedCashFlowChange >= 0
+  const equityReleasePositive = animatedEquityRelease >= 0
 
   return <section className={`remortgage-difference-card ${positive ? 'positive' : 'negative'}`}>
     <span className="kicker">NEW MORTGAGE VS CURRENT</span>
 
     <div className="remortgage-impact">
       <small>{property ? 'True cash-flow difference' : 'Monthly mortgage saving'}</small>
-      <strong>{signedMoney(cashFlowChange)}</strong>
-      <span>{signedMoney(cashFlowChange * 12)} / year</span>
+      <strong>{signedMoney(animatedCashFlowChange)}</strong>
+      <span>{signedMoney(animatedCashFlowChange * 12)} / year</span>
     </div>
 
     <dl>
-      <div><dt>Loan balance</dt><dd>{signedMoney(diff.loanChange)}</dd></div>
-      <div><dt>LTV</dt><dd>{signedPercent(diff.ltvChange)}</dd></div>
-      <div><dt>Interest rate</dt><dd>{signedPercent(diff.rateChange)}</dd></div>
-      <div><dt>Product fee</dt><dd>{signedMoney(diff.feeChange)}</dd></div>
-      <div><dt>Upfront cash</dt><dd>{signedMoney(diff.upfrontFeeChange)}</dd></div>
+      <div><dt>Loan balance</dt><dd>{signedMoney(animatedLoanChange)}</dd></div>
+      <div><dt>LTV</dt><dd>{signedPercent(animatedLtvChange)}</dd></div>
+      <div><dt>Interest rate</dt><dd>{signedPercent(animatedRateChange)}</dd></div>
+      <div><dt>Product fee</dt><dd>{signedMoney(animatedFeeChange)}</dd></div>
+      <div><dt>Upfront cash</dt><dd>{signedMoney(animatedUpfrontFeeChange)}</dd></div>
       <div className="equity-release-row">
         <dt>Equity release</dt>
-        <dd className={equityReleasePositive ? 'good' : 'bad'}>{signedMoney(diff.equityRelease)}</dd>
+        <dd className={equityReleasePositive ? 'good' : 'bad'}>{signedMoney(animatedEquityRelease)}</dd>
       </div>
     </dl>
   </section>
@@ -374,6 +434,10 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
   const right = calculateRemortgageScenario(editorScenario(draft.right))
   const leftCashFlow = optionCashFlow(property, left)
   const rightCashFlow = optionCashFlow(property, right)
+  const animatedLeftMortgageCost = useAnimatedNumber(left.monthlyInterest)
+  const animatedRightMortgageCost = useAnimatedNumber(right.monthlyInterest)
+  const animatedLeftCashFlow = useAnimatedNumber(leftCashFlow)
+  const animatedRightCashFlow = useAnimatedNumber(rightCashFlow)
   const feeLabel = right.feeValue === 0
     ? 'No fee'
     : right.feeMode === 'amount'
@@ -467,6 +531,17 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
         <button type="button" className="mobile-remortgage-close" onClick={onClose} aria-label="Close without saving"><X size={19} /></button>
       </header>
 
+      <button
+        type="button"
+        className="mobile-remortgage-rate-hero"
+        onClick={() => openPrimary('remortgage-rate')}
+        aria-label={`Edit remortgage rate, currently ${rate.format(right.rate)}%`}
+      >
+        <small>Remortgage rate</small>
+        <strong>{rate.format(right.rate)}%</strong>
+        <span>Tap to edit</span>
+      </button>
+
       <div className="mobile-remortgage-decision-list">
         {primaryRows.map((row) => <button
           key={row.key}
@@ -487,14 +562,14 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
       <div className="mobile-remortgage-cost-strip" aria-label="Current and new monthly mortgage costs">
         <div>
           <small>Current mortgage cost</small>
-          <strong>{money.format(left.monthlyInterest)} / mo</strong>
-          {property && <span>True cash flow {money.format(leftCashFlow)} / mo</span>}
+          <strong>{money.format(animatedLeftMortgageCost)} / mo</strong>
+          {property && <span>True cash flow {money.format(animatedLeftCashFlow)} / mo</span>}
         </div>
         <ArrowRight size={18} aria-hidden="true" />
         <div>
           <small>New mortgage cost</small>
-          <strong>{money.format(right.monthlyInterest)} / mo</strong>
-          {property && <span>True cash flow {money.format(rightCashFlow)} / mo</span>}
+          <strong>{money.format(animatedRightMortgageCost)} / mo</strong>
+          {property && <span>True cash flow {money.format(animatedRightCashFlow)} / mo</span>}
         </div>
       </div>
 
@@ -539,10 +614,10 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
                   <span>Remortgage loan</span><b>{money.format(right.loanAmount)}</b><small>Edit</small>
                 </button>}
             <div className="mobile-remortgage-detail-row"><span>New LTV</span><b>{roundedLtv(right.resultingLtv)}%</b></div>
-            <div className="mobile-remortgage-detail-row"><span>Current mortgage cost</span><b>{money.format(left.monthlyInterest)} / mo</b></div>
-            <div className="mobile-remortgage-detail-row"><span>New mortgage cost</span><b>{money.format(right.monthlyInterest)} / mo</b></div>
-            {property && <div className="mobile-remortgage-detail-row"><span>Current true cash flow</span><b>{money.format(leftCashFlow)} / mo</b></div>}
-            {property && <div className="mobile-remortgage-detail-row"><span>New true cash flow</span><b>{money.format(rightCashFlow)} / mo</b></div>}
+            <div className="mobile-remortgage-detail-row"><span>Current mortgage cost</span><b>{money.format(animatedLeftMortgageCost)} / mo</b></div>
+            <div className="mobile-remortgage-detail-row"><span>New mortgage cost</span><b>{money.format(animatedRightMortgageCost)} / mo</b></div>
+            {property && <div className="mobile-remortgage-detail-row"><span>Current true cash flow</span><b>{money.format(animatedLeftCashFlow)} / mo</b></div>}
+            {property && <div className="mobile-remortgage-detail-row"><span>New true cash flow</span><b>{money.format(animatedRightCashFlow)} / mo</b></div>}
           </div>
         </div>
       </details>
@@ -579,6 +654,11 @@ function CollapsedSummary({ comparison, property, expanded, onToggle }) {
   const leftCashFlow = optionCashFlow(property, diff.left)
   const rightCashFlow = optionCashFlow(property, diff.right)
   const cashFlowChange = rightCashFlow - leftCashFlow
+  const animatedLeftMortgageCost = useAnimatedNumber(diff.left.monthlyInterest)
+  const animatedRightMortgageCost = useAnimatedNumber(diff.right.monthlyInterest)
+  const animatedLeftCashFlow = useAnimatedNumber(leftCashFlow)
+  const animatedRightCashFlow = useAnimatedNumber(rightCashFlow)
+  const animatedCashFlowChange = useAnimatedNumber(cashFlowChange)
 
   return <button
     type="button"
@@ -588,13 +668,21 @@ function CollapsedSummary({ comparison, property, expanded, onToggle }) {
   >
     <div className="remortgage-summary-mobile">
       <span className="remortgage-summary-mobile-name">{property?.name || comparison.name || 'Manual'}</span>
-      <span className="remortgage-summary-mobile-costs" aria-label="Current and new monthly mortgage costs">
-        <span><small>Current</small><b>{money.format(diff.left.monthlyInterest)}</b></span>
+      <span className="remortgage-summary-mobile-rates" aria-label="Current and new interest rates with monthly mortgage costs">
+        <span>
+          <small>Current</small>
+          <b>{rate.format(diff.left.rate)}%</b>
+          <em>{money.format(animatedLeftMortgageCost)} / mo</em>
+        </span>
         <ArrowRight size={15} aria-hidden="true" />
-        <span><small>New</small><b>{money.format(diff.right.monthlyInterest)}</b></span>
+        <span>
+          <small>New</small>
+          <b>{rate.format(diff.right.rate)}%</b>
+          <em>{money.format(animatedRightMortgageCost)} / mo</em>
+        </span>
       </span>
-      <span className={`remortgage-summary-mobile-cash ${cashFlowChange >= 0 ? 'positive' : 'negative'}`}>
-        <small>{property ? 'True CF Δ' : 'Saving'}</small><b>{signedMoney(cashFlowChange)}</b><small>/ mo</small>
+      <span className={`remortgage-summary-mobile-cash ${animatedCashFlowChange >= 0 ? 'positive' : 'negative'}`}>
+        <small>{property ? 'True CF Δ' : 'Saving'}</small><b>{signedMoney(animatedCashFlowChange)}</b><small>/ mo</small>
       </span>
     </div>
 
@@ -604,24 +692,24 @@ function CollapsedSummary({ comparison, property, expanded, onToggle }) {
     </div>
 
     <div className="remortgage-summary-option">
-      <small>Current mortgage cost</small>
-      <strong>{money.format(diff.left.monthlyInterest)} / mo</strong>
-      <span>{rate.format(diff.left.rate)}% rate</span>
-      {property && <em>True cash flow {money.format(leftCashFlow)} / mo</em>}
+      <small>Current rate</small>
+      <strong className="remortgage-summary-rate">{rate.format(diff.left.rate)}%</strong>
+      <span className="remortgage-summary-mortgage-cost">Mortgage cost {money.format(animatedLeftMortgageCost)} / mo</span>
+      {property && <em>True cash flow {money.format(animatedLeftCashFlow)} / mo</em>}
     </div>
 
     <ArrowRight className="remortgage-summary-arrow" size={20} aria-hidden="true" />
 
     <div className="remortgage-summary-option">
-      <small>New mortgage cost</small>
-      <strong>{money.format(diff.right.monthlyInterest)} / mo</strong>
-      <span>{rate.format(diff.right.rate)}% rate</span>
-      {property && <em>True cash flow {money.format(rightCashFlow)} / mo</em>}
+      <small>New rate</small>
+      <strong className="remortgage-summary-rate">{rate.format(diff.right.rate)}%</strong>
+      <span className="remortgage-summary-mortgage-cost">Mortgage cost {money.format(animatedRightMortgageCost)} / mo</span>
+      {property && <em>True cash flow {money.format(animatedRightCashFlow)} / mo</em>}
     </div>
 
-    <div className={`remortgage-summary-difference ${cashFlowChange >= 0 ? 'positive' : 'negative'}`}>
+    <div className={`remortgage-summary-difference ${animatedCashFlowChange >= 0 ? 'positive' : 'negative'}`}>
       <small>{property ? 'True cash-flow difference' : 'Monthly mortgage saving'}</small>
-      <strong>{signedMoney(cashFlowChange)} / mo</strong>
+      <strong>{signedMoney(animatedCashFlowChange)} / mo</strong>
     </div>
 
     <span className="remortgage-summary-chevron" aria-hidden="true">

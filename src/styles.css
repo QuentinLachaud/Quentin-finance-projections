@@ -5179,3 +5179,166 @@ textarea {
     color: var(--ui-muted);
   }
 }
+
+/* Brain Drain 2026-08-22 13:46 BST — orange deal-rate identity + eased remortgage results */
+:root {
+  --remortgage-rate-accent: #bd5a1d;
+}
+
+:root[data-theme='dark'] {
+  --remortgage-rate-accent: #f2a261;
+}
+
+.remortgage-scenario-rate-metric {
+  margin-top: 5px;
+  display: grid;
+  gap: 1px;
+}
+
+.remortgage-scenario-rate-metric > small {
+  color: #7a8580;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .035em;
+}
+
+.remortgage-scenario-rate-metric > strong,
+.remortgage-summary-rate,
+.mobile-remortgage-rate-hero > strong,
+.remortgage-summary-mobile-rates b {
+  color: var(--remortgage-rate-accent) !important;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800 !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.035em;
+}
+
+.remortgage-scenario-rate-metric > strong {
+  font-size: 32px;
+  line-height: 1.05;
+}
+
+.remortgage-scenario-cost-metric {
+  margin-top: 10px;
+}
+
+.remortgage-summary-rate {
+  font-size: 25px !important;
+  line-height: 1.05;
+}
+
+.remortgage-summary-mortgage-cost {
+  color: #52625b;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.mobile-remortgage-rate-hero {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--remortgage-rate-accent) 28%, #dde4df);
+  border-radius: 11px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1px 12px;
+  color: #4f5d56;
+  background: color-mix(in srgb, var(--remortgage-rate-accent) 5%, #fff);
+  text-align: left;
+}
+
+.mobile-remortgage-rate-hero > small {
+  grid-column: 1;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.mobile-remortgage-rate-hero > strong {
+  grid-column: 1;
+  font-size: 30px;
+  line-height: 1.05;
+}
+
+.mobile-remortgage-rate-hero > span {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: #718078;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+@media (max-width: 680px) {
+  .remortgage-summary-mobile {
+    grid-template-columns: minmax(56px, .52fr) minmax(150px, 1.55fr) minmax(74px, .68fr);
+    gap: 7px;
+  }
+
+  .remortgage-summary-mobile-rates {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 15px minmax(0, 1fr);
+    align-items: center;
+    gap: 3px;
+  }
+
+  .remortgage-summary-mobile-rates > span {
+    min-width: 0;
+    display: grid;
+    justify-items: start;
+    gap: 0;
+  }
+
+  .remortgage-summary-mobile-rates small {
+    color: #7c8982;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .remortgage-summary-mobile-rates b {
+    font-size: 18px;
+    line-height: 1.05;
+    white-space: nowrap;
+  }
+
+  .remortgage-summary-mobile-rates em {
+    overflow: hidden;
+    max-width: 100%;
+    color: #69766f;
+    font-size: 8px;
+    font-style: normal;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .remortgage-summary-mobile-rates svg {
+    color: #87958e;
+  }
+
+  .remortgage-summary-mobile-cash b {
+    font-size: 13px;
+  }
+
+  .remortgage-scenario-rate-metric > strong {
+    font-size: 29px;
+  }
+}
+
+:root[data-theme='dark'] .remortgage-summary-mortgage-cost,
+:root[data-theme='dark'] .remortgage-summary-mobile-rates em,
+:root[data-theme='dark'] .mobile-remortgage-rate-hero > span {
+  color: #a2afa8;
+}
+
+:root[data-theme='dark'] .mobile-remortgage-rate-hero {
+  border-color: color-mix(in srgb, var(--remortgage-rate-accent) 30%, #303b35);
+  color: #c5d0ca;
+  background: color-mix(in srgb, var(--remortgage-rate-accent) 7%, #161d19);
+}
+

@@ -78,10 +78,12 @@ describe('workspace render smoke tests', () => {
       onUpgrade={() => {}}
     />)
 
-    expect(html).toContain('Current mortgage cost')
-    expect(html).toContain('New mortgage cost')
-    expect(html).toContain('5.00% rate')
-    expect(html).toContain('4.50% rate')
+    expect(html).toContain('Current rate')
+    expect(html).toContain('New rate')
+    expect(html).toContain('remortgage-summary-rate')
+    expect(html).toContain('5.00%')
+    expect(html).toContain('4.50%')
+    expect(html).toContain('Mortgage cost')
     expect(html).toContain('True cash flow')
     expect(html).toContain('True cash-flow difference')
   })
