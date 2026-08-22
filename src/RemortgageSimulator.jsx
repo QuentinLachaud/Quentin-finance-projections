@@ -450,9 +450,11 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
   return <div className="mobile-remortgage-layer">
     <section className="mobile-remortgage-modal mobile-remortgage-decision-modal" role="dialog" aria-modal="true" aria-labelledby={`mobile-remortgage-title-${comparison.id}`}>
       <header>
-        <div>
-          <small>{property ? `${property.name} · ${property.postcode || 'No postcode'}` : 'Manual comparison'}</small>
-          <h3 id={`mobile-remortgage-title-${comparison.id}`}>Edit remortgage</h3>
+        <div className="mobile-remortgage-heading">
+          <small className="mobile-remortgage-action-label">Edit remortgage</small>
+          <h3 className="mobile-remortgage-property-title" id={`mobile-remortgage-title-${comparison.id}`}>
+            {property ? `${property.name} · ${property.postcode || 'No postcode'}` : 'Manual comparison'}
+          </h3>
         </div>
         <button type="button" className="mobile-remortgage-close" onClick={onClose} aria-label="Close without saving"><X size={19} /></button>
       </header>
@@ -669,7 +671,7 @@ export default function RemortgageSimulator({
       <div>
         <span className="kicker">PRO · FINANCE DECISION TOOL</span>
         <h2>Remortgage Simulator</h2>
-        <p>Choose a property, add a comparison, then set the remortgage rate, LTV and product fee. Saved comparisons stay compact so you can compare them at a glance.</p>
+        <p>Choose a property, add a comparison, then set the remortgage rate, LTV and product fee. <span className="remortgage-desktop-copy">Saved comparisons stay compact so you can compare them at a glance.</span></p>
       </div>
 
       <div className="remortgage-add">
