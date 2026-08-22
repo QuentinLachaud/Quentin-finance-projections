@@ -121,12 +121,8 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
   ].filter(Boolean).length
 
   return <div className="expenses-workspace">
-    <section className="panel expenses-hero">
-      <div>
-        <span className="kicker">HISTORICAL LEDGER</span>
-        <h2>Expenses</h2>
-        <p>Track actual portfolio cash movements. Positive amounts are income and negative amounts are expenses. This ledger stays separate from projections and tax calculations.</p>
-      </div>
+    <section className="panel expenses-command-bar">
+      <div className="expenses-command-context"><span>Positive amounts are income; negative amounts are expenses.</span></div>
       <div className="expenses-actions">
         <div className="report-export-control desktop-expense-transfer" aria-label="Export expense report">
           <span><Download size={14} /> Export</span>

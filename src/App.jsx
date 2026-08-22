@@ -567,16 +567,192 @@ function ProjectionChart({ points, metric, perFlat, count }) {
   return <div className="projection-chart-wrap"><svg className="projection-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Projection of cumulative ${metric}`}>{ticks.map((tick) => <g key={tick}><line x1={pad.left} x2={width - pad.right} y1={y(tick)} y2={y(tick)} className="grid-line" /><text x={pad.left - 12} y={y(tick) + 4} textAnchor="end">{currency(tick)}</text></g>)}{xTicks.map((point) => <text key={point.month} x={x(points.indexOf(point))} y={height - 13} textAnchor="middle">{point.month === 0 ? 'Now' : `${point.month / 12}y`}</text>)}{scenarioMeta.map((scenario, index) => <path key={scenario.name} d={pathFor(index)} fill="none" stroke={scenario.colour} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />)}{scenarioMeta.map((scenario, index) => { const end = points.at(-1).scenarios[index][metric] / divisor; return <circle key={scenario.name} cx={x(points.length - 1)} cy={y(end)} r="5" fill={scenario.colour} stroke="#fff" strokeWidth="2" /> })}</svg><div className="projection-legend">{scenarioMeta.map((scenario) => <span key={scenario.name}><i style={{ background: scenario.colour }} />{scenario.name}</span>)}</div></div>
 }
 
+
+function MobileProjectionChart({ points, metric, perFlat, count, scenarioIndex }) {
+  const width = 320
+  const height = 150
+  const pad = { left: 12, right: 12, top: 16, bottom: 25 }
+  const divisor = perFlat ? Math.max(1, count) : 1
+  const annual = points.filter((point) => point.month === 0 || point.month % 12 === 0)
+  const values = annual.map((point) => point.scenarios[scenarioIndex][metric] / divisor)
+  const min = Math.min(0, ...values)
+  const max = Math.max(1, ...values)
+  const range = max - min || 1
+  const x = (index) => pad.left + (index / Math.max(1, annual.length - 1)) * (width - pad.left - pad.right)
+  const y = (value) => pad.top + ((max - value) / range) * (height - pad.top - pad.bottom)
+  const path = annual.map((point, index) => {
+    const value = point.scenarios[scenarioIndex][metric] / divisor
+    return `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(value).toFixed(1)}`
+  }).join(' ')
+  const latest = values.at(-1) || 0
+  const colour = scenarioMeta[scenarioIndex].colour
+
+  return <div className="projection-mobile-chart">
+    <div className="projection-mobile-chart-value">
+      <span>At horizon</span>
+      <strong className={latest >= 0 ? 'positive' : 'negative'}>{currency(latest)}</strong>
+    </div>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${scenarioMeta[scenarioIndex].name} projection trend`}>
+      <line x1={pad.left} x2={width - pad.right} y1={y(0)} y2={y(0)} className="zero-line" />
+      <path d={path} fill="none" stroke={colour} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      {annual.map((point, index) => {
+        const value = point.scenarios[scenarioIndex][metric] / divisor
+        return <circle key={point.month} cx={x(index)} cy={y(value)} r={index === annual.length - 1 ? 4.5 : 3} fill={colour} />
+      })}
+      <text x={pad.left} y={height - 7}>Now</text>
+      <text x={width - pad.right} y={height - 7} textAnchor="end">{settingsLabelFromMonths(points.at(-1)?.month || 0)}</text>
+    </svg>
+  </div>
+}
+
+const settingsLabelFromMonths = (months) => months >= 12 ? `${Math.round(months / 12)}y` : `${months}m`
+
+function MobileProjectionSnapshots({ points, metric, perFlat, count, scenarioIndex }) {
+  const divisor = perFlat ? Math.max(1, count) : 1
+  const rows = points.filter((point) => point.month > 0 && point.month % 12 === 0)
+
+  return <div className="projection-mobile-snapshots">
+    {rows.map((point) => {
+      const value = point.scenarios[scenarioIndex][metric] / divisor
+      return <article key={point.month}>
+        <div>
+          <span>{point.month / 12} year{point.month === 12 ? '' : 's'}</span>
+          <small>{shortDate(point.date)}</small>
+        </div>
+        <strong className={value >= 0 ? 'positive' : 'negative'}>{currency(value)}</strong>
+      </article>
+    })}
+  </div>
+}
+
+
 function ProjectionExplorer({ properties, settings, portfolio, onSettingChange }) {
   const [metric, setMetric] = useState('cashPot')
   const [perFlat, setPerFlat] = useState(false)
   const [tableOpen, setTableOpen] = useState(false)
-  const points = useMemo(() => projectPortfolio(properties, settings, settings.projectionMonths), [properties, settings])
+  const [mobileScenario, setMobileScenario] = useState(0)
+  const [mobileSnapshotsOpen, setMobileSnapshotsOpen] = useState(false)
+  const points = useMemo(
+    () => projectPortfolio(properties, settings, settings.projectionMonths),
+    [properties, settings],
+  )
   const tablePoints = points.filter((point) => point.month > 0 && point.month % 12 === 0)
   const isCompany = settings.accountType !== 'private'
-  const metricLabels = { cashPot: isCompany ? 'Company cash pot' : 'Cash pot', totalGain: isCompany ? 'Total gain (pre-personal-tax)' : 'Total gain', cashflow: isCompany ? 'Company + extraction cash' : 'Cash flow', appreciation: 'Appreciation' }
+  const metricLabels = {
+    cashPot: isCompany ? 'Company cash pot' : 'Cash pot',
+    totalGain: isCompany ? 'Total gain (pre-personal-tax)' : 'Total gain',
+    cashflow: isCompany ? 'Company + extraction cash' : 'Cash flow',
+    appreciation: 'Appreciation',
+  }
   const divisor = perFlat ? Math.max(1, portfolio.count) : 1
-  return <section className="panel projection-explorer"><header><div><span className="kicker">FORWARD VIEW</span><h2>Scenario accumulation over time</h2><p>Compare how cash and value build across the three operating scenarios.</p></div><div className="projection-duration"><span>Horizon</span><select value={settings.projectionMonths} onChange={(event) => onSettingChange('projectionMonths', Number(event.target.value))}><option value={36}>3 years</option><option value={60}>5 years</option><option value={120}>10 years</option></select></div></header><div className="projection-toolbar"><div className="segmented">{Object.entries(metricLabels).map(([key, label]) => <button className={metric === key ? 'active' : ''} key={key} onClick={() => setMetric(key)}>{label}</button>)}</div><label className="per-flat-toggle"><input type="checkbox" checked={perFlat} onChange={(event) => setPerFlat(event.target.checked)} /><i /><span>Per flat</span></label></div><ProjectionChart points={points} metric={metric} perFlat={perFlat} count={portfolio.count} /><button className="projection-table-toggle" onClick={() => setTableOpen((open) => !open)}>{tableOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}<span><b>{tableOpen ? 'Hide' : 'Expand'} projection table</b><small>Annual snapshots · {metricLabels[metric]}{perFlat ? ' per flat' : ''}</small></span></button>{tableOpen && <div className="projection-table-wrap"><table className="projection-table"><thead><tr><th>Point in time</th>{scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>{scenario.name}<small>{scenario.note}</small></th>)}</tr></thead><tbody>{tablePoints.map((point) => <tr key={point.month}><th>{point.month / 12} year{point.month === 12 ? '' : 's'}<small>{shortDate(point.date)}</small></th>{point.scenarios.map((scenario, index) => <td key={index} style={{ '--scenario': scenarioMeta[index].colour }}><b>{currency(scenario[metric] / divisor)}</b><span className={scenario[metric] >= 0 ? 'positive' : 'negative'}>{scenario[metric] >= 0 ? 'Positive' : 'Negative'}</span></td>)}</tr>)}</tbody></table></div>}</section>
+
+  return <section className="panel projection-explorer">
+    <header>
+      <div>
+        <h2>Scenario accumulation over time</h2>
+        <p>Compare how cash and value build across the three operating scenarios.</p>
+      </div>
+      <div className="projection-duration">
+        <span>Horizon</span>
+        <select value={settings.projectionMonths} onChange={(event) => onSettingChange('projectionMonths', Number(event.target.value))}>
+          <option value={36}>3 years</option>
+          <option value={60}>5 years</option>
+          <option value={120}>10 years</option>
+        </select>
+      </div>
+    </header>
+
+    <div className="projection-toolbar">
+      <div className="segmented projection-metric-selector">
+        {Object.entries(metricLabels).map(([key, label]) => <button
+          className={metric === key ? 'active' : ''}
+          key={key}
+          onClick={() => setMetric(key)}
+        >{label}</button>)}
+      </div>
+      <label className="per-flat-toggle">
+        <input type="checkbox" checked={perFlat} onChange={(event) => setPerFlat(event.target.checked)} />
+        <i />
+        <span>Per flat</span>
+      </label>
+    </div>
+
+    <div className="projection-desktop-view">
+      <ProjectionChart points={points} metric={metric} perFlat={perFlat} count={portfolio.count} />
+      <button className="projection-table-toggle" onClick={() => setTableOpen((open) => !open)}>
+        {tableOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
+        <span>
+          <b>{tableOpen ? 'Hide' : 'Expand'} projection table</b>
+          <small>Annual snapshots · {metricLabels[metric]}{perFlat ? ' per flat' : ''}</small>
+        </span>
+      </button>
+      {tableOpen && <div className="projection-table-wrap">
+        <table className="projection-table">
+          <thead>
+            <tr>
+              <th>Point in time</th>
+              {scenarioMeta.map((scenario) => <th key={scenario.name} style={{ '--scenario': scenario.colour }}>
+                {scenario.name}<small>{scenario.note}</small>
+              </th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {tablePoints.map((point) => <tr key={point.month}>
+              <th>{point.month / 12} year{point.month === 12 ? '' : 's'}<small>{shortDate(point.date)}</small></th>
+              {point.scenarios.map((scenario, index) => <td key={index} style={{ '--scenario': scenarioMeta[index].colour }}>
+                <b>{currency(scenario[metric] / divisor)}</b>
+                <span className={scenario[metric] >= 0 ? 'positive' : 'negative'}>{scenario[metric] >= 0 ? 'Positive' : 'Negative'}</span>
+              </td>)}
+            </tr>)}
+          </tbody>
+        </table>
+      </div>}
+    </div>
+
+    <div className="projection-mobile-view">
+      <div className="projection-mobile-scenario-selector" aria-label="Projection scenario">
+        {scenarioMeta.map((scenario, index) => <button
+          type="button"
+          key={scenario.name}
+          className={mobileScenario === index ? 'active' : ''}
+          style={{ '--scenario': scenario.colour }}
+          onClick={() => setMobileScenario(index)}
+        >
+          <span>{scenario.name}</span>
+          <small>{scenario.note}</small>
+        </button>)}
+      </div>
+
+      <MobileProjectionChart
+        points={points}
+        metric={metric}
+        perFlat={perFlat}
+        count={portfolio.count}
+        scenarioIndex={mobileScenario}
+      />
+
+      <button
+        type="button"
+        className="projection-mobile-snapshot-toggle"
+        aria-expanded={mobileSnapshotsOpen}
+        onClick={() => setMobileSnapshotsOpen((open) => !open)}
+      >
+        <span>
+          <b>Annual snapshots</b>
+          <small>{metricLabels[metric]}{perFlat ? ' per flat' : ''}</small>
+        </span>
+        {mobileSnapshotsOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
+      </button>
+
+      {mobileSnapshotsOpen && <MobileProjectionSnapshots
+        points={points}
+        metric={metric}
+        perFlat={perFlat}
+        count={portfolio.count}
+        scenarioIndex={mobileScenario}
+      />}
+    </div>
+  </section>
 }
 
 const propertyCostFields = [

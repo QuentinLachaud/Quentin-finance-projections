@@ -110,7 +110,7 @@ describe('workspace render smoke tests', () => {
       onChange={() => {}}
     />)
 
-    expect(html).toContain('IDs &amp; Credentials')
+    expect(html).toContain('Sensitive values are masked on screen by default.')
     expect(html).toContain('Gateway ID')
     expect(html).toContain('Archived items')
     expect(html).toContain('type="password"')

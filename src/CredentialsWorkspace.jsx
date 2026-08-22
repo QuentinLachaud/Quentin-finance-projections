@@ -210,12 +210,8 @@ export default function CredentialsWorkspace({ credentials = [], onChange }) {
   />
 
   return <div className="credentials-workspace">
-    <section className="panel credentials-toolbar">
-      <div>
-        <span className="kicker">PRIVATE RECORDS</span>
-        <h2>IDs & Credentials</h2>
-        <p>Keep important IDs, reference numbers and filing codes together. Sensitive values are masked on screen by default.</p>
-      </div>
+    <section className="panel credentials-command-bar">
+      <div className="credentials-command-context"><LockKeyhole size={16} /><span>Sensitive values are masked on screen by default.</span></div>
       <button className="primary-button" onClick={addItem}><Plus size={16} /> Add item</button>
     </section>
 

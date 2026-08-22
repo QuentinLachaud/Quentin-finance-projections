@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Building2, Check, Download, ExternalLink,
-  FileText, Landmark, Link2, RefreshCw, Search, Trash2, TrendingUp, WalletCards,
+  FileText, Landmark, Link2, RefreshCw, Search, ShieldCheck, Trash2, TrendingUp, WalletCards,
 } from 'lucide-react'
 import { supabase } from './supabase.js'
 import {
@@ -94,21 +94,61 @@ const downloadFile = (name, contents, type) => {
 
 function BalanceChart({ points }) {
   if (points.length < 2) return <div className="bank-empty-chart"><TrendingUp /><span>Balance history will build after transactions are synced.</span></div>
-  const width = 900
-  const height = 270
-  const pad = 34
+
+  const desktopWidth = 900
+  const desktopHeight = 270
+  const desktopPad = 34
   const balances = points.map((point) => point.balance)
   const minimum = Math.min(...balances)
   const maximum = Math.max(...balances)
   const spread = Math.max(1, maximum - minimum)
-  const coordinates = points.map((point, index) => ({
+  const desktopCoordinates = points.map((point, index) => ({
     ...point,
-    x: pad + index / Math.max(1, points.length - 1) * (width - pad * 2),
-    y: pad + (maximum - point.balance) / spread * (height - pad * 2),
+    x: desktopPad + index / Math.max(1, points.length - 1) * (desktopWidth - desktopPad * 2),
+    y: desktopPad + (maximum - point.balance) / spread * (desktopHeight - desktopPad * 2),
   }))
-  const line = coordinates.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
-  const area = `${line} L${coordinates.at(-1).x},${height - pad} L${coordinates[0].x},${height - pad} Z`
-  return <div className="bank-chart-scroll"><svg className="balance-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Connected bank balance over time"><defs><linearGradient id="balance-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3f9b76" stopOpacity=".28" /><stop offset="1" stopColor="#3f9b76" stopOpacity=".02" /></linearGradient></defs><line x1={pad} y1={height - pad} x2={width - pad} y2={height - pad} className="axis" /><path d={area} fill="url(#balance-area)" /><path d={line} className="balance-line" /><text x={pad} y={22}>{currency(maximum)}</text><text x={pad} y={height - 10}>{shortDate(points[0].date)}</text><text x={width - pad} y={height - 10} textAnchor="end">{shortDate(points.at(-1).date)}</text><text x={width - pad} y={22} textAnchor="end">Latest {currency(points.at(-1).balance)}</text></svg></div>
+  const desktopLine = desktopCoordinates.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
+  const desktopArea = `${desktopLine} L${desktopCoordinates.at(-1).x},${desktopHeight - desktopPad} L${desktopCoordinates[0].x},${desktopHeight - desktopPad} Z`
+
+  const mobileWidth = 320
+  const mobileHeight = 132
+  const mobilePad = 12
+  const sampled = points.length > 36
+    ? points.filter((_, index) => index % Math.ceil(points.length / 36) === 0 || index === points.length - 1)
+    : points
+  const mobileCoordinates = sampled.map((point, index) => ({
+    ...point,
+    x: mobilePad + index / Math.max(1, sampled.length - 1) * (mobileWidth - mobilePad * 2),
+    y: mobilePad + (maximum - point.balance) / spread * (mobileHeight - mobilePad * 2 - 18),
+  }))
+  const mobileLine = mobileCoordinates.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
+
+  return <>
+    <div className="bank-chart-desktop bank-chart-scroll">
+      <svg className="balance-chart" viewBox={`0 0 ${desktopWidth} ${desktopHeight}`} role="img" aria-label="Connected bank balance over time">
+        <defs><linearGradient id="balance-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3f9b76" stopOpacity=".28" /><stop offset="1" stopColor="#3f9b76" stopOpacity=".02" /></linearGradient></defs>
+        <line x1={desktopPad} y1={desktopHeight - desktopPad} x2={desktopWidth - desktopPad} y2={desktopHeight - desktopPad} className="axis" />
+        <path d={desktopArea} fill="url(#balance-area)" />
+        <path d={desktopLine} className="balance-line" />
+        <text x={desktopPad} y={22}>{currency(maximum)}</text>
+        <text x={desktopPad} y={desktopHeight - 10}>{shortDate(points[0].date)}</text>
+        <text x={desktopWidth - desktopPad} y={desktopHeight - 10} textAnchor="end">{shortDate(points.at(-1).date)}</text>
+        <text x={desktopWidth - desktopPad} y={22} textAnchor="end">Latest {currency(points.at(-1).balance)}</text>
+      </svg>
+    </div>
+    <div className="bank-balance-mobile">
+      <div className="bank-mobile-chart-head">
+        <div><span>Current balance</span><strong>{currency(points.at(-1).balance)}</strong></div>
+        <div><span>Range</span><b>{currency(minimum)} – {currency(maximum)}</b></div>
+      </div>
+      <svg viewBox={`0 0 ${mobileWidth} ${mobileHeight}`} role="img" aria-label="Mobile connected bank balance trend">
+        <path d={mobileLine} className="balance-line" />
+        <circle cx={mobileCoordinates.at(-1).x} cy={mobileCoordinates.at(-1).y} r="4" className="bank-mobile-latest-dot" />
+        <text x={mobilePad} y={mobileHeight - 4}>{shortDate(points[0].date)}</text>
+        <text x={mobileWidth - mobilePad} y={mobileHeight - 4} textAnchor="end">{shortDate(points.at(-1).date)}</text>
+      </svg>
+    </div>
+  </>
 }
 
 function CashFlowChart({ rows }) {
@@ -121,7 +161,34 @@ function CashFlowChart({ rows }) {
   const scale = 105 / maxValue
   const step = (width - pad * 2) / rows.length
   const netPoints = rows.map((row, index) => `${pad + step * (index + .5)},${mid - row.net * scale}`).join(' ')
-  return <div className="bank-chart-scroll"><svg className="cashflow-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Actual connected account cash flow"><line x1={pad} y1={mid} x2={width - pad} y2={mid} className="axis" />{rows.map((row, index) => { const centre = pad + step * (index + .5); return <g key={row.period}><rect x={centre - 19} y={mid - row.inflow * scale} width="17" height={row.inflow * scale} rx="3" className="inflow-bar"><title>{row.period} inflow {currency(row.inflow)}</title></rect><rect x={centre + 2} y={mid} width="17" height={row.outflow * scale} rx="3" className="outflow-bar"><title>{row.period} outflow {currency(row.outflow)}</title></rect><text x={centre} y={height - 18} textAnchor="middle">{row.period}</text></g>})}<polyline points={netPoints} className="net-line" />{rows.map((row, index) => <circle key={`net-${row.period}`} cx={pad + step * (index + .5)} cy={mid - row.net * scale} r="3.5" className="net-dot"><title>{row.period} net {currency(row.net)}</title></circle>)}</svg></div>
+  const mobileRows = rows.slice(-12).reverse()
+
+  return <>
+    <div className="bank-chart-desktop bank-chart-scroll">
+      <svg className="cashflow-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Actual connected account cash flow">
+        <line x1={pad} y1={mid} x2={width - pad} y2={mid} className="axis" />
+        {rows.map((row, index) => {
+          const centre = pad + step * (index + .5)
+          return <g key={row.period}>
+            <rect x={centre - 19} y={mid - row.inflow * scale} width="17" height={row.inflow * scale} rx="3" className="inflow-bar"><title>{row.period} inflow {currency(row.inflow)}</title></rect>
+            <rect x={centre + 2} y={mid} width="17" height={row.outflow * scale} rx="3" className="outflow-bar"><title>{row.period} outflow {currency(row.outflow)}</title></rect>
+            <text x={centre} y={height - 18} textAnchor="middle">{row.period}</text>
+          </g>
+        })}
+        <polyline points={netPoints} className="net-line" />
+        {rows.map((row, index) => <circle key={`net-${row.period}`} cx={pad + step * (index + .5)} cy={mid - row.net * scale} r="3.5" className="net-dot"><title>{row.period} net {currency(row.net)}</title></circle>)}
+      </svg>
+    </div>
+    <div className="bank-cashflow-mobile" aria-label="Mobile cash flow periods">
+      {mobileRows.map((row) => <article key={row.period}>
+        <div className="bank-mobile-period"><b>{row.period}</b><span className={row.net >= 0 ? 'positive' : 'negative'}>{currency(row.net)} net</span></div>
+        <div className="bank-mobile-flow-values">
+          <span><ArrowUpRight size={14} /> In <b>{currency(row.inflow)}</b></span>
+          <span><ArrowDownRight size={14} /> Out <b>{currency(row.outflow)}</b></span>
+        </div>
+      </article>)}
+    </div>
+  </>
 }
 
 function BankMetric({ label, value, note, tone }) {
@@ -286,7 +353,7 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
   if (status === 'loading' || status === 'syncing') return <div className="app-inline-loading"><RefreshCw /><b>{status === 'syncing' ? 'Securely syncing bank data…' : 'Loading connected accounts…'}</b></div>
 
   return <div className="bank-workspace">
-    <section className="panel bank-hero"><header><div><span className="kicker">OPEN BANKING · GOCARDLESS</span><h2>Bank balances & actual cash flow</h2><p>Connect accounts with bank-hosted consent. Your bank credentials never pass through this app.</p></div><div><button className="secondary-button small" onClick={syncAll} disabled={!connections.length || status === 'syncing'}><RefreshCw size={15} /> Sync</button><button className="primary-button small" onClick={openConnect}><Link2 size={15} /> Connect account</button></div></header>{error && <p className="bank-error"><AlertTriangle size={16} />{error}</p>}{status === 'not-configured' && <div className="bank-setup-note"><AlertTriangle /><span><b>One-time GoCardless setup required</b><small>The secure server integration is ready. Add Bank Account Data user secrets to Cloudflare to enable live bank selection.</small></span></div>}</section>
+    <section className="panel bank-command-bar"><header><div className="bank-command-context"><ShieldCheck size={16} /><span>Bank-hosted consent · credentials never pass through BTL Portfolio.</span></div><div className="bank-command-actions"><button className="secondary-button small" onClick={syncAll} disabled={!connections.length || status === 'syncing'}><RefreshCw size={15} /> Sync</button><button className="primary-button small" onClick={openConnect}><Link2 size={15} /> Connect account</button></div></header>{error && <p className="bank-error"><AlertTriangle size={16} />{error}</p>}{status === 'not-configured' && <div className="bank-setup-note"><AlertTriangle /><span><b>One-time GoCardless setup required</b><small>The secure server integration is ready. Add Bank Account Data user secrets to Cloudflare to enable live bank selection.</small></span></div>}</section>
 
     {showConnect && <section className="panel bank-picker"><header><div><span className="kicker">AVAILABLE UK INSTITUTIONS</span><h2>Choose a bank</h2><p>Tide, Monzo, Revolut and Chase are prioritised when returned by GoCardless; all other supported UK providers remain searchable.</p></div><label><Search size={16} /><input aria-label="Search banks" placeholder="Search banks" value={search} onChange={(event) => setSearch(event.target.value)} /></label></header><div className="bank-picker-grid">{filteredInstitutions.map((institution) => <button key={institution.id} onClick={() => connect(institution.id)} disabled={status === 'connecting'}>{institution.logo ? <img src={institution.logo} alt="" /> : <Landmark />}<span><b>{institution.name}</b><small>Up to {Math.min(730, institution.transactionDays)} days history</small></span>{institution.preferred && <em>Priority</em>}<ExternalLink size={14} /></button>)}</div>{!institutions.length && status !== 'not-configured' && <div className="bank-empty-chart"><RefreshCw /><span>Loading live institution availability…</span></div>}</section>}
 
@@ -303,7 +370,7 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
 
       <section className="bank-average-grid">{[['3 month', metrics.averages.threeMonth], ['6 month', metrics.averages.sixMonth], ['12 month', metrics.averages.twelveMonth]].map(([label, average]) => <article className="panel" key={label}><span>{label} average</span><div><p><ArrowUpRight /> Inflow <b>{currency(average.inflow)}</b></p><p><ArrowDownRight /> Outflow <b>{currency(average.outflow)}</b></p><p className={average.net >= 0 ? 'positive' : 'negative'}><TrendingUp /> Net <b>{currency(average.net)}</b></p></div></article>)}</section>
 
-      <section className="panel bank-transactions"><header><div><span className="kicker">AUTOMATIC CLASSIFICATION</span><h2>Transactions</h2><p>Rules classify rent, mortgages, tax, salary, factors, director loans and common property costs. You can correct any result.</p></div></header><div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <tr key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{transaction.description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</td></tr>)}</tbody></table></div></section>
+      <section className="panel bank-transactions"><header><div><span className="kicker">AUTOMATIC CLASSIFICATION</span><h2>Transactions</h2><p>Rules classify rent, mortgages, tax, salary, factors, director loans and common property costs. You can correct any result.</p></div></header><div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <tr key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{transaction.description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</td></tr>)}</tbody></table></div><div className="bank-transaction-mobile-list">{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <article className="bank-mobile-transaction" key={`mobile-${transaction.id}`}><div className="bank-mobile-transaction-head"><div><b>{transaction.description || transaction.counterparty || 'Transaction'}</b><small>{shortDate(transaction.bookedAt)} · {transaction.counterparty || transaction.accountName}</small></div><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</strong></div><div className="bank-mobile-transaction-meta"><span>{transaction.accountName}</span><select aria-label={`Mobile category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div></article>)}</div></section>
     </>}
 
     {!accounts.length && status === 'ready' && !showConnect && <section className="panel bank-empty-state"><WalletCards /><h2>Connect the account that receives your property income</h2><p>Its opted-in GBP balances will update the portfolio’s cash-held figure. You can connect and compare multiple accounts.</p><button className="primary-button" onClick={openConnect}><Link2 size={16} /> Choose a bank</button></section>}
