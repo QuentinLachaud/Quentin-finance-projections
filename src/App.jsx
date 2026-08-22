@@ -3,7 +3,7 @@ import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown, CircleHelp,
   ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu,
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp, Moon, Sun,
-  WalletCards, X, LogOut, Cloud, CloudOff, ReceiptText, FileText, Users, RefreshCw, AlertTriangle, Coffee, KeyRound,
+  WalletCards, X, LogOut, Settings, Cloud, CloudOff, ReceiptText, FileText, Users, RefreshCw, AlertTriangle, Coffee, KeyRound,
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
@@ -22,7 +22,7 @@ import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
-import { initialTheme, userAvatarUrl } from './preferences.js'
+import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { supportConfig } from './support.js'
 import { exportTabularReport } from './reportExports.js'
 import { bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
@@ -803,6 +803,9 @@ function PortfolioApp({ user }) {
   )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mobileBufferExpanded, setMobileBufferExpanded] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const accentKey = accentStorageKey(user.id)
+  const [accentHue, setAccentHue] = useState(() => initialAccent(window.localStorage.getItem(accentKey)))
 
   const togglePropertyGroup = (title) => {
     setCollapsedPropertyGroups((current) => {
@@ -819,6 +822,19 @@ function PortfolioApp({ user }) {
     window.localStorage.setItem('btl-theme', theme)
     return () => { delete document.documentElement.dataset.theme }
   }, [theme])
+
+  useEffect(() => {
+    document.documentElement.dataset.accent = accentHue
+    window.localStorage.setItem(accentKey, accentHue)
+    return () => { delete document.documentElement.dataset.accent }
+  }, [accentHue, accentKey])
+
+  useEffect(() => {
+    if (!settingsOpen) return undefined
+    const closeOnEscape = (event) => event.key === 'Escape' && setSettingsOpen(false)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [settingsOpen])
 
   useEffect(() => {
     window.localStorage.setItem(sectionStorageKey, section)
@@ -1081,8 +1097,62 @@ function PortfolioApp({ user }) {
           <button className={`sidebar-plan ${effectiveEntitlement.isPro ? 'pro' : ''}`} onClick={() => { setSection('Plan & billing'); setMobileNavOpen(false) }}><Sparkles size={17} /><span><b>{effectiveEntitlement.isPro ? 'Pro access' : 'Free · 1 BTL'}</b><small>{effectiveEntitlement.isOwner ? 'Owner account' : effectiveEntitlement.isPro ? 'Unlimited properties' : 'View upgrade options'}</small></span></button>
           {SUPPORT.enabled && showFreeSupport(effectiveEntitlement) && <a className="sidebar-support" href={SUPPORT.url} target="_blank" rel="noreferrer"><Coffee size={17} /><span><b>Buy me a coffee</b><small>Support BTL Portfolio</small></span><ExternalLink size={13} /></a>}
         </div>
-        <div className="sidebar-foot"><div className="avatar">{avatarUrl ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : initials}</div><span><b>{displayName}</b><small>{user.email}</small></span><button className="sidebar-signout" onClick={() => supabase.auth.signOut()} aria-label="Sign out"><LogOut size={16} /></button></div>
+        <div className="sidebar-foot">
+          <div className="avatar">{avatarUrl ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : initials}</div>
+          <span><b>{displayName}</b><small>{user.email}</small></span>
+          <button
+            type="button"
+            className="sidebar-settings"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Open settings"
+            title="Settings"
+          ><Settings size={16} /></button>
+          <button className="sidebar-signout" onClick={() => supabase.auth.signOut()} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button>
+        </div>
       </aside>
+
+      {settingsOpen && <div className="settings-layer" onMouseDown={() => setSettingsOpen(false)}>
+        <section
+          className="settings-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settings-title"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <header>
+            <div>
+              <span className="kicker">APPEARANCE</span>
+              <h2 id="settings-title">Settings</h2>
+              <p>Choose the accent used for navigation, controls and key interface highlights.</p>
+            </div>
+            <button type="button" className="settings-close" onClick={() => setSettingsOpen(false)} aria-label="Close settings"><X size={19} /></button>
+          </header>
+
+          <div className="settings-section">
+            <div className="settings-section-copy">
+              <h3>Theme colour</h3>
+              <p>Forest is the default. Each palette is tuned separately for light and dark mode.</p>
+            </div>
+            <div className="accent-choice-grid" role="radiogroup" aria-label="Theme colour">
+              {accentOptions.map((option) => {
+                const selected = accentHue === option.id
+                return <button
+                  key={option.id}
+                  type="button"
+                  className={`accent-choice ${selected ? 'selected' : ''}`}
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setAccentHue(option.id)}
+                  style={{ '--accent-swatch': option.swatch }}
+                >
+                  <span className="accent-swatch" aria-hidden="true">{selected && <Check size={16} strokeWidth={2.6} />}</span>
+                  <span><b>{option.label}</b><small>{option.description}</small></span>
+                </button>
+              })}
+            </div>
+          </div>
+        </section>
+      </div>}
 
       <main>
         <header className="topbar">
