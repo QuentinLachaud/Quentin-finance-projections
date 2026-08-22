@@ -719,7 +719,14 @@ function PortfolioApp({ user }) {
   const loaded = useRef(false)
   const [editingId, setEditingId] = useState(null)
   const [pendingProperty, setPendingProperty] = useState(null)
-  const [section, setSection] = useState(() => BANKING_ENABLED && new URLSearchParams(window.location.search).get('bank_callback') === '1' ? 'Banking' : 'Overview')
+  const sectionStorageKey = `btl-active-section:${user.id}`
+  const [section, setSection] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (BANKING_ENABLED && params.get('bank_callback') === '1') return 'Banking'
+
+    const savedSection = window.localStorage.getItem(sectionStorageKey)
+    return workspaceNavigation.some(([label]) => label === savedSection) ? savedSection : 'Overview'
+  })
   const [search, setSearch] = useState('')
   const [advancedPropertyView, setAdvancedPropertyView] = useState(false)
   const [mobilePropertyId, setMobilePropertyId] = useState('')
@@ -744,6 +751,10 @@ function PortfolioApp({ user }) {
     window.localStorage.setItem('btl-theme', theme)
     return () => { delete document.documentElement.dataset.theme }
   }, [theme])
+
+  useEffect(() => {
+    window.localStorage.setItem(sectionStorageKey, section)
+  }, [section, sectionStorageKey])
 
   useEffect(() => {
     if (state?.settings.accountType === 'private' && section === 'Companies House') setSection('Overview')
