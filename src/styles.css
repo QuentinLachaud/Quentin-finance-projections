@@ -4922,6 +4922,37 @@ textarea {
     background-color .45s ease;
 }
 
+/* Brain Drain 2026-08-22 21:52 BST — desktop Safety Cash Buffer uses an SVG stroke.
+   Mobile keeps the proven conic-gradient rendering; desktop consumes the exact same
+   per-frame React progress/colour values without relying on gradient repaint behaviour. */
+.buffer-ring-desktop-visual {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+.buffer-ring-desktop-track,
+.buffer-ring-desktop-progress {
+  fill: none;
+  stroke-width: 9;
+}
+.buffer-ring-desktop-track { stroke: #e9ede9; }
+.buffer-ring-desktop-progress { stroke-linecap: butt; }
+
+@media (min-width: 761px) {
+  .buffer-ring { background: transparent; }
+}
+
+@media (max-width: 760px) {
+  .buffer-ring-desktop-visual { display: none; }
+}
+
+:root[data-theme='dark'] .buffer-ring-desktop-track { stroke: #303b35; }
+
 .property-card {
   transition:
     opacity .46s cubic-bezier(.22, .61, .36, 1),

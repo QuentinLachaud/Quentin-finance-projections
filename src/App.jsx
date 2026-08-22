@@ -26,7 +26,7 @@ import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoi
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { supportConfig } from './support.js'
 import { exportTabularReport } from './reportExports.js'
-import { bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
+import { bufferStrokeOffset, bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
 
 // Keep the completed Open Banking workspace dormant until a production data
 // provider is available. It can be restored without code changes at deploy time.
@@ -268,6 +268,24 @@ function AnimatedBufferRing({
       '--buffer-colour': visual.colour,
     }}
   >
+    <svg
+      className="buffer-ring-desktop-visual"
+      viewBox="0 0 100 100"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle className="buffer-ring-desktop-track" cx="50" cy="50" r="45" pathLength="100" />
+      <circle
+        className="buffer-ring-desktop-progress"
+        cx="50"
+        cy="50"
+        r="45"
+        pathLength="100"
+        strokeDasharray="100"
+        strokeDashoffset={bufferStrokeOffset(visual.progress)}
+        stroke={visual.colour}
+      />
+    </svg>
     <div>
       <strong><AnimatedNumber value={bufferMonths} duration={duration} decimals={1} /></strong>
       <span>months</span>

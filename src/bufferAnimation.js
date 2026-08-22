@@ -51,6 +51,8 @@ export const bufferVisualTarget = (cashHeld, targetCash) => ({
   colour: bufferColour(cashHeld, targetCash),
 })
 
+export const bufferStrokeOffset = (progress) => 100 - clamp(Number(progress) || 0, 0, 100)
+
 export const interpolateBufferVisual = (from, to, rawProgress) => {
   const eased = easeOutCubic(rawProgress)
   return {
