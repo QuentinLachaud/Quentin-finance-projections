@@ -1,23 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import {
-  ArrowUpRight,
-  Building2,
-  ChevronDown,
-  ChevronUp,
-  Link2,
-  LoaderCircle,
-  Plus,
-  Trash2,
-} from 'lucide-react'
-import {
-  acquisitionCosts,
-  acquisitionJurisdictions,
-  createAcquisition,
-  prependAcquisition,
-} from './acquisition.js'
+import { Building2, ChevronDown, ChevronUp, Link2, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { acquisitionCosts, acquisitionJurisdictions, createAcquisition, nextAcquisitionName, prependAcquisition } from './acquisition.js'
 import { currency } from './calculations.js'
 import { supabase } from './supabase.js'
 
+const numericKeys = new Set(['purchasePrice','expectedMonthlyRent','ltv','adsRate','legalFees','mortgageFee'])
 const numericValue = (value) => value === '' ? '' : Number(value)
 
 const listingRequest = async (url) => {
@@ -25,10 +12,7 @@ const listingRequest = async (url) => {
   const token = data?.session?.access_token
   const response = await fetch('/api/property-listing', {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
+    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ url }),
   })
   const body = await response.json().catch(() => ({}))
@@ -36,334 +20,137 @@ const listingRequest = async (url) => {
   return body
 }
 
-function Field({ label, prefix, suffix, children, className = '' }) {
-  return <label className={`acquisition-field ${className}`}>
-    <span>{label}</span>
-    <div>
-      {prefix && <b>{prefix}</b>}
-      {children}
-      {suffix && <b>{suffix}</b>}
-    </div>
-  </label>
+function InputShell({ label, prefix = '', suffix = '', children }) {
+  return <label className="acq-sheet-field"><span>{label}</span><div className="acq-sheet-input">{prefix && <b>{prefix}</b>}{children}{suffix && <em>{suffix}</em>}</div></label>
 }
 
-export function AcquisitionCard({
-  acquisition,
-  expanded,
-  onToggle,
-  onUpdate,
-  onRemove,
-}) {
-  const costs = useMemo(() => acquisitionCosts(acquisition), [acquisition])
-  const isScotland = acquisition.jurisdiction === 'scotland'
-  const sourceLabel = acquisition.sourceProvider || (acquisition.sourceUrl ? 'Listing' : 'Manual entry')
-  const grossYieldLabel = costs.grossYield ? `${(costs.grossYield * 100).toFixed(2)}%` : '—'
-  const propertyMeta = [
-    acquisition.postcode,
-    acquisition.propertyType,
-    acquisition.bedrooms !== '' && acquisition.bedrooms != null ? `${acquisition.bedrooms} bed` : '',
-    acquisition.areaSqm !== '' && acquisition.areaSqm != null ? `${Number(acquisition.areaSqm).toFixed(Number(acquisition.areaSqm) % 1 ? 1 : 0)} m²` : '',
-    acquisition.epc ? `EPC ${acquisition.epc}` : '',
-  ].filter(Boolean)
+export function AcquisitionEditorModal({ draft, mode, warning = '', onChange, onCancel, onConfirm }) {
+  const [closing, setClosing] = useState(false)
+  const costs = useMemo(() => acquisitionCosts(draft), [draft])
+  const isScotland = draft.jurisdiction === 'scotland'
+  const valid = String(draft.name || '').trim() && Number(draft.purchasePrice || 0) > 0
+  const closeThen = (callback) => { if (!closing) { setClosing(true); window.setTimeout(callback, 180) } }
+
+  useEffect(() => {
+    const oldOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const keydown = (event) => event.key === 'Escape' && closeThen(onCancel)
+    document.addEventListener('keydown', keydown)
+    return () => { document.body.style.overflow = oldOverflow; document.removeEventListener('keydown', keydown) }
+  }, [onCancel])
 
   const set = (key) => (event) => {
-    const value = event?.target?.type === 'checkbox'
-      ? event.target.checked
-      : event?.target?.value
-    onUpdate(acquisition.id, key, value)
+    const raw = event.target.type === 'checkbox' ? event.target.checked : event.target.value
+    onChange(key, numericKeys.has(key) ? numericValue(raw) : raw)
   }
 
-  return <article className={`panel acquisition-card ${expanded ? 'expanded' : 'collapsed'}`}>
-    <header className="acquisition-card-header">
-      <button
-        type="button"
-        className="acquisition-card-disclosure"
-        aria-expanded={expanded}
-        onClick={onToggle}
-      >
-        <div className="acquisition-card-title">
-          <span className="kicker">POTENTIAL ACQUISITION · {sourceLabel.toUpperCase()}</span>
-          <h2>{acquisition.address || 'Untitled property'}</h2>
-          <p>{propertyMeta.join(' · ') || 'Enter or import the property details below.'}</p>
-        </div>
+  return <div className={`acq-sheet-layer ${closing ? 'closing' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && closeThen(onCancel)}>
+    <form className="acq-sheet" role="dialog" aria-modal="true" aria-labelledby="acq-sheet-title" onSubmit={(event) => { event.preventDefault(); if (valid) closeThen(onConfirm) }}>
+      <header className="acq-sheet-header">
+        <button type="button" onClick={() => closeThen(onCancel)}>Cancel</button>
+        <div><span>{mode === 'edit' ? 'EDIT ACQUISITION' : 'NEW ACQUISITION'}</span><h2 id="acq-sheet-title">{mode === 'edit' ? 'Update acquisition' : 'Review acquisition'}</h2></div>
+        <button type="submit" className="confirm" disabled={!valid}>Confirm</button>
+      </header>
+      <div className="acq-sheet-scroll">
+        <section className="acq-sheet-group name"><label><span>Acquisition name</span><input aria-label="Acquisition name" value={draft.name} onChange={set('name')} /></label></section>
+        {warning && <p className="acq-sheet-warning">{warning}</p>}
+        <section className="acq-sheet-group">
+          <header><b>Property assumptions</b><small>Only purchase price is imported from a listing.</small></header>
+          <div className="acq-sheet-grid">
+            <InputShell label="Purchase price" prefix="£"><input aria-label="Purchase price" type="number" min="0" step="1000" placeholder="200,000" value={draft.purchasePrice} onChange={set('purchasePrice')} /></InputShell>
+            <InputShell label="Expected rent per month" prefix="£"><input aria-label="Expected rent per month" type="number" min="0" step="50" placeholder="1,200" value={draft.expectedMonthlyRent} onChange={set('expectedMonthlyRent')} /></InputShell>
+          </div>
+        </section>
+        <section className="acq-sheet-group">
+          <header><b>Funding & purchase costs</b><small>Adjust the assumptions used to calculate completion cash.</small></header>
+          <div className="acq-sheet-grid funding">
+            <label className="acq-sheet-field jurisdiction"><span>Purchase tax regime</span><select aria-label="Purchase tax regime" value={draft.jurisdiction} onChange={set('jurisdiction')}>{acquisitionJurisdictions.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>
+            <InputShell label="LTV" suffix="%"><input aria-label="LTV" type="number" min="0" max="100" step="1" value={draft.ltv} onChange={set('ltv')} /></InputShell>
+            {isScotland && <InputShell label="ADS" suffix="%"><input aria-label="ADS" type="number" min="0" step=".1" value={draft.adsRate} onChange={set('adsRate')} /></InputShell>}
+            <InputShell label="Solicitor / legal fees" prefix="£"><input aria-label="Solicitor / legal fees" type="number" min="0" step="50" value={draft.legalFees} onChange={set('legalFees')} /></InputShell>
+            <InputShell label="Mortgage product fee" prefix="£"><input aria-label="Mortgage product fee" type="number" min="0" step="50" value={draft.mortgageFee} onChange={set('mortgageFee')} /></InputShell>
+            <label className="acq-sheet-switch"><span><b>Add mortgage fee to loan</b><small>Turn off to include it in cash required now.</small></span><input aria-label="Add mortgage fee to loan" type="checkbox" checked={Boolean(draft.mortgageFeeAddedToLoan)} onChange={set('mortgageFeeAddedToLoan')} /><i /></label>
+          </div>
+          <div className="acq-sheet-live"><span>Estimated cash to deploy</span><strong>{currency(costs.cashRequired)}</strong></div>
+        </section>
+      </div>
+    </form>
+  </div>
+}
 
-        <div className="acquisition-collapsed-metrics" aria-label="Acquisition summary">
-          <div>
-            <span>Price</span>
-            <b>{costs.price ? currency(costs.price) : '—'}</b>
-          </div>
-          <div>
-            <span>Rent / mo</span>
-            <b>{Number(acquisition.expectedMonthlyRent || 0) ? currency(acquisition.expectedMonthlyRent) : '—'}</b>
-          </div>
-          <div className="yield">
-            <span>Gross yield</span>
-            <b>{grossYieldLabel}</b>
-          </div>
-          <div>
-            <span>Cash to deploy</span>
-            <b>{costs.price ? currency(costs.cashRequired) : '—'}</b>
-          </div>
-        </div>
-
-        <span className="acquisition-disclosure-chevron" aria-hidden="true">
-          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </span>
+export function AcquisitionCard({ acquisition, expanded, onToggle, onEdit, onRemove }) {
+  const costs = useMemo(() => acquisitionCosts(acquisition), [acquisition])
+  const yieldLabel = costs.grossYield ? `${(costs.grossYield * 100).toFixed(2)}%` : '—'
+  const isScotland = acquisition.jurisdiction === 'scotland'
+  return <article className={`panel acq-card ${expanded ? 'expanded' : 'collapsed'}`}>
+    <header className="acq-card-header">
+      <button className="acq-card-main" type="button" aria-expanded={expanded} onClick={onToggle}>
+        <div className="acq-card-name"><span>POTENTIAL ACQUISITION</span><h2>{acquisition.name || 'Untitled acquisition'}</h2></div>
+        <div className="acq-card-metrics"><div><span>Price</span><b>{costs.price ? currency(costs.price) : '—'}</b></div><div><span>Rent / mo</span><b>{Number(acquisition.expectedMonthlyRent || 0) ? currency(acquisition.expectedMonthlyRent) : '—'}</b></div><div className="yield"><span>Gross yield</span><b>{yieldLabel}</b></div><div className="cash"><span>Cash to deploy</span><b>{costs.price ? currency(costs.cashRequired) : '—'}</b></div></div>
+        <span className="acq-card-chevron">{expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
       </button>
-
-      <div className="acquisition-card-actions">
-        {acquisition.sourceUrl && <a
-          href={acquisition.sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="secondary-button small"
-        >
-          Listing <ArrowUpRight size={14} />
-        </a>}
-        <button
-          type="button"
-          className="icon-button acquisition-remove"
-          aria-label="Remove acquisition"
-          onClick={() => onRemove(acquisition.id)}
-        >
-          <Trash2 size={17} />
-        </button>
-      </div>
+      <div className="acq-card-actions"><button type="button" className="icon-button" aria-label={`Edit ${acquisition.name || 'acquisition'}`} onClick={onEdit}><Pencil size={16} /></button><button type="button" className="icon-button acquisition-remove" aria-label={`Remove ${acquisition.name || 'acquisition'}`} onClick={onRemove}><Trash2 size={16} /></button></div>
     </header>
-
-    <div className="acquisition-card-body-shell" aria-hidden={!expanded}>
-      <div className="acquisition-card-body-inner">
-        <div className="acquisition-card-layout">
-          <div className="acquisition-inputs">
-            <section className="acquisition-input-section">
-              <header><span>Property</span></header>
-              <div className="acquisition-fields-grid">
-                <Field label="Purchase price" prefix="£">
-                  <input aria-label="Purchase price" type="number" min="0" step="1000" value={acquisition.purchasePrice} onChange={set('purchasePrice')} />
-                </Field>
-                <Field label="Expected rent / month" prefix="£">
-                  <input aria-label="Expected rent per month" type="number" min="0" step="50" value={acquisition.expectedMonthlyRent} onChange={set('expectedMonthlyRent')} />
-                </Field>
-                <Field label="Bedrooms">
-                  <input aria-label="Bedrooms" type="number" min="0" step="1" value={acquisition.bedrooms} onChange={set('bedrooms')} />
-                </Field>
-                <Field label="Area" suffix="m²">
-                  <input aria-label="Area in square metres" type="number" min="0" step="0.1" value={acquisition.areaSqm} onChange={set('areaSqm')} />
-                </Field>
-                <label className="acquisition-text-field acquisition-property-type">
-                  <span>Property type</span>
-                  <input aria-label="Property type" type="text" placeholder="Flat, terraced house…" value={acquisition.propertyType} onChange={set('propertyType')} />
-                </label>
-                <Field label="EPC">
-                  <input aria-label="EPC" type="text" maxLength="2" value={acquisition.epc} onChange={(event) => onUpdate(acquisition.id, 'epc', event.target.value.toUpperCase())} />
-                </Field>
-                <label className="acquisition-text-field acquisition-address">
-                  <span>Address</span>
-                  <input aria-label="Address" type="text" value={acquisition.address} onChange={set('address')} />
-                </label>
-                <label className="acquisition-text-field acquisition-postcode">
-                  <span>Postcode</span>
-                  <input aria-label="Postcode" type="text" value={acquisition.postcode} onChange={(event) => onUpdate(acquisition.id, 'postcode', event.target.value.toUpperCase())} />
-                </label>
-              </div>
-            </section>
-
-            <section className="acquisition-input-section">
-              <header><span>Funding & purchase costs</span></header>
-              <div className="acquisition-fields-grid">
-                <label className="acquisition-text-field acquisition-regime">
-                  <span>Purchase tax regime</span>
-                  <select value={acquisition.jurisdiction} onChange={set('jurisdiction')}>
-                    {acquisitionJurisdictions.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}
-                  </select>
-                </label>
-                <Field label="LTV" suffix="%">
-                  <input aria-label="LTV" type="number" min="0" max="100" step="1" value={acquisition.ltv} onChange={set('ltv')} />
-                </Field>
-                {isScotland && <Field label="ADS" suffix="%">
-                  <input aria-label="Additional Dwelling Supplement rate" type="number" min="0" max="100" step="0.1" value={acquisition.adsRate} onChange={set('adsRate')} />
-                </Field>}
-                <Field label="Solicitor / legal fees" prefix="£">
-                  <input aria-label="Solicitor and legal fees" type="number" min="0" step="50" value={acquisition.legalFees} onChange={set('legalFees')} />
-                </Field>
-                <Field label="Mortgage product fee" prefix="£">
-                  <input aria-label="Mortgage product fee" type="number" min="0" step="50" value={acquisition.mortgageFee} onChange={set('mortgageFee')} />
-                </Field>
-                <label className="acquisition-fee-switch">
-                  <span><b>Add mortgage fee to loan</b><small>Turn off if the fee is paid from cash at completion.</small></span>
-                  <input type="checkbox" checked={Boolean(acquisition.mortgageFeeAddedToLoan)} onChange={set('mortgageFeeAddedToLoan')} />
-                  <i />
-                </label>
-              </div>
-            </section>
-          </div>
-
-          <aside className="acquisition-results">
-            <span className="kicker">CASH TO DEPLOY</span>
-            <strong>{currency(costs.cashRequired)}</strong>
-            <small>Estimated cash required at completion</small>
-
-            <dl>
-              <div><dt>Deposit at {Number(costs.ltv).toFixed(0)}% LTV</dt><dd>{currency(costs.deposit)}</dd></div>
-              <div><dt>{costs.taxLabel}</dt><dd>{currency(costs.transactionTax)}</dd></div>
-              {isScotland && <>
-                <div className="sub"><dt>LBTT</dt><dd>{currency(costs.baseTax)}</dd></div>
-                <div className="sub"><dt>ADS · {Number(acquisition.adsRate || 0).toFixed(1)}%</dt><dd>{currency(costs.supplement)}</dd></div>
-              </>}
-              <div><dt>Legal fees</dt><dd>{currency(costs.legalFees)}</dd></div>
-              <div><dt>Mortgage fee paid now</dt><dd>{currency(costs.upfrontMortgageFee)}</dd></div>
-            </dl>
-
-            <div className="acquisition-secondary-results">
-              <div><span>Mortgage advance</span><b>{currency(costs.baseMortgage)}</b></div>
-              <div><span>Effective loan incl. financed fee</span><b>{currency(costs.effectiveMortgage)}</b></div>
-              <div><span>Total acquisition cost</span><b>{currency(costs.totalAcquisitionCost)}</b></div>
-              <div><span>Expected gross yield</span><b>{grossYieldLabel}</b></div>
-            </div>
-
-            <p className="acquisition-tax-note">
-              Residential BTL/additional-property rates. Planning estimate only; unusual reliefs, mixed-use purchases,
-              linked transactions and non-resident surcharges are not represented.
-            </p>
-          </aside>
-        </div>
-      </div>
-    </div>
+    <div className="acq-card-body-shell" aria-hidden={!expanded}><div className="acq-card-body-inner"><section className="acq-cash-breakdown"><div className="acq-cash-total"><span>CASH TO DEPLOY</span><strong>{currency(costs.cashRequired)}</strong></div><dl><div><dt>Deposit</dt><dd>{currency(costs.deposit)}</dd></div>{isScotland ? <><div><dt>LBTT</dt><dd>{currency(costs.baseTax)}</dd></div><div><dt>ADS</dt><dd>{currency(costs.supplement)}</dd></div></> : <div><dt>{costs.taxLabel}</dt><dd>{currency(costs.baseTax)}</dd></div>}<div><dt>Legal fees</dt><dd>{currency(costs.legalFees)}</dd></div><div><dt>Mortgage fee paid now</dt><dd>{currency(costs.upfrontMortgageFee)}</dd></div></dl></section></div></div>
   </article>
 }
 
-export default function AcquisitionSimulator({ acquisitions, onChange, defaultJurisdiction = 'england-ni' }) {
+export default function AcquisitionSimulator({ acquisitions, onChange, defaultJurisdiction = 'england-ni', existingPropertyCount = 0 }) {
   const [listingUrl, setListingUrl] = useState('')
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const [dragging, setDragging] = useState(false)
   const [expandedId, setExpandedId] = useState(() => acquisitions[0]?.id || '')
+  const [editor, setEditor] = useState(null)
 
-  useEffect(() => {
-    if (expandedId && acquisitions.some((item) => item.id === expandedId)) return
-    setExpandedId(acquisitions[0]?.id || '')
-  }, [acquisitions, expandedId])
+  useEffect(() => { if (!expandedId || !acquisitions.some((item) => item.id === expandedId)) setExpandedId(acquisitions[0]?.id || '') }, [acquisitions, expandedId])
 
-  const add = (values = {}) => {
-    const created = createAcquisition(values, values.jurisdiction || defaultJurisdiction)
-    onChange(prependAcquisition(acquisitions, created))
-    setExpandedId(created.id)
-    return created
-  }
+  const openNew = (values = {}, warning = '') => setEditor({ mode: 'create', warning, draft: createAcquisition({ name: nextAcquisitionName(existingPropertyCount, acquisitions), ...values, expectedMonthlyRent: '' }, values.jurisdiction || defaultJurisdiction) })
+  const openManual = () => { setError(''); openNew() }
 
   const importUrl = async (value = listingUrl) => {
     const url = String(value || '').trim()
     if (!url || importing) return
-    setImporting(true)
-    setError('')
-    setNotice('')
+    setImporting(true); setError('')
     try {
       const result = await listingRequest(url)
-      add({
-        ...result.listing,
-        sourceUrl: url,
-        sourceProvider: result.provider,
-      })
+      openNew({ purchasePrice: result.listing?.purchasePrice ?? '', sourceUrl: url, sourceProvider: result.provider }, result.warning || '')
       setListingUrl('')
-      setNotice(result.warning || `${result.provider} details imported. Check any fields the listing did not provide.`)
-    } catch (importError) {
-      setError(importError.message)
-    } finally {
-      setImporting(false)
-    }
+    } catch (err) { setError(err.message) } finally { setImporting(false) }
   }
 
-  const update = (id, key, value) => {
-    const numericKeys = new Set([
-      'purchasePrice',
-      'expectedMonthlyRent',
-      'bedrooms',
-      'areaSqm',
-      'ltv',
-      'adsRate',
-      'legalFees',
-      'mortgageFee',
-    ])
-    onChange(acquisitions.map((item) => item.id === id
-      ? { ...item, [key]: numericKeys.has(key) ? numericValue(value) : value }
-      : item))
+  const edit = (item) => setEditor({ mode: 'edit', warning: '', draft: createAcquisition({ ...item, name: item.name || nextAcquisitionName(existingPropertyCount, acquisitions) }, item.jurisdiction || defaultJurisdiction) })
+  const updateDraft = (key, value) => setEditor((current) => current ? { ...current, draft: { ...current.draft, [key]: value } } : current)
+  const confirm = () => {
+    if (!editor) return
+    const confirmed = createAcquisition(editor.draft, editor.draft.jurisdiction || defaultJurisdiction)
+    if (editor.mode === 'edit') onChange(acquisitions.map((item) => item.id === confirmed.id ? { ...item, ...confirmed } : item))
+    else onChange(prependAcquisition(acquisitions, confirmed))
+    setExpandedId(confirmed.id)
+    setEditor(null)
   }
-
   const remove = (id) => {
     if (!window.confirm('Remove this potential acquisition?')) return
     const next = acquisitions.filter((item) => item.id !== id)
     onChange(next)
     if (expandedId === id) setExpandedId(next[0]?.id || '')
   }
-
   const droppedUrl = (event) => {
-    event.preventDefault()
-    setDragging(false)
-    const value = event.dataTransfer.getData('text/uri-list')
-      || event.dataTransfer.getData('text/plain')
-    const firstUrl = value.split(/\s+/).find((item) => /^https?:\/\//i.test(item)) || ''
-    if (!firstUrl) {
-      setError('Drop a Rightmove or Zoopla property link.')
-      return
-    }
-    setListingUrl(firstUrl)
-    importUrl(firstUrl)
+    event.preventDefault(); setDragging(false)
+    const value = event.dataTransfer.getData('text/uri-list') || event.dataTransfer.getData('text/plain')
+    const url = value.split(/\s+/).find((item) => /^https?:\/\//i.test(item)) || ''
+    if (!url) return setError('Drop a Rightmove or Zoopla property link.')
+    setListingUrl(url); importUrl(url)
   }
 
-  return <div className="acquisition-workspace">
-    <section
-      className={`panel acquisition-import ${dragging ? 'dragging' : ''}`}
-      onDragOver={(event) => { event.preventDefault(); setDragging(true) }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={droppedUrl}
-    >
-      <div className="acquisition-import-copy">
-        <span className="kicker">NEW POTENTIAL ACQUISITION</span>
-        <h2>Drop in a listing or start manually</h2>
-        <p>Paste or drag a Rightmove or Zoopla sale listing. Available details are imported, then every field remains editable.</p>
-      </div>
-      <div className="acquisition-import-controls">
-        <label>
-          <Link2 size={17} />
-          <input
-            aria-label="Rightmove or Zoopla listing URL"
-            type="url"
-            placeholder="https://www.rightmove.co.uk/…"
-            value={listingUrl}
-            onChange={(event) => setListingUrl(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                importUrl()
-              }
-            }}
-          />
-        </label>
-        <button type="button" className="primary-button" disabled={!listingUrl.trim() || importing} onClick={() => importUrl()}>
-          {importing ? <LoaderCircle className="spin" size={16} /> : <Link2 size={16} />}
-          {importing ? 'Importing…' : 'Import listing'}
-        </button>
-        <button type="button" className="secondary-button" onClick={() => add()}>
-          <Plus size={16} /> Manual entry
-        </button>
-      </div>
-      {error && <p className="acquisition-import-message error">{error} <button type="button" onClick={() => add({ sourceUrl: listingUrl })}>Use manual entry</button></p>}
-      {notice && <p className="acquisition-import-message">{notice}</p>}
-      <div className="acquisition-import-hint"><Building2 size={15} /><span>Default assumptions: 75% LTV · £1,500 legal fees · Scottish ADS 8% when Scotland is selected.</span></div>
+  return <div className="acquisition-workspace acq-simplified">
+    <section className={`panel acquisition-import acq-import ${dragging ? 'dragging' : ''}`} onDragOver={(event) => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={droppedUrl}>
+      <div className="acquisition-import-copy"><span className="kicker">NEW POTENTIAL ACQUISITION</span><h2>Paste a listing or enter a price manually</h2><p>A listing import only fills the purchase price. You review everything before the acquisition is saved.</p></div>
+      <div className="acquisition-import-controls"><label><Link2 size={17} /><input aria-label="Rightmove or Zoopla listing URL" type="url" placeholder="https://www.rightmove.co.uk/…" value={listingUrl} onChange={(event) => setListingUrl(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); importUrl() } }} /></label><button type="button" className="primary-button" disabled={!listingUrl.trim() || importing} onClick={() => importUrl()}>{importing ? <LoaderCircle className="spin" size={16} /> : <Link2 size={16} />}{importing ? 'Reading price…' : 'Import listing'}</button><button type="button" className="secondary-button" onClick={openManual}><Plus size={16} /> Manual entry</button></div>
+      {error && <p className="acquisition-import-message error">{error} <button type="button" onClick={openManual}>Enter manually</button></p>}
+      <div className="acquisition-import-hint"><Building2 size={15} /><span>Review before saving · 75% LTV · £1,500 legal fees · Scottish ADS 8% by default.</span></div>
     </section>
-
-    {!acquisitions.length
-      ? <section className="panel acquisition-empty"><Building2 size={24} /><h2>No potential acquisitions yet</h2><p>Import a listing above or create a manual entry.</p></section>
-      : <div className="acquisition-list">
-          {acquisitions.map((acquisition) => <AcquisitionCard
-            key={acquisition.id}
-            acquisition={acquisition}
-            expanded={expandedId === acquisition.id}
-            onToggle={() => setExpandedId((current) => current === acquisition.id ? '' : acquisition.id)}
-            onUpdate={update}
-            onRemove={remove}
-          />)}
-        </div>}
+    {!acquisitions.length ? <section className="panel acquisition-empty"><Building2 size={24} /><h2>No potential acquisitions yet</h2><p>Import a listing or create a manual entry above.</p></section> : <div className="acquisition-list acq-list">{acquisitions.map((item) => <AcquisitionCard key={item.id} acquisition={item} expanded={expandedId === item.id} onToggle={() => setExpandedId((current) => current === item.id ? '' : item.id)} onEdit={() => edit(item)} onRemove={() => remove(item.id)} />)}</div>}
+    {editor && <AcquisitionEditorModal draft={editor.draft} mode={editor.mode} warning={editor.warning} onChange={updateDraft} onCancel={() => setEditor(null)} onConfirm={confirm} />}
   </div>
 }

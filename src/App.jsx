@@ -1329,6 +1329,7 @@ function PortfolioApp({ user }) {
             acquisitions={state.acquisitionScenarios || []}
             onChange={updateAcquisitionScenarios}
             defaultJurisdiction={state.settings.taxJurisdiction === 'scotland' ? 'scotland' : 'england-ni'}
+            existingPropertyCount={state.properties.length}
           />}
 
           {section === 'Remortgage Simulator' && <RemortgageSimulator

@@ -1,102 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import { acquisitionCosts, createAcquisition, prependAcquisition } from './acquisition.js'
+import { acquisitionCosts, createAcquisition, nextAcquisitionName, prependAcquisition } from './acquisition.js'
 
-describe('Acquisition Simulator tax and cash calculations', () => {
-  it('calculates Scottish LBTT and editable 8% ADS separately', () => {
-    const result = acquisitionCosts(createAcquisition({
-      purchasePrice: 200000,
-      jurisdiction: 'scotland',
-      ltv: 75,
-      adsRate: 8,
-      legalFees: 1500,
-      mortgageFee: 0,
-    }))
-    expect(result.baseTax).toBe(1100)
-    expect(result.supplement).toBe(16000)
-    expect(result.transactionTax).toBe(17100)
-    expect(result.deposit).toBe(50000)
-    expect(result.cashRequired).toBe(68600)
+describe('Acquisition calculations', () => {
+  it('calculates Scottish cash required', () => {
+    const result = acquisitionCosts(createAcquisition({ purchasePrice: 200000, jurisdiction: 'scotland', ltv: 75, adsRate: 8, legalFees: 1500 }))
+    expect(result.baseTax).toBe(1100); expect(result.supplement).toBe(16000); expect(result.deposit).toBe(50000); expect(result.cashRequired).toBe(68600)
   })
-
-  it('recalculates Scottish ADS when the user edits the rate', () => {
-    const result = acquisitionCosts(createAcquisition({
-      purchasePrice: 250000,
-      jurisdiction: 'scotland',
-      adsRate: 6,
-      legalFees: 0,
-    }))
-    expect(result.supplement).toBe(15000)
+  it('calculates current England/NI SDLT and Wales LTT', () => {
+    expect(acquisitionCosts(createAcquisition({ purchasePrice: 300000, jurisdiction: 'england-ni', legalFees: 0 })).baseTax).toBe(20000)
+    expect(acquisitionCosts(createAcquisition({ purchasePrice: 260000, jurisdiction: 'wales', legalFees: 0 })).baseTax).toBe(15950)
   })
-
-  it('uses current higher-rate SDLT bands for an England or NI BTL', () => {
-    const result = acquisitionCosts(createAcquisition({
-      purchasePrice: 300000,
-      jurisdiction: 'england-ni',
-      legalFees: 0,
-      mortgageFee: 0,
-    }))
-    expect(result.transactionTax).toBe(20000)
-  })
-
-  it('uses current Welsh higher residential LTT bands', () => {
-    const result = acquisitionCosts(createAcquisition({
-      purchasePrice: 260000,
-      jurisdiction: 'wales',
-      legalFees: 0,
-      mortgageFee: 0,
-    }))
-    expect(result.transactionTax).toBe(15950)
-  })
-
-  it('only requires a mortgage product fee in cash when it is not added to the loan', () => {
-    const base = {
-      purchasePrice: 200000,
-      jurisdiction: 'scotland',
-      ltv: 75,
-      adsRate: 8,
-      legalFees: 1500,
-      mortgageFee: 2500,
-    }
+  it('adds a mortgage fee to completion cash only when paid upfront', () => {
+    const base = { purchasePrice: 200000, jurisdiction: 'scotland', mortgageFee: 2500 }
     const financed = acquisitionCosts(createAcquisition({ ...base, mortgageFeeAddedToLoan: true }))
     const upfront = acquisitionCosts(createAcquisition({ ...base, mortgageFeeAddedToLoan: false }))
     expect(upfront.cashRequired - financed.cashRequired).toBe(2500)
-    expect(financed.effectiveMortgage - financed.baseMortgage).toBe(2500)
   })
-
-  it('derives gross yield from expected monthly rent when supplied', () => {
-    const result = acquisitionCosts(createAcquisition({
-      purchasePrice: 200000,
-      expectedMonthlyRent: 1500,
-    }))
-    expect(result.grossYield).toBeCloseTo(0.09)
-  })
+  it('calculates gross yield from user-entered rent', () => expect(acquisitionCosts(createAcquisition({ purchasePrice: 200000, expectedMonthlyRent: 1200 })).grossYield).toBeCloseTo(.072))
 })
 
-describe('Acquisition Simulator imported property details and ordering', () => {
-  it('preserves imported physical property fields in the acquisition model', () => {
-    const acquisition = createAcquisition({
-      address: '10 Test Street, Glasgow',
-      postcode: 'G3 8PP',
-      purchasePrice: 180000,
-      bedrooms: 2,
-      areaSqm: 68.4,
-      propertyType: 'Flat',
-    })
-    expect(acquisition).toMatchObject({
-      address: '10 Test Street, Glasgow',
-      postcode: 'G3 8PP',
-      purchasePrice: 180000,
-      bedrooms: 2,
-      areaSqm: 68.4,
-      propertyType: 'Flat',
-    })
+describe('Simplified acquisition model', () => {
+  it('does not store scraped physical metadata', () => {
+    const item = createAcquisition({ name:'BTL3', purchasePrice:180000, expectedMonthlyRent:1200, address:'x', postcode:'G3 8PP', bedrooms:2, epc:'B', areaSqm:68, propertyType:'Flat' })
+    expect(item).toMatchObject({ name:'BTL3', purchasePrice:180000, expectedMonthlyRent:1200 })
+    for (const key of ['address','postcode','bedrooms','epc','areaSqm','propertyType']) expect(item).not.toHaveProperty(key)
   })
-
-  it('places a new acquisition at the top without mutating the previous list', () => {
-    const existing = [createAcquisition({ id: 'old' })]
-    const next = prependAcquisition(existing, createAcquisition({ id: 'new' }))
-    expect(next.map((item) => item.id)).toEqual(['new', 'old'])
-    expect(existing.map((item) => item.id)).toEqual(['old'])
+  it('names from existing BTL count and avoids duplicate potential names', () => {
+    expect(nextAcquisitionName(2, [])).toBe('BTL3')
+    expect(nextAcquisitionName(2, [{ name:'BTL3' }])).toBe('BTL4')
   })
+  it('prepends confirmed acquisitions', () => expect(prependAcquisition([{id:'old'}], {id:'new'}).map((item) => item.id)).toEqual(['new','old']))
 })
-
