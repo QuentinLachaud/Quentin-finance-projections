@@ -14,12 +14,13 @@ describe('display preferences', () => {
     expect(initialTheme(null, true)).toBe('dark')
   })
 
-  it('offers exactly five curated, well-formed accent hues and safely falls back to Forest', () => {
-    expect(accentOptions.map((option) => option.id)).toEqual(['forest', 'teal', 'ocean', 'indigo', 'amber'])
-    expect(accentOptions.map((option) => option.label)).toEqual(['Forest', 'Teal', 'Ocean', 'Indigo', 'Amber'])
-    expect(new Set(accentOptions.map((option) => option.id)).size).toBe(5)
+  it('offers exactly six curated, well-formed accent palettes and safely falls back to Forest', () => {
+    expect(accentOptions.map((option) => option.id)).toEqual(['forest', 'teal', 'ocean', 'indigo', 'amber', 'monochrome'])
+    expect(accentOptions.map((option) => option.label)).toEqual(['Forest', 'Teal', 'Ocean', 'Indigo', 'Amber', 'Monochrome'])
+    expect(new Set(accentOptions.map((option) => option.id)).size).toBe(6)
     accentOptions.forEach((option) => expect(option.swatch).toMatch(/^#[0-9a-f]{6}$/i))
     expect(initialAccent('ocean')).toBe('ocean')
+    expect(initialAccent('monochrome')).toBe('monochrome')
     expect(initialAccent('not-a-theme')).toBe('forest')
     expect(initialAccent(null)).toBe('forest')
   })

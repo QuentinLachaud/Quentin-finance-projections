@@ -8,6 +8,7 @@ export const accentOptions = [
   { id: 'ocean', label: 'Ocean', description: 'Clear & financial', swatch: '#2563eb' },
   { id: 'indigo', label: 'Indigo', description: 'Premium & focused', swatch: '#5b4bc4' },
   { id: 'amber', label: 'Amber', description: 'Warm & property-led', swatch: '#a85f08' },
+  { id: 'monochrome', label: 'Monochrome', description: 'Cool & serious', swatch: '#34383b' },
 ]
 
 export const accentStorageKey = (userId) => `btl-accent:${userId}`

@@ -70,6 +70,14 @@
   --theme-accent-contrast: #ffffff;
 }
 
+
+:root[data-accent='monochrome'] {
+  --theme-accent-strong: #34383b;
+  --theme-accent-hover: #24272a;
+  --theme-accent-light: #c4c8cb;
+  --theme-accent-contrast: #ffffff;
+}
+
 /* ---------- Derived light environment ---------- */
 :root[data-accent] {
   --theme-canvas: color-mix(in srgb, var(--theme-accent-strong) 3.2%, #f5f7f4);
@@ -149,6 +157,61 @@
 
   --green: var(--semantic-positive);
   --green-light: var(--semantic-positive-soft);
+}
+
+/* ---------- Monochrome environment: intentionally neutral, not hue-mixed ---------- */
+:root[data-accent='monochrome']:not([data-theme='dark']) {
+  --theme-canvas: #f3f3f2;
+  --theme-surface: #fbfbfa;
+  --theme-surface-subtle: #f7f7f6;
+  --theme-surface-muted: #eeeeec;
+  --theme-line: #dededb;
+  --theme-line-strong: #c9c9c6;
+
+  --theme-sidebar: #151617;
+  --theme-sidebar-surface: #1b1d1f;
+  --theme-sidebar-hover: #222426;
+  --theme-sidebar-active: #2b2e31;
+  --theme-sidebar-line: #36393c;
+
+  --theme-accent-soft: #f0f0ef;
+  --theme-accent-soft-strong: #e5e5e3;
+  --theme-accent-border: #c7c8c9;
+  --theme-accent-focus: rgba(52, 56, 59, .20);
+
+  --theme-bar-strong: #34383b;
+  --theme-bar-mid: #7d8287;
+  --theme-bar-soft: #d7d9da;
+  --theme-bar-track: #e8e9e9;
+
+  --theme-shadow: 0 1px 2px rgba(20, 22, 24, .035), 0 9px 28px rgba(20, 22, 24, .055);
+}
+
+:root[data-theme='dark'][data-accent='monochrome'] {
+  --theme-canvas: #0f1011;
+  --theme-surface: #151617;
+  --theme-surface-subtle: #1a1c1e;
+  --theme-surface-muted: #202326;
+  --theme-line: #303337;
+  --theme-line-strong: #404449;
+
+  --theme-sidebar: #0b0c0d;
+  --theme-sidebar-surface: #131517;
+  --theme-sidebar-hover: #1b1e20;
+  --theme-sidebar-active: #25282b;
+  --theme-sidebar-line: #2d3034;
+
+  --theme-accent-soft: #202326;
+  --theme-accent-soft-strong: #2a2e31;
+  --theme-accent-border: #4d5257;
+  --theme-accent-focus: rgba(196, 200, 203, .24);
+
+  --theme-bar-strong: #c4c8cb;
+  --theme-bar-mid: #858b90;
+  --theme-bar-soft: #34383c;
+  --theme-bar-track: #25282b;
+
+  --theme-shadow: 0 1px 2px rgba(0, 0, 0, .18), 0 10px 32px rgba(0, 0, 0, .22);
 }
 
 /* ---------- Application shell and navigation ---------- */

@@ -36,7 +36,7 @@ describe('appearance settings integration', () => {
     expect(stylesSource).not.toContain('Brain Drain 2026-08-22 14:53 BST — user accent settings')
   })
 
-  it.each(['forest', 'teal', 'ocean', 'indigo', 'amber'])('defines a %s palette', (accent) => {
+  it.each(['forest', 'teal', 'ocean', 'indigo', 'amber', 'monochrome'])('defines a %s palette', (accent) => {
     expect(themeSource).toContain(`[data-accent='${accent}']`)
   })
 
@@ -91,6 +91,17 @@ describe('appearance settings integration', () => {
     expect(themeSource).not.toContain('--remortgage-rate-accent:')
     expect(themeSource).not.toContain('--scenario:')
     expect(themeSource).not.toContain('--buffer-colour:')
+  })
+
+  it('keeps the Monochrome environment deliberately neutral while preserving semantic colours', () => {
+    expect(themeSource).toContain(":root[data-accent='monochrome']:not([data-theme='dark'])")
+    expect(themeSource).toContain(":root[data-theme='dark'][data-accent='monochrome']")
+    expect(themeSource).toContain('--theme-canvas: #f3f3f2')
+    expect(themeSource).toContain('--theme-sidebar: #151617')
+    expect(themeSource).toContain('--theme-canvas: #0f1011')
+    expect(themeSource).toContain('--theme-sidebar: #0b0c0d')
+    expect(themeSource).toContain('--semantic-positive: #27795c')
+    expect(themeSource).toContain('--semantic-negative: #b54b41')
   })
 
   it('maintains a detailed colour-bearing component inventory', () => {
