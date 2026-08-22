@@ -3,42 +3,56 @@ import { describe, expect, it } from 'vitest'
 
 const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 
-const marker = '/* Brain Drain 2026-08-23 00:30 BST — mobile-native collapsed remortgage summaries */'
+const marker = '/* Brain Drain 2026-08-23 00:40 BST — iOS-native collapsed remortgage cards */'
 const start = styles.indexOf(marker)
-const mobileBlock = start >= 0 ? styles.slice(start) : ''
+const redesign = start >= 0 ? styles.slice(start) : ''
 
-describe('Remortgage mobile collapsed cards', () => {
-  it('removes the previous broad responsive experiment', () => {
-    expect(styles).not.toContain('remortgage small-screen card squeeze fix')
-  })
-
-  it('installs the new mobile-only collapsed-card treatment', () => {
+describe('Remortgage collapsed cards on phone and iPad', () => {
+  it('replaces the prior 00:30 collapsed-card treatment', () => {
+    expect(styles).not.toContain('00:30 BST — mobile-native collapsed remortgage summaries')
     expect(start).toBeGreaterThanOrEqual(0)
-    expect(mobileBlock).toContain('@media (max-width: 680px)')
-    expect(mobileBlock).toContain('.remortgage-comparison.collapsed .remortgage-summary-row')
-    expect(mobileBlock).toContain('.remortgage-comparison.collapsed .remortgage-summary-mobile-rates')
   })
 
-  it('does not alter expanded or full comparison-card layout in the new block', () => {
-    expect(mobileBlock).not.toContain('.remortgage-comparison.expanded')
-    expect(mobileBlock).not.toContain('.remortgage-comparison-grid')
-    expect(mobileBlock).not.toContain('.remortgage-scenario-card')
-    expect(mobileBlock).not.toContain('.remortgage-difference-card')
+  it('keeps all new responsive styling scoped to collapsed comparisons', () => {
+    expect(redesign).not.toContain('.remortgage-comparison.expanded')
+    expect(redesign).not.toContain('.remortgage-comparison-grid')
+    expect(redesign).not.toContain('.remortgage-scenario-card')
+    expect(redesign).not.toContain('.remortgage-difference-card')
   })
 
-  it('uses full-width summary content and a secondary utility row', () => {
-    expect(mobileBlock).toMatch(
-      /grid-template-areas:\s*[\r\n ]*"summary summary summary"[\r\n ]*"drag utility actions"/
+  it('uses the compact summary on iPad/tablet widths instead of the squeezed desktop row', () => {
+    expect(redesign).toContain('(min-width: 681px) and (max-width: 1024px)')
+    expect(redesign).toContain('(max-width: 1194px) and (hover: none) and (pointer: coarse)')
+    expect(redesign).toMatch(
+      /\.remortgage-comparison\.collapsed \.remortgage-summary-mobile\s*\{[\s\S]*?display:\s*grid/
     )
-    expect(mobileBlock).toMatch(
-      /grid-template-areas:\s*[\r\n ]*"name delta"[\r\n ]*"compare compare"/
+    expect(redesign).toMatch(
+      /\.remortgage-comparison\.collapsed \.remortgage-summary-main > \.remortgage-summary-name,[\s\S]*?display:\s*none/
     )
   })
 
-  it('uses a symmetric Current-to-New comparison without horizontal scrolling', () => {
-    expect(mobileBlock).toMatch(
-      /grid-template-columns:\s*minmax\(0,\s*1fr\) 22px minmax\(0,\s*1fr\)/
+  it('uses one real arrow and suppresses the duplicate pseudo arrow', () => {
+    expect(redesign).toMatch(
+      /\.remortgage-comparison\.collapsed \.remortgage-summary-mobile-rates::before\s*\{[\s\S]*?content:\s*none !important/
     )
-    expect(mobileBlock).not.toMatch(/overflow-x:\s*(auto|scroll)/)
+    expect(redesign).toMatch(
+      /\.remortgage-comparison\.collapsed \.remortgage-summary-mobile-rates > svg\s*\{[\s\S]*?grid-column:\s*2/
+    )
+  })
+
+  it('gives phone cards a flat iOS-style hierarchy without an inner boxed rates panel', () => {
+    expect(redesign).toMatch(
+      /@media \(max-width: 680px\)[\s\S]*?\.remortgage-comparison\.collapsed \.remortgage-summary-mobile-rates\s*\{[\s\S]*?border-top:\s*1px solid/
+    )
+    expect(redesign).toMatch(
+      /@media \(max-width: 680px\)[\s\S]*?\.remortgage-comparison\.collapsed \.remortgage-summary-mobile-rates\s*\{[\s\S]*?border-radius:\s*0/
+    )
+    expect(redesign).not.toMatch(/overflow-x:\s*(auto|scroll)/)
+  })
+
+  it('keeps touch utility controls secondary but usable', () => {
+    expect(redesign).toMatch(
+      /\.remortgage-comparison\.collapsed \.remortgage-summary-actions \.icon-button\s*\{[\s\S]*?width:\s*35px[\s\S]*?height:\s*35px/
+    )
   })
 })
