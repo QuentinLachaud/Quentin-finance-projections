@@ -18,6 +18,7 @@ import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import CredentialsWorkspace from './CredentialsWorkspace.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
+import AcquisitionSimulator from './AcquisitionSimulator.jsx'
 import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
@@ -87,6 +88,7 @@ const workspaceNavigation = [
   ['Expenses', 'Expenses', FileText, 'PORTFOLIO'],
   ['Banking', 'Banking', WalletCards, 'PORTFOLIO'],
   ['Projections', 'Projections', TrendingUp, 'PLANNING'],
+  ['Acquisition Simulator', 'Acquisition', MapPin, 'PLANNING'],
   ['Remortgage Simulator', 'Remortgage', RefreshCw, 'PLANNING'],
   ['Compliance', 'Compliance', ShieldCheck, 'PLANNING'],
   ['Companies House', 'Companies', Landmark, 'COMPANY'],
@@ -131,6 +133,11 @@ const sectionMeta = {
     eyebrow: 'FORWARD VIEW',
     title: 'Projections',
     description: 'Explore how cash and value may develop under different operating assumptions.',
+  },
+  'Acquisition Simulator': {
+    eyebrow: 'PURCHASE PLANNING',
+    title: 'Acquisition Simulator',
+    description: 'Import or enter a potential BTL and calculate the cash required to complete the purchase.',
   },
   'Remortgage Simulator': {
     eyebrow: 'FINANCE DECISIONS',
@@ -886,6 +893,7 @@ function PortfolioApp({ user }) {
         tenants: migratedTenants,
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
+        acquisitionScenarios: Array.isArray(portfolioState.acquisitionScenarios) ? portfolioState.acquisitionScenarios : [],
         remortgageComparisons: Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : [],
         settings: {
           ...defaultSettings,
@@ -998,6 +1006,7 @@ function PortfolioApp({ user }) {
   const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
   const updateExpenses = (expenses) => setState((current) => ({ ...current, expenses }))
   const updateCredentials = (credentials) => setState((current) => ({ ...current, credentials }))
+  const updateAcquisitionScenarios = (acquisitionScenarios) => setState((current) => ({ ...current, acquisitionScenarios }))
   const updateRemortgageComparisons = (remortgageComparisons) => setState((current) => ({ ...current, remortgageComparisons }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
@@ -1315,6 +1324,12 @@ function PortfolioApp({ user }) {
             <ProjectionExplorer properties={includedProperties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
             <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
           </>}
+
+          {section === 'Acquisition Simulator' && <AcquisitionSimulator
+            acquisitions={state.acquisitionScenarios || []}
+            onChange={updateAcquisitionScenarios}
+            defaultJurisdiction={state.settings.taxJurisdiction === 'scotland' ? 'scotland' : 'england-ni'}
+          />}
 
           {section === 'Remortgage Simulator' && <RemortgageSimulator
             properties={calculated}
