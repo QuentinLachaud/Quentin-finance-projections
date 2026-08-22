@@ -194,14 +194,14 @@ export default function AcquisitionSimulator({
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
-  const [expandedId, setExpandedId] = useState(() => acquisitions[0]?.id || '')
+  const [expandedId, setExpandedId] = useState('')
   const [editor, setEditor] = useState(null)
   const [dragState, setDragState] = useState(null)
   const acquisitionNodes = useRef(new Map())
 
   useEffect(() => {
-    if (!expandedId || !acquisitions.some((item) => item.id === expandedId)) {
-      setExpandedId(acquisitions[0]?.id || '')
+    if (expandedId && !acquisitions.some((item) => item.id === expandedId)) {
+      setExpandedId('')
     }
   }, [acquisitions, expandedId])
 
@@ -260,7 +260,7 @@ export default function AcquisitionSimulator({
     } else {
       onChange(prependAcquisition(acquisitions, confirmed))
     }
-    setExpandedId(confirmed.id)
+    setExpandedId('')
     setEditor(null)
   }
 
@@ -268,7 +268,7 @@ export default function AcquisitionSimulator({
     if (!window.confirm('Remove this potential acquisition?')) return
     const next = acquisitions.filter((item) => item.id !== id)
     onChange(next)
-    if (expandedId === id) setExpandedId(next[0]?.id || '')
+    if (expandedId === id) setExpandedId('')
   }
 
   const moveAcquisition = (fromIndex, toIndex) => {

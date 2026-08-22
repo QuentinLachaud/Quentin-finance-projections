@@ -1,7 +1,7 @@
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { AcquisitionCard, AcquisitionEditorModal } from './AcquisitionSimulator.jsx'
+import AcquisitionSimulator, { AcquisitionCard, AcquisitionEditorModal } from './AcquisitionSimulator.jsx'
 import { createAcquisition, reorderAcquisitions } from './acquisition.js'
 const noop = () => {}
 
@@ -48,6 +48,36 @@ describe('Acquisition card controls and ordering', () => {
     const reordered = reorderAcquisitions(source, 0, 2)
     expect(reordered.map((item) => item.id)).toEqual(['b', 'c', 'a'])
     expect(source.map((item) => item.id)).toEqual(['a', 'b', 'c'])
+  })
+})
+
+describe('Acquisition card default expansion', () => {
+  it('starts with every saved acquisition card collapsed', () => {
+    const html = renderToStaticMarkup(<AcquisitionSimulator
+      acquisitions={[
+        createAcquisition({ id:'one', name:'BTL3', purchasePrice:180000 }),
+        createAcquisition({ id:'two', name:'BTL4', purchasePrice:220000 }),
+      ]}
+      onChange={noop}
+      defaultJurisdiction="scotland"
+      existingPropertyCount={2}
+    />)
+    expect(html).not.toContain('aria-expanded="true"')
+    expect((html.match(/aria-expanded="false"/g) || []).length).toBe(2)
+  })
+
+  it('keeps cash needed as the emphasized summary metric', () => {
+    const html = renderToStaticMarkup(<AcquisitionCard
+      acquisition={createAcquisition({ id:'x', name:'BTL3', purchasePrice:200000, expectedMonthlyRent:1200, jurisdiction:'scotland' })}
+      expanded={false}
+      onToggle={noop}
+      onEdit={noop}
+      onRemove={noop}
+    />)
+    expect(html).toContain('class="cash"')
+    expect(html).toContain('Cash needed')
+    expect(html).toContain('Gross yield')
+    expect(html).toContain('Price')
   })
 })
 

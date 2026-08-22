@@ -6539,3 +6539,262 @@ textarea {
   .acq-reorder-handle,
   .acq-card-action-capsule .icon-button { transition-duration: .01ms !important; }
 }
+
+/* Brain Drain 2026-08-22 22:08 BST — acquisition default collapse + cash priority */
+.acq-card {
+  border-radius: 18px;
+  border-color: color-mix(in srgb, var(--ui-line) 76%, transparent);
+  background: var(--ui-surface);
+  box-shadow:
+    0 1px 2px rgba(18, 30, 24, .025),
+    0 8px 26px rgba(18, 30, 24, .038);
+}
+
+.acq-card.collapsed {
+  box-shadow:
+    0 1px 2px rgba(18, 30, 24, .025),
+    0 5px 18px rgba(18, 30, 24, .03);
+}
+
+.acq-card.expanded {
+  border-color: color-mix(in srgb, var(--ui-accent) 20%, var(--ui-line));
+  box-shadow:
+    0 1px 2px rgba(18, 30, 24, .035),
+    0 14px 38px rgba(18, 30, 24, .065);
+}
+
+.acq-card-header {
+  min-height: 88px;
+}
+
+.acq-card-main {
+  padding-top: 15px;
+  padding-bottom: 15px;
+  gap: 16px;
+}
+
+.acq-card-name > span {
+  color: color-mix(in srgb, var(--ui-muted) 82%, transparent);
+  font-size: 8px;
+  font-weight: 720;
+  letter-spacing: .105em;
+}
+
+.acq-card-name h2 {
+  margin-top: 5px;
+  color: var(--ui-text);
+  font: 650 18px 'Manrope';
+  letter-spacing: -.025em;
+  line-height: 1.2;
+}
+
+.acq-card-metrics {
+  align-items: stretch;
+  gap: 8px;
+}
+
+.acq-card-metrics > div {
+  min-height: 52px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--ui-line) 72%, transparent);
+  border-radius: 13px;
+  align-content: center;
+  background: color-mix(in srgb, var(--ui-surface-subtle) 82%, var(--ui-surface) 18%);
+}
+
+.acq-card-metrics span {
+  margin-bottom: 2px;
+  color: var(--ui-muted);
+  font-size: 8.5px;
+  font-weight: 620;
+  letter-spacing: .01em;
+}
+
+.acq-card-metrics b {
+  color: var(--ui-text);
+  font: 680 12.5px 'Manrope';
+  letter-spacing: -.018em;
+}
+
+.acq-card-metrics .yield b {
+  color: var(--ui-accent);
+  font-size: 13.5px;
+}
+
+.acq-card-metrics .cash {
+  border-color: color-mix(in srgb, var(--ui-accent) 20%, var(--ui-line));
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface)),
+      color-mix(in srgb, var(--ui-accent) 4%, var(--ui-surface))
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 62%, transparent),
+    0 2px 8px color-mix(in srgb, var(--ui-accent) 8%, transparent);
+}
+
+.acq-card-metrics .cash span {
+  color: color-mix(in srgb, var(--ui-accent) 78%, var(--ui-muted));
+  font-weight: 700;
+}
+
+.acq-card-metrics .cash b {
+  color: var(--ui-accent);
+  font: 760 16px 'Manrope';
+  letter-spacing: -.035em;
+}
+
+.acq-card-chevron {
+  width: 30px;
+  height: 30px;
+  color: color-mix(in srgb, var(--ui-muted) 88%, transparent);
+  background: color-mix(in srgb, var(--ui-surface-subtle) 88%, transparent);
+  transition:
+    color .18s ease,
+    background .18s ease,
+    transform .26s cubic-bezier(.22, 1, .36, 1);
+}
+
+.acq-card.expanded .acq-card-chevron {
+  color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface));
+}
+
+.acq-cash-breakdown {
+  padding: 22px;
+  gap: 22px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ui-accent) 3.5%, var(--ui-surface-subtle)),
+      var(--ui-surface-subtle)
+    );
+}
+
+.acq-cash-total {
+  min-height: 128px;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--ui-accent) 20%, var(--ui-line));
+  border-radius: 17px;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--ui-accent) 11%, var(--ui-surface)),
+      color-mix(in srgb, var(--ui-accent) 4%, var(--ui-surface))
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 62%, transparent),
+    0 5px 18px color-mix(in srgb, var(--ui-accent) 7%, transparent);
+}
+
+.acq-cash-total span {
+  color: color-mix(in srgb, var(--ui-accent) 76%, var(--ui-muted));
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: .11em;
+}
+
+.acq-cash-total strong {
+  margin-top: 8px;
+  color: var(--ui-accent);
+  font: 760 40px 'Manrope';
+  letter-spacing: -.052em;
+  line-height: 1;
+}
+
+.acq-cash-breakdown dl {
+  padding: 2px 4px;
+}
+
+.acq-cash-breakdown dl > div {
+  min-height: 42px;
+}
+
+.acq-cash-breakdown dt {
+  font-size: 10.5px;
+  font-weight: 520;
+}
+
+.acq-cash-breakdown dd {
+  font: 680 12px 'Manrope';
+  letter-spacing: -.012em;
+}
+
+.acq-card-action-capsule {
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--ui-surface) 96%, var(--ui-surface-subtle) 4%);
+}
+
+:root[data-theme='dark'] .acq-card-metrics .cash,
+:root[data-theme='dark'] .acq-cash-total {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .035),
+    0 5px 18px rgba(0, 0, 0, .12);
+}
+
+@media (max-width: 680px) {
+  .acq-card {
+    border-radius: 17px;
+  }
+
+  .acq-card-header {
+    min-height: 0;
+  }
+
+  .acq-card-main {
+    padding-top: 13px;
+    padding-bottom: 13px;
+    gap: 8px;
+  }
+
+  .acq-card-name h2 {
+    font-size: 17px;
+  }
+
+  .acq-card-metrics {
+    gap: 6px;
+  }
+
+  .acq-card-metrics > div {
+    min-height: 50px;
+    padding: 8px 7px;
+    border-radius: 12px;
+  }
+
+  .acq-card-metrics span {
+    font-size: 8px;
+  }
+
+  .acq-card-metrics b {
+    font-size: 11px;
+  }
+
+  .acq-card-metrics .yield b {
+    font-size: 12px;
+  }
+
+  .acq-card-metrics .cash b {
+    font-size: 14px;
+  }
+
+  .acq-cash-breakdown {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .acq-cash-total {
+    min-height: 104px;
+    padding: 16px;
+    border-radius: 15px;
+  }
+
+  .acq-cash-total strong {
+    margin-top: 7px;
+    font-size: 34px;
+  }
+
+  .acq-cash-breakdown dl > div {
+    min-height: 40px;
+  }
+}
