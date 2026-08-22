@@ -3,28 +3,42 @@ import { describe, expect, it } from 'vitest'
 
 const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 
-describe('Remortgage Simulator small-screen card layout', () => {
-  it('stacks expanded comparison cards before they become squeezed', () => {
-    expect(styles).toMatch(
-      /@media \(max-width: 920px\)[\s\S]*?\.remortgage-comparison-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/
+const marker = '/* Brain Drain 2026-08-23 00:30 BST — mobile-native collapsed remortgage summaries */'
+const start = styles.indexOf(marker)
+const mobileBlock = start >= 0 ? styles.slice(start) : ''
+
+describe('Remortgage mobile collapsed cards', () => {
+  it('removes the previous broad responsive experiment', () => {
+    expect(styles).not.toContain('remortgage small-screen card squeeze fix')
+  })
+
+  it('installs the new mobile-only collapsed-card treatment', () => {
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(mobileBlock).toContain('@media (max-width: 680px)')
+    expect(mobileBlock).toContain('.remortgage-comparison.collapsed .remortgage-summary-row')
+    expect(mobileBlock).toContain('.remortgage-comparison.collapsed .remortgage-summary-mobile-rates')
+  })
+
+  it('does not alter expanded or full comparison-card layout in the new block', () => {
+    expect(mobileBlock).not.toContain('.remortgage-comparison.expanded')
+    expect(mobileBlock).not.toContain('.remortgage-comparison-grid')
+    expect(mobileBlock).not.toContain('.remortgage-scenario-card')
+    expect(mobileBlock).not.toContain('.remortgage-difference-card')
+  })
+
+  it('uses full-width summary content and a secondary utility row', () => {
+    expect(mobileBlock).toMatch(
+      /grid-template-areas:\s*[\r\n ]*"summary summary summary"[\r\n ]*"drag utility actions"/
     )
-    expect(styles).toMatch(
-      /@media \(max-width: 920px\)[\s\S]*?\.remortgage-arrow\s*\{[\s\S]*?transform:\s*rotate\(90deg\)/
+    expect(mobileBlock).toMatch(
+      /grid-template-areas:\s*[\r\n ]*"name delta"[\r\n ]*"compare compare"/
     )
   })
 
-  it('does not reserve a permanent right-side action rail on phones', () => {
-    expect(styles).toMatch(
-      /@media \(max-width: 680px\)[\s\S]*?\.remortgage-summary-row\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/
+  it('uses a symmetric Current-to-New comparison without horizontal scrolling', () => {
+    expect(mobileBlock).toMatch(
+      /grid-template-columns:\s*minmax\(0,\s*1fr\) 22px minmax\(0,\s*1fr\)/
     )
-    expect(styles).toMatch(
-      /@media \(max-width: 680px\)[\s\S]*?\.remortgage-summary-actions\s*\{[\s\S]*?border-top:\s*1px solid var\(--ui-line\)/
-    )
-  })
-
-  it('uses an intentional two-row saved-card summary on very narrow phones', () => {
-    expect(styles).toMatch(
-      /@media \(max-width: 420px\)[\s\S]*?grid-template-areas:[\s\S]*?"name cash"[\s\S]*?"rates rates"/
-    )
+    expect(mobileBlock).not.toMatch(/overflow-x:\s*(auto|scroll)/)
   })
 })

@@ -7392,97 +7392,250 @@ textarea {
   .auth-brand > .brand-wordmark { width: min(190px, 62vw); }
 }
 
-/* Brain Drain 2026-08-23 00:09 BST — remortgage small-screen card squeeze fix */
-
-@media (max-width: 920px) {
-  .remortgage-comparison-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .remortgage-scenario-card,
-  .remortgage-difference-card {
-    width: 100%;
-    min-width: 0;
-    grid-column: auto;
-  }
-
-  .remortgage-arrow {
-    width: 100%;
-    min-height: 34px;
-    transform: rotate(90deg);
-  }
-
-  .remortgage-fields,
-  .remortgage-field,
-  .remortgage-fee-block,
-  .remortgage-switch-row {
-    min-width: 0;
-  }
-}
-
+/* Brain Drain 2026-08-23 00:30 BST — mobile-native collapsed remortgage summaries */
 @media (max-width: 680px) {
-  .remortgage-summary-row {
-    grid-template-columns: minmax(0, 1fr);
+  .remortgage-comparison.collapsed {
+    border-radius: 16px;
+    overflow: hidden;
   }
 
-  .remortgage-summary-main {
+  .remortgage-comparison.collapsed .remortgage-summary-row {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "summary summary summary"
+      "drag utility actions";
+    align-items: center;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-main {
+    grid-area: summary;
     width: 100%;
     min-width: 0;
-    padding: 9px 11px;
+    min-height: 0;
+    padding: 12px 14px 11px;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-line) 82%, transparent);
+    background: var(--ui-surface);
   }
 
-  .remortgage-summary-mobile {
+  .remortgage-comparison.collapsed .remortgage-summary-main:hover {
+    background: var(--ui-surface);
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile {
     width: 100%;
     min-width: 0;
-    grid-template-columns: minmax(0, .62fr) minmax(0, 1.55fr) minmax(0, .78fr);
-    gap: 6px;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-areas:
+      "name delta"
+      "compare compare";
+    align-items: center;
+    gap: 9px 12px;
   }
 
-  .remortgage-summary-mobile > *,
-  .remortgage-summary-mobile-rates,
-  .remortgage-summary-mobile-rates > *,
-  .remortgage-summary-mobile-cash {
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-name {
+    grid-area: name;
     min-width: 0;
+    overflow: hidden;
+    color: var(--ui-text);
+    font: 720 14px 'Manrope';
+    letter-spacing: -.025em;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .remortgage-summary-actions {
-    min-height: 38px;
-    padding: 2px 7px 3px;
-    border-left: 0;
-    border-top: 1px solid var(--ui-line);
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash {
+    grid-area: delta;
+    min-width: 0;
+    padding: 4px 8px 5px;
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-radius: 9px;
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: baseline;
+    justify-content: end;
+    column-gap: 3px;
+    background: color-mix(in srgb, currentColor 7%, var(--ui-surface));
+    white-space: nowrap;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash small:first-child {
+    grid-column: 1 / -1;
+    margin-bottom: 1px;
+    opacity: .74;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .035em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash b {
+    font: 760 14px 'Manrope';
+    letter-spacing: -.025em;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash small:last-child {
+    opacity: .72;
+    font-size: 8px;
+    line-height: 1;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates {
+    grid-area: compare;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--ui-line) 90%, transparent);
+    border-radius: 11px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
+    align-items: center;
+    gap: 4px;
+    background: var(--ui-surface-subtle);
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates::before {
+    content: '→';
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    color: var(--ui-muted);
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates > span {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "label label"
+      "rate cost";
+    align-items: baseline;
+    gap: 1px 6px;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates > span:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates > span:last-child {
+    grid-column: 3;
+    grid-row: 1;
+    text-align: right;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates small {
+    grid-area: label;
+    color: var(--ui-muted);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .035em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates b {
+    grid-area: rate;
+    color: var(--orange);
+    font: 760 17px 'Manrope';
+    letter-spacing: -.025em;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates em {
+    grid-area: cost;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ui-muted);
+    font-size: 8px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-reorder-handle {
+    grid-area: drag;
+    width: 40px;
+    min-height: 32px;
+    padding: 0;
+    border: 0;
+    border-right: 1px solid color-mix(in srgb, var(--ui-line) 80%, transparent);
+    color: var(--ui-muted);
+    background: transparent;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-reorder-handle svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-actions {
+    grid-area: actions;
+    min-height: 32px;
+    padding: 1px 7px 2px 5px;
+    border: 0;
+    display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 2px;
+    background: transparent;
   }
 
-  .remortgage-summary-actions .icon-button {
-    width: 34px;
-    height: 32px;
+  .remortgage-comparison.collapsed .remortgage-summary-actions .icon-button {
+    width: 31px;
+    height: 29px;
     padding: 4px;
+    border-radius: 8px;
+  }
+
+  :root[data-theme='dark'] .remortgage-comparison.collapsed .remortgage-summary-main {
+    background: var(--ui-surface);
+  }
+
+  :root[data-theme='dark'] .remortgage-comparison.collapsed .remortgage-summary-mobile-cash {
+    background: color-mix(in srgb, currentColor 9%, var(--ui-surface));
   }
 }
 
-@media (max-width: 420px) {
-  .remortgage-summary-mobile {
-    grid-template-columns: minmax(0, 1fr) auto;
+@media (max-width: 350px) {
+  .remortgage-comparison.collapsed .remortgage-summary-main {
+    padding-inline: 10px;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile {
+    column-gap: 8px;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates {
+    padding-inline: 8px;
+    grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates > span {
+    grid-template-columns: 1fr;
     grid-template-areas:
-      "name cash"
-      "rates rates";
-    row-gap: 7px;
-    column-gap: 10px;
+      "label"
+      "rate"
+      "cost";
+    gap: 1px;
   }
 
-  .remortgage-summary-mobile-name {
-    grid-area: name;
-  }
-
-  .remortgage-summary-mobile-rates {
-    grid-area: rates;
-    width: 100%;
-  }
-
-  .remortgage-summary-mobile-cash {
-    grid-area: cash;
-    justify-self: end;
-    text-align: right;
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates b {
+    font-size: 16px;
   }
 }
