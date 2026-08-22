@@ -4913,23 +4913,11 @@ textarea {
   }
 }
 
-/* Brain Drain 2026-08-21 14:13 BST — smooth buffer and property toggles */
-@property --value {
-  syntax: '<percentage>';
-  inherits: false;
-  initial-value: 0%;
-}
-
-@property --buffer-colour {
-  syntax: '<color>';
-  inherits: false;
-  initial-value: #27795c;
-}
-
+/* Brain Drain 2026-08-22 14:44 BST — reliable smooth buffer wheel
+   Progress and colour are now interpolated in React on each animation frame.
+   This avoids relying on browser-specific animation of registered CSS custom properties. */
 .buffer-ring {
   transition:
-    --value 1s cubic-bezier(.22, .61, .36, 1),
-    --buffer-colour 1s ease,
     border-color .45s ease,
     background-color .45s ease;
 }

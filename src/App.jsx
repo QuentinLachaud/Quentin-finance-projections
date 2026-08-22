@@ -25,6 +25,7 @@ import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoi
 import { initialTheme, userAvatarUrl } from './preferences.js'
 import { supportConfig } from './support.js'
 import { exportTabularReport } from './reportExports.js'
+import { bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
 
 // Keep the completed Open Banking workspace dormant until a production data
 // provider is available. It can be restored without code changes at deploy time.
@@ -34,15 +35,6 @@ const SUPPORT = supportConfig({ enabled: import.meta.env.VITE_SUPPORT_ENABLED, u
 const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'england' }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
-const cashBufferColour = (cashHeld, targetCash) => {
-  const target = Number(targetCash || 0)
-  if (target <= 0) return '#27795c'
-  const coverage = Math.max(0, Number(cashHeld || 0)) / target
-  if (coverage >= 1) return '#27795c'
-  if (coverage >= 0.5) return '#c7a23e'
-  return '#b35c54'
-}
-
 const propertyGroups = [
   { title: 'Property basics', description: 'Identity, location and physical details', tone: 'blue', rows: [
     ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address), 'text'], ['Postcode', (p) => p.postcode, 'text'],
@@ -198,6 +190,82 @@ function AnimatedNumber({ value, duration = 1000, decimals = 1 }) {
   }, [numericValue, duration])
 
   return displayValue.toFixed(decimals)
+}
+
+
+function AnimatedBufferRing({
+  cashHeld,
+  safeCashNeeded,
+  bufferMonths,
+  expanded,
+  onToggle,
+  duration = 1000,
+}) {
+  const target = useMemo(
+    () => bufferVisualTarget(cashHeld, safeCashNeeded),
+    [cashHeld, safeCashNeeded],
+  )
+  const [visual, setVisual] = useState(target)
+  const currentVisual = useRef(target)
+
+  useEffect(() => {
+    const reducedMotion = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (reducedMotion || typeof requestAnimationFrame !== 'function') {
+      currentVisual.current = target
+      setVisual(target)
+      return undefined
+    }
+
+    const from = currentVisual.current
+    if (
+      Math.abs(from.progress - target.progress) < 0.001
+      && from.colour.toLowerCase() === target.colour.toLowerCase()
+    ) {
+      currentVisual.current = target
+      setVisual(target)
+      return undefined
+    }
+
+    let frame = 0
+    const startedAt = performance.now()
+
+    const tick = (now) => {
+      const progress = Math.min(1, (now - startedAt) / duration)
+      const next = interpolateBufferVisual(from, target, progress)
+      currentVisual.current = next
+      setVisual(next)
+
+      if (progress < 1) {
+        frame = requestAnimationFrame(tick)
+      } else {
+        currentVisual.current = target
+        setVisual(target)
+      }
+    }
+
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [target, duration])
+
+  return <button
+    type="button"
+    className="buffer-ring mobile-buffer-toggle"
+    aria-expanded={expanded}
+    aria-label={`${expanded ? 'Hide' : 'Show'} safety cash buffer details`}
+    onClick={onToggle}
+    style={{
+      '--value': `${visual.progress}%`,
+      '--buffer-colour': visual.colour,
+    }}
+  >
+    <div>
+      <strong><AnimatedNumber value={bufferMonths} duration={duration} decimals={1} /></strong>
+      <span>months</span>
+    </div>
+  </button>
 }
 
 function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disabled = false, className = '', children = null }) {
@@ -1053,7 +1121,13 @@ function PortfolioApp({ user }) {
                   <span><span className="kicker">SAFETY BUFFER</span><h2>Safety Cash Buffer</h2></span>
                   <span className="mobile-expand-cue">{mobileBufferExpanded ? 'Hide' : 'Expand'}{mobileBufferExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
                 </button>
-                <button type="button" className="buffer-ring mobile-buffer-toggle" aria-expanded={mobileBufferExpanded} aria-label={`${mobileBufferExpanded ? 'Hide' : 'Show'} safety cash buffer details`} onClick={() => setMobileBufferExpanded((current) => !current)} style={{ '--value': `${Math.min(100, portfolio.cashHeld / Math.max(1, portfolio.safeCashNeeded) * 100)}%`, '--buffer-colour': cashBufferColour(portfolio.cashHeld, portfolio.safeCashNeeded) }}><div><strong><AnimatedNumber value={portfolio.bufferMonths} duration={1000} decimals={1} /></strong><span>months</span></div></button>
+                <AnimatedBufferRing
+                  cashHeld={portfolio.cashHeld}
+                  safeCashNeeded={portfolio.safeCashNeeded}
+                  bufferMonths={portfolio.bufferMonths}
+                  expanded={mobileBufferExpanded}
+                  onToggle={() => setMobileBufferExpanded((current) => !current)}
+                />
                 <div className="buffer-lines"><p><span>Cash held</span><b>{currency(portfolio.cashHeld)}</b></p><p><span>Six-month target</span><b>{currency(portfolio.safeCashNeeded)}</b></p><p className={portfolio.extraCashNeeded ? 'warn' : 'ok'}><span>{portfolio.extraCashNeeded ? 'Additional cash needed' : 'Buffer status'}</span><b>{portfolio.extraCashNeeded ? currency(portfolio.extraCashNeeded) : 'Safe'}</b></p></div>
               </article>
             </section>
