@@ -71,6 +71,8 @@ export const createAcquisition = (values = {}, defaultJurisdiction = 'england-ni
   address: values.address || '',
   postcode: values.postcode || '',
   bedrooms: values.bedrooms ?? '',
+  areaSqm: values.areaSqm ?? '',
+  propertyType: values.propertyType || '',
   epc: values.epc || '',
   jurisdiction: values.jurisdiction || defaultJurisdiction,
   ltv: values.ltv ?? 75,
@@ -134,3 +136,9 @@ export const acquisitionCosts = (acquisition) => {
     grossYield,
   }
 }
+
+export const prependAcquisition = (acquisitions, acquisition) => [
+  acquisition,
+  ...(Array.isArray(acquisitions) ? acquisitions : []),
+]
+

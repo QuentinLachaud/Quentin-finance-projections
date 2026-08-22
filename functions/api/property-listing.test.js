@@ -46,6 +46,7 @@ describe('property listing parsing', () => {
         {
           "@type":"Apartment",
           "numberOfBedrooms":2,
+          "floorSize":{"value":68,"unitCode":"MTK"},
           "address":{"streetAddress":"10 Test Street","addressLocality":"Glasgow","addressRegion":"Scotland","postalCode":"G3 8PP"},
           "offers":{"price":180000}
         }
@@ -54,6 +55,8 @@ describe('property listing parsing', () => {
       purchasePrice: 180000,
       expectedMonthlyRent: 1400,
       bedrooms: 2,
+      areaSqm: 68,
+      propertyType: 'Flat',
       epc: 'B',
       postcode: 'G3 8PP',
       jurisdiction: 'scotland',
@@ -63,12 +66,14 @@ describe('property listing parsing', () => {
   it('extracts fallback Zoopla-like embedded fields', () => {
     const html = `
       <title>Property</title>
-      <script>{"price":250000,"num_bedrooms":3,"postcode":"CF10 1AA","displayAddress":"1 Example Road, Cardiff, Wales","epcRating":"C"}</script>
-      <p>Expected rent £1,250 per month</p>`
+      <script>{"price":250000,"num_bedrooms":3,"postcode":"CF10 1AA","displayAddress":"1 Example Road, Cardiff, Wales","propertySubType":"Terraced house","floor_area":850,"floorAreaUnit":"sq ft","epcRating":"C"}</script>
+      <p>Expected rent £1,250 per month · 79 sq m</p>`
     expect(parseListingHtml(html)).toMatchObject({
       purchasePrice: 250000,
       expectedMonthlyRent: 1250,
       bedrooms: 3,
+      areaSqm: 79,
+      propertyType: 'Terraced House',
       epc: 'C',
       postcode: 'CF10 1AA',
       jurisdiction: 'wales',

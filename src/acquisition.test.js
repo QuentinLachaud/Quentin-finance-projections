@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acquisitionCosts, createAcquisition } from './acquisition.js'
+import { acquisitionCosts, createAcquisition, prependAcquisition } from './acquisition.js'
 
 describe('Acquisition Simulator tax and cash calculations', () => {
   it('calculates Scottish LBTT and editable 8% ADS separately', () => {
@@ -71,3 +71,32 @@ describe('Acquisition Simulator tax and cash calculations', () => {
     expect(result.grossYield).toBeCloseTo(0.09)
   })
 })
+
+describe('Acquisition Simulator imported property details and ordering', () => {
+  it('preserves imported physical property fields in the acquisition model', () => {
+    const acquisition = createAcquisition({
+      address: '10 Test Street, Glasgow',
+      postcode: 'G3 8PP',
+      purchasePrice: 180000,
+      bedrooms: 2,
+      areaSqm: 68.4,
+      propertyType: 'Flat',
+    })
+    expect(acquisition).toMatchObject({
+      address: '10 Test Street, Glasgow',
+      postcode: 'G3 8PP',
+      purchasePrice: 180000,
+      bedrooms: 2,
+      areaSqm: 68.4,
+      propertyType: 'Flat',
+    })
+  })
+
+  it('places a new acquisition at the top without mutating the previous list', () => {
+    const existing = [createAcquisition({ id: 'old' })]
+    const next = prependAcquisition(existing, createAcquisition({ id: 'new' }))
+    expect(next.map((item) => item.id)).toEqual(['new', 'old'])
+    expect(existing.map((item) => item.id)).toEqual(['old'])
+  })
+})
+

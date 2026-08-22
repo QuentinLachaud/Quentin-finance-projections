@@ -130,6 +130,64 @@ const structuredAddress = (objects) => {
   return { address: '', postcode: '', region: '' }
 }
 
+const normalisePropertyType = (value) => {
+  const raw = compact(typeof value === 'string' ? value : '')
+    .replace(/^(?:Property|RealEstateListing)$/i, '')
+    .trim()
+  if (!raw) return ''
+  const lower = raw.toLowerCase()
+  if (lower === 'apartment') return 'Flat'
+  if (lower === 'singlefamilyresidence') return 'House'
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+const structuredFloorArea = (objects) => {
+  for (const object of objects) {
+    for (const key of ['floorSize', 'floorArea', 'area']) {
+      const value = object?.[key]
+      if (value == null || value === '') continue
+      if (typeof value === 'number' || typeof value === 'string') {
+        const parsed = numberFromText(value)
+        if (parsed) return parsed
+      }
+      if (typeof value === 'object') {
+        const parsed = numberFromText(value.value || value.amount || value.minValue || value.maxValue)
+        if (!parsed) continue
+        const unit = compact(value.unitCode || value.unitText || '').toLowerCase()
+        if (/ft|sqft|square foot|square feet|ftk/.test(unit)) return Number((parsed * 0.092903).toFixed(1))
+        return parsed
+      }
+    }
+  }
+  return ''
+}
+
+const areaFromText = (source, text) => {
+  const direct = firstMatch(source, [
+    /"(?:floorArea|floor_area|floorSize|floor_size|areaSqM|internalArea)"\s*:\s*(?:\{\s*"value"\s*:\s*)?(\d{1,5}(?:\.\d+)?)/i,
+    /"(?:minimumSize|maximumSize)"\s*:\s*(\d{1,5}(?:\.\d+)?)/i,
+  ])
+  if (direct) {
+    const raw = numberFromText(direct)
+    const position = source.indexOf(direct)
+    const nearby = source.slice(Math.max(0, position - 100), position + 180)
+    if (/sq\s*ft|sqft|square feet|unit.{0,20}(?:ft|sqft)/i.test(nearby)) return Number((raw * 0.092903).toFixed(1))
+    return raw
+  }
+
+  const squareMetres = firstMatch(text, [
+    /\b(\d{1,5}(?:\.\d+)?)\s*(?:m²|m2|sq\.?\s*m|sqm|square metres?)\b/i,
+  ])
+  if (squareMetres) return numberFromText(squareMetres)
+
+  const squareFeet = firstMatch(text, [
+    /\b(\d{1,6}(?:\.\d+)?)\s*(?:ft²|ft2|sq\.?\s*ft|sqft|square feet)\b/i,
+  ])
+  return squareFeet ? Number((numberFromText(squareFeet) * 0.092903).toFixed(1)) : ''
+}
+
 const inferJurisdiction = (region, pageText) => {
   const value = `${region || ''} ${pageText || ''}`.toLowerCase()
   if (/\bscotland\b/.test(value)) return 'scotland'
@@ -161,6 +219,18 @@ export const parseListingHtml = (html, sourceUrl = '') => {
     ])
     || firstMatch(text, [/\b(\d{1,2})\s+bed(?:room)?s?\b/i])
   const bedrooms = numberFromText(bedroomsRaw)
+
+  const propertyTypeRaw = objectValue(objects, ['propertyType', 'propertySubType'])
+    || objects.map((object) => object?.['@type']).find((value) => typeof value === 'string' && !/^(?:Thing|Product|Offer|Place|PostalAddress|Organization|BreadcrumbList|WebPage)$/i.test(value))
+    || firstMatch(source, [
+      /"(?:propertyType|propertySubType|property_type|property_type_full_description)"\s*:\s*"([^"]+)"/i,
+    ])
+    || firstMatch(text, [
+      /\b(?:\d+\s+bed(?:room)?\s+)?(flat|apartment|maisonette|studio|bungalow|detached house|semi-detached house|terraced house|town house|house)\s+for sale\b/i,
+    ])
+  const propertyType = normalisePropertyType(propertyTypeRaw)
+
+  const areaSqm = structuredFloorArea(objects) || areaFromText(source, text)
 
   const postcode = structured.postcode || firstMatch(source, [
     /"postcode"\s*:\s*"([^"]+)"/i,
@@ -198,6 +268,8 @@ export const parseListingHtml = (html, sourceUrl = '') => {
     address: compact(rawAddress),
     postcode: compact(postcode).toUpperCase(),
     bedrooms,
+    areaSqm,
+    propertyType,
     epc,
     jurisdiction,
   }
@@ -240,6 +312,8 @@ export async function onRequestPost({ request, env }) {
       parsed.address,
       parsed.postcode,
       parsed.bedrooms,
+      parsed.areaSqm,
+      parsed.propertyType,
       parsed.epc,
       parsed.expectedMonthlyRent,
     ].filter((value) => value !== '' && value !== null && value !== undefined).length

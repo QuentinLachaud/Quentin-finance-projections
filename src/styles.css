@@ -6009,3 +6009,279 @@ textarea {
   .acquisition-fee-switch > i::after { transition-duration: .01ms !important; }
   .spin { animation-duration: .01ms !important; }
 }
+
+/* Brain Drain 2026-08-22 15:33 BST — Acquisition Simulator iOS-style cards */
+.acquisition-workspace { gap: 14px; }
+
+.acquisition-import {
+  border-radius: 17px;
+  border-color: color-mix(in srgb, var(--ui-line) 82%, transparent);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--ui-surface) 96%, var(--ui-accent) 4%), var(--ui-surface));
+  box-shadow: 0 1px 2px rgba(20, 34, 27, .03), 0 8px 28px rgba(20, 34, 27, .045);
+}
+
+.acquisition-import-controls > label,
+.acquisition-field > div,
+.acquisition-text-field input,
+.acquisition-text-field select {
+  min-height: 44px;
+  border-color: color-mix(in srgb, var(--ui-line) 88%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--ui-surface) 97%, var(--ui-surface-subtle) 3%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .58), 0 1px 2px rgba(20, 34, 27, .025);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease, transform .18s ease;
+}
+
+.acquisition-import-controls > label:focus-within,
+.acquisition-field > div:focus-within,
+.acquisition-text-field input:focus,
+.acquisition-text-field select:focus {
+  border-color: color-mix(in srgb, var(--ui-accent) 52%, var(--ui-line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-accent) 13%, transparent), inset 0 1px 0 rgba(255, 255, 255, .55);
+}
+
+.acquisition-import-controls .primary-button,
+.acquisition-import-controls .secondary-button { min-height: 44px; border-radius: 11px; }
+
+.acquisition-card {
+  border-radius: 17px;
+  border-color: color-mix(in srgb, var(--ui-line) 82%, transparent);
+  box-shadow: 0 1px 2px rgba(20, 34, 27, .035), 0 8px 26px rgba(20, 34, 27, .04);
+  transition: border-color .22s ease, box-shadow .22s ease, transform .24s cubic-bezier(.22, 1, .36, 1);
+}
+
+.acquisition-card.expanded {
+  border-color: color-mix(in srgb, var(--ui-accent) 18%, var(--ui-line));
+  box-shadow: 0 1px 2px rgba(20, 34, 27, .035), 0 12px 34px rgba(20, 34, 27, .06);
+}
+
+.acquisition-card-header { min-height: 82px; padding: 0; align-items: stretch; gap: 0; }
+
+.acquisition-card-disclosure {
+  min-width: 0;
+  flex: 1;
+  padding: 16px 13px 15px 18px;
+  border: 0;
+  display: grid;
+  grid-template-columns: minmax(200px, 1.1fr) minmax(310px, .9fr) 28px;
+  align-items: center;
+  gap: 16px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.acquisition-card-disclosure:hover { background: color-mix(in srgb, var(--ui-accent) 3.5%, transparent); }
+
+.acquisition-card-disclosure:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ui-accent) 20%, transparent);
+  outline-offset: -3px;
+}
+
+.acquisition-card-title { min-width: 0; }
+
+.acquisition-card-title h2 {
+  margin: 4px 0 3px;
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 17px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acquisition-card-title p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acquisition-collapsed-metrics {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(68px, 1fr));
+  gap: 7px;
+}
+
+.acquisition-collapsed-metrics > div {
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: 10px;
+  display: grid;
+  gap: 2px;
+  background: var(--ui-surface-subtle);
+}
+
+.acquisition-collapsed-metrics span {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: 8px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acquisition-collapsed-metrics b {
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acquisition-collapsed-metrics .yield b { color: var(--ui-accent); font-weight: 750; }
+
+.acquisition-disclosure-chevron {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--ui-muted);
+  background: var(--ui-surface-subtle);
+  transition: color .18s ease, background .18s ease, transform .28s cubic-bezier(.22, 1, .36, 1);
+}
+
+.acquisition-card.expanded .acquisition-disclosure-chevron {
+  color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface));
+}
+
+.acquisition-card-actions { padding: 14px 14px 14px 0; align-self: center; }
+.acquisition-card-actions .secondary-button,
+.acquisition-card-actions .icon-button { border-radius: 10px; }
+
+.acquisition-card-body-shell {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 360ms cubic-bezier(.22, 1, .36, 1), opacity 200ms ease;
+}
+
+.acquisition-card.expanded .acquisition-card-body-shell { grid-template-rows: 1fr; opacity: 1; }
+.acquisition-card-body-inner { min-height: 0; overflow: hidden; }
+
+.acquisition-inputs { background: color-mix(in srgb, var(--ui-surface) 96%, var(--ui-surface-subtle) 4%); }
+
+.acquisition-input-section {
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--ui-line) 78%, transparent);
+  border-radius: 14px;
+  gap: 12px;
+  background: var(--ui-surface);
+}
+
+.acquisition-input-section > header { padding: 0 1px 8px; }
+
+.acquisition-field > span,
+.acquisition-text-field > span { padding-left: 2px; font-size: 10px; letter-spacing: .005em; }
+
+.acquisition-field input { min-height: 42px; }
+
+.acquisition-text-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ui-muted) 50%),
+    linear-gradient(135deg, var(--ui-muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 18px, calc(100% - 10px) 18px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.acquisition-property-type { grid-column: span 2; }
+.acquisition-postcode { grid-column: span 1; }
+
+.acquisition-fee-switch { min-height: 56px; border-radius: 12px; background: var(--ui-surface-subtle); }
+
+.acquisition-results {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-accent) 4%, var(--ui-surface-subtle)), var(--ui-surface-subtle));
+}
+
+.acquisition-results > strong { font-size: 36px; }
+
+:root[data-theme='dark'] .acquisition-import,
+:root[data-theme='dark'] .acquisition-card { box-shadow: 0 12px 34px rgba(0, 0, 0, .13); }
+
+@media (max-width: 1080px) {
+  .acquisition-card-disclosure {
+    grid-template-columns: minmax(180px, 1fr) minmax(270px, .9fr) 28px;
+    gap: 11px;
+  }
+  .acquisition-collapsed-metrics { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 680px) {
+  .acquisition-import,
+  .acquisition-card { border-radius: 16px; }
+
+  .acquisition-card-header { min-height: 0; }
+
+  .acquisition-card-disclosure {
+    padding: 14px 10px 13px 14px;
+    grid-template-columns: minmax(0, 1fr) 30px;
+    gap: 9px;
+  }
+
+  .acquisition-card-title { grid-column: 1; }
+
+  .acquisition-collapsed-metrics {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: 7px;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .acquisition-disclosure-chevron { grid-column: 2; grid-row: 1; align-self: start; }
+  .acquisition-card-actions { padding: 13px 11px 0 0; align-self: start; }
+  .acquisition-card-actions .secondary-button { display: none; }
+
+  .acquisition-collapsed-metrics > div {
+    min-height: 44px;
+    padding: 7px 9px;
+    justify-content: center;
+  }
+
+  .acquisition-collapsed-metrics span { font-size: 9px; }
+  .acquisition-collapsed-metrics b { font-size: 12px; }
+
+  .acquisition-inputs { padding: 12px; }
+
+  .acquisition-input-section { padding: 12px; border-radius: 13px; }
+
+  .acquisition-fields-grid { gap: 10px 8px; }
+
+  .acquisition-property-type,
+  .acquisition-address,
+  .acquisition-postcode,
+  .acquisition-regime,
+  .acquisition-fee-switch { grid-column: 1 / -1; }
+
+  .acquisition-field > div,
+  .acquisition-text-field input,
+  .acquisition-text-field select { min-height: 48px; }
+
+  .acquisition-field input { min-height: 46px; }
+
+  .acquisition-results { padding-top: 19px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acquisition-card,
+  .acquisition-card-body-shell,
+  .acquisition-disclosure-chevron,
+  .acquisition-import-controls > label,
+  .acquisition-field > div,
+  .acquisition-text-field input,
+  .acquisition-text-field select {
+    transition-duration: .01ms !important;
+  }
+}
