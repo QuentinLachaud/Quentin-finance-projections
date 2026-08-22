@@ -5342,3 +5342,112 @@ textarea {
   background: color-mix(in srgb, var(--remortgage-rate-accent) 7%, #161d19);
 }
 
+/* Brain Drain 2026-08-22 13:55 BST — sortable remortgage scenarios */
+.remortgage-comparison {
+  position: relative;
+  transform: translate3d(0, var(--reorder-y, 0), 0) scale(var(--reorder-scale, 1));
+  transform-origin: center center;
+  transition:
+    transform 260ms cubic-bezier(.22, 1, .36, 1),
+    box-shadow 220ms ease,
+    opacity 180ms ease;
+  will-change: transform;
+}
+
+.remortgage-comparison-stack.is-reordering {
+  user-select: none;
+}
+
+.remortgage-comparison.is-dragging {
+  z-index: 12;
+  opacity: .985;
+  box-shadow:
+    0 18px 42px rgba(22, 39, 31, .18),
+    0 4px 12px rgba(22, 39, 31, .10);
+  transition: box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.remortgage-summary-row {
+  grid-template-columns: 42px minmax(0, 1fr) 74px;
+}
+
+.remortgage-reorder-handle {
+  width: 42px;
+  min-height: 100%;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  color: #9aa49f;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.remortgage-reorder-handle:hover,
+.remortgage-reorder-handle:focus-visible {
+  color: var(--green);
+  background: rgba(28, 107, 80, .055);
+  outline: none;
+}
+
+.remortgage-reorder-handle:active,
+.remortgage-comparison.is-dragging .remortgage-reorder-handle {
+  color: var(--green);
+  background: rgba(28, 107, 80, .09);
+  cursor: grabbing;
+}
+
+:root[data-theme='dark'] .remortgage-reorder-handle {
+  border-color: #303b36;
+  color: #74817a;
+}
+
+:root[data-theme='dark'] .remortgage-reorder-handle:hover,
+:root[data-theme='dark'] .remortgage-reorder-handle:focus-visible,
+:root[data-theme='dark'] .remortgage-comparison.is-dragging .remortgage-reorder-handle {
+  color: #91ddb9;
+  background: rgba(83, 160, 123, .10);
+}
+
+@media (max-width: 980px) and (min-width: 681px) {
+  .remortgage-summary-row {
+    grid-template-columns: 40px minmax(0, 1fr) 66px;
+  }
+  .remortgage-reorder-handle {
+    width: 40px;
+  }
+}
+
+@media (max-width: 680px) {
+  .remortgage-summary-row {
+    grid-template-columns: 34px minmax(0, 1fr) 62px;
+  }
+
+  .remortgage-reorder-handle {
+    width: 34px;
+    border-right-color: rgba(224, 229, 223, .72);
+  }
+
+  .remortgage-reorder-handle svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .remortgage-comparison.is-dragging {
+    box-shadow:
+      0 20px 46px rgba(22, 39, 31, .22),
+      0 5px 14px rgba(22, 39, 31, .11);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .remortgage-comparison {
+    transition-duration: .01ms !important;
+  }
+}

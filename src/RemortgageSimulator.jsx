@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, ChevronDown, ChevronUp, Copy, LockKeyhole, Plus, Trash2, X } from 'lucide-react'
+import { ArrowRight, ChevronDown, ChevronUp, Copy, GripVertical, LockKeyhole, Plus, Trash2, X } from 'lucide-react'
 import {
   calculateRemortgageScenario,
   compareRemortgageScenarios,
@@ -728,6 +728,8 @@ export default function RemortgageSimulator({
   const [sourceId, setSourceId] = useState(properties[0]?.id || 'manual')
   const [expandedIds, setExpandedIds] = useState(() => new Set())
   const [mobileEditorId, setMobileEditorId] = useState(null)
+  const [dragState, setDragState] = useState(null)
+  const comparisonNodes = useRef(new Map())
   const selectedSource = properties.some((property) => property.id === sourceId) ? sourceId : 'manual'
 
   const propertiesById = useMemo(
@@ -766,6 +768,89 @@ export default function RemortgageSimulator({
 
   const updateComparison = (id, updater) => {
     onChange(comparisons.map((comparison) => comparison.id === id ? updater(comparison) : comparison))
+  }
+
+  const reorderedComparisons = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return comparisons
+    const next = [...comparisons]
+    const [moved] = next.splice(fromIndex, 1)
+    next.splice(toIndex, 0, moved)
+    return next
+  }
+
+  const moveComparison = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= comparisons.length) return
+    onChange(reorderedComparisons(fromIndex, toIndex))
+  }
+
+  const dragShift = (index) => {
+    if (!dragState || index === dragState.fromIndex) return 0
+    const distance = dragState.height + dragState.gap
+    if (dragState.fromIndex < dragState.toIndex && index > dragState.fromIndex && index <= dragState.toIndex) return -distance
+    if (dragState.fromIndex > dragState.toIndex && index >= dragState.toIndex && index < dragState.fromIndex) return distance
+    return 0
+  }
+
+  const beginComparisonDrag = (event, comparison, index) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const node = comparisonNodes.current.get(comparison.id)
+    if (!node) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+
+    const rect = node.getBoundingClientRect()
+    const stack = node.parentElement
+    const gap = Number.parseFloat(stack ? window.getComputedStyle(stack).rowGap : '10') || 10
+    setDragState({
+      id: comparison.id,
+      pointerId: event.pointerId,
+      fromIndex: index,
+      toIndex: index,
+      startY: event.clientY,
+      currentY: event.clientY,
+      height: rect.height,
+      gap,
+    })
+  }
+
+  const updateComparisonDrag = (event) => {
+    if (!dragState || dragState.pointerId !== event.pointerId) return
+    event.preventDefault()
+
+    const pointerY = event.clientY
+    let targetIndex = dragState.fromIndex
+
+    for (let index = 0; index < comparisons.length; index += 1) {
+      if (index === dragState.fromIndex) continue
+      const node = comparisonNodes.current.get(comparisons[index].id)
+      if (!node) continue
+      const rect = node.getBoundingClientRect()
+      const midpoint = rect.top + (rect.height / 2)
+
+      if (index < dragState.fromIndex && pointerY < midpoint) {
+        targetIndex = index
+        break
+      }
+
+      if (index > dragState.fromIndex && pointerY > midpoint) targetIndex = index
+    }
+
+    setDragState((current) => current && current.pointerId === event.pointerId
+      ? { ...current, currentY: pointerY, toIndex: targetIndex }
+      : current)
+  }
+
+  const finishComparisonDrag = (event, cancelled = false) => {
+    if (!dragState || dragState.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+
+    const { fromIndex, toIndex } = dragState
+    setDragState(null)
+    if (!cancelled && fromIndex !== toIndex) onChange(reorderedComparisons(fromIndex, toIndex))
   }
 
   const removeComparison = (id) => {
@@ -812,13 +897,50 @@ export default function RemortgageSimulator({
       <p>Choose a BTL or Manual values above, then select Add comparison.</p>
     </section>}
 
-    <div className="remortgage-comparison-stack">
-      {comparisons.map((comparison) => {
+    <div className={`remortgage-comparison-stack ${dragState ? 'is-reordering' : ''}`}>
+      {comparisons.map((comparison, index) => {
         const expanded = expandedIds.has(comparison.id)
         const property = propertiesById.get(comparison.sourcePropertyId) || null
+        const dragging = dragState?.id === comparison.id
+        const shift = dragShift(index)
+        const dragOffset = dragging ? dragState.currentY - dragState.startY : 0
+        const reorderStyle = {
+          '--reorder-y': `${dragging ? dragOffset : shift}px`,
+          '--reorder-scale': dragging ? '1.018' : '1',
+        }
 
-        return <article className={`panel remortgage-comparison ${expanded ? 'expanded' : 'collapsed'}`} key={comparison.id}>
+        return <article
+          ref={(node) => {
+            if (node) comparisonNodes.current.set(comparison.id, node)
+            else comparisonNodes.current.delete(comparison.id)
+          }}
+          className={`panel remortgage-comparison ${expanded ? 'expanded' : 'collapsed'} ${dragging ? 'is-dragging' : ''}`}
+          style={reorderStyle}
+          key={comparison.id}
+        >
           <div className="remortgage-summary-row">
+            <button
+              type="button"
+              className="remortgage-reorder-handle"
+              aria-label={`Reorder ${comparison.name || property?.name || 'remortgage comparison'}`}
+              title="Drag to reorder"
+              onPointerDown={(event) => beginComparisonDrag(event, comparison, index)}
+              onPointerMove={updateComparisonDrag}
+              onPointerUp={(event) => finishComparisonDrag(event)}
+              onPointerCancel={(event) => finishComparisonDrag(event, true)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault()
+                  moveComparison(index, index - 1)
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault()
+                  moveComparison(index, index + 1)
+                }
+              }}
+            >
+              <GripVertical size={18} aria-hidden="true" />
+            </button>
             <CollapsedSummary
               comparison={comparison}
               property={property}
