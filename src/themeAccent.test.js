@@ -1,9 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const appSource = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8')
-const stylesSource = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
-const accentStyleMarker = 'Brain Drain 2026-08-22 14:53 BST — user accent settings'
+const read = (relative) => readFileSync(new URL(relative, import.meta.url), 'utf8')
+const appSource = read('./App.jsx')
+const mainSource = read('./main.jsx')
+const stylesSource = read('./styles.css')
+const themeSource = read('./theme.css')
+const remortgageSource = read('./RemortgageSimulator.jsx')
+const inventorySource = read('../docs/theme-colour-inventory.md')
 
 describe('appearance settings integration', () => {
   it('places an accessible settings control immediately before sign out', () => {
@@ -24,14 +28,78 @@ describe('appearance settings integration', () => {
     expect(appSource).toContain('window.localStorage.setItem(accentKey, accentHue)')
   })
 
-  it.each(['forest', 'teal', 'ocean', 'indigo', 'amber'])('defines a %s palette', (accent) => {
-    expect(stylesSource).toContain(`[data-accent='${accent}']`)
+  it('loads the authoritative theme layer after the base stylesheet', () => {
+    const baseIndex = mainSource.indexOf("import './styles.css'")
+    const themeIndex = mainSource.indexOf("import './theme.css'")
+    expect(baseIndex).toBeGreaterThan(-1)
+    expect(themeIndex).toBeGreaterThan(baseIndex)
+    expect(stylesSource).not.toContain('Brain Drain 2026-08-22 14:53 BST — user accent settings')
   })
 
-  it('provides dark-mode accent overrides without hijacking semantic orange', () => {
-    expect(stylesSource).toContain(":root[data-theme='dark'][data-accent]")
-    const accentBlock = stylesSource.split(accentStyleMarker)[1] || ''
-    expect(accentBlock).not.toMatch(/--orange\s*:/)
-    expect(accentBlock).not.toContain('.remortgage-scenario-rate-value')
+  it.each(['forest', 'teal', 'ocean', 'indigo', 'amber'])('defines a %s palette', (accent) => {
+    expect(themeSource).toContain(`[data-accent='${accent}']`)
+  })
+
+  it('themes environment, surfaces, navigation and non-semantic bars', () => {
+    for (const token of [
+      '--theme-canvas',
+      '--theme-surface',
+      '--theme-sidebar',
+      '--theme-sidebar-active',
+      '--theme-accent-soft',
+      '--theme-bar-strong',
+      '--theme-bar-soft',
+    ]) {
+      expect(themeSource).toContain(token)
+    }
+
+    for (const selector of [
+      '.topbar',
+      '.sidebar',
+      '.panel',
+      '.property-card',
+      '.metric-card',
+      '.asset-value-bar',
+      '.asset-loan-bar',
+      '.equity-bar i',
+      '.advanced-metric-label',
+    ]) {
+      expect(themeSource).toContain(selector)
+    }
+  })
+
+  it('keeps financial sign colours semantic and independent from accent hue', () => {
+    expect(themeSource).toContain('--semantic-positive: #27795c')
+    expect(themeSource).toContain('--semantic-negative: #b54b41')
+    expect(themeSource).toContain('--green: var(--semantic-positive)')
+    expect(themeSource).not.toMatch(/--green:\s*var\(--theme-accent/)
+    expect(themeSource).toContain('.data-table td.money-positive')
+    expect(themeSource).toContain('.data-table td.money-negative')
+    expect(themeSource).toContain('.remortgage-scenario-cashflow-metric > b.positive')
+    expect(themeSource).toContain('.remortgage-scenario-cashflow-metric > b.negative')
+  })
+
+  it('marks absolute remortgage cash-flow figures by sign instead of theme accent', () => {
+    expect(remortgageSource).toContain("className={animatedCashFlow >= 0 ? 'positive' : 'negative'}")
+    expect(remortgageSource).toContain("className={animatedLeftCashFlow >= 0 ? 'positive' : 'negative'}")
+    expect(remortgageSource).toContain("className={animatedRightCashFlow >= 0 ? 'positive' : 'negative'}")
+  })
+
+  it('does not hijack remortgage rate orange, scenario colours or buffer colours', () => {
+    expect(stylesSource).toContain('--remortgage-rate-accent: #bd5a1d')
+    expect(stylesSource).toContain('var(--remortgage-rate-accent)')
+    expect(themeSource).not.toContain('--remortgage-rate-accent:')
+    expect(themeSource).not.toContain('--scenario:')
+    expect(themeSource).not.toContain('--buffer-colour:')
+  })
+
+  it('maintains a detailed colour-bearing component inventory', () => {
+    expect(inventorySource).toContain('# BTL Portfolio colour inventory')
+    expect(inventorySource).toContain('## Curated component policy')
+    expect(inventorySource).toContain('## Fixed semantic colour contract')
+    expect(inventorySource).toContain('## Automatically captured colour-bearing selectors')
+    expect(inventorySource).toContain('.asset-loan-bar')
+    expect(inventorySource).toContain('.property-card')
+    expect(inventorySource).toContain('.positive')
   })
 })

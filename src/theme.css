@@ -1,0 +1,559 @@
+/* BTL Portfolio colour architecture
+   Theme colour changes product/environment identity.
+   Financial/status semantics are deliberately independent of the chosen hue. */
+
+/* ---------- Fixed semantic colours: NEVER mapped to the user accent ---------- */
+:root {
+  --semantic-positive: #27795c;
+  --semantic-positive-soft: #e8f6ef;
+  --semantic-positive-border: #cfe6da;
+  --semantic-negative: #b54b41;
+  --semantic-negative-soft: #fff0ee;
+  --semantic-negative-border: #f0d3cf;
+  --semantic-warning: #c56b30;
+  --semantic-warning-soft: #fff0e5;
+  --semantic-warning-border: #ecd3bd;
+  --semantic-danger: #b14b43;
+  --semantic-danger-soft: #fff0ee;
+  --semantic-danger-border: #f0d3cf;
+}
+
+:root[data-theme='dark'] {
+  --semantic-positive: #8fd6b3;
+  --semantic-positive-soft: #193428;
+  --semantic-positive-border: #315541;
+  --semantic-negative: #e5aaa5;
+  --semantic-negative-soft: #3a2422;
+  --semantic-negative-border: #5d3b38;
+  --semantic-warning: #e3b16f;
+  --semantic-warning-soft: #352919;
+  --semantic-warning-border: #5b4729;
+  --semantic-danger: #e39a94;
+  --semantic-danger-soft: #382321;
+  --semantic-danger-border: #5b3936;
+}
+
+/* ---------- Curated product palettes ---------- */
+:root,
+:root[data-accent='forest'] {
+  --theme-accent-strong: #1c6b50;
+  --theme-accent-hover: #145a42;
+  --theme-accent-light: #83d1aa;
+  --theme-accent-contrast: #ffffff;
+}
+
+:root[data-accent='teal'] {
+  --theme-accent-strong: #0f766e;
+  --theme-accent-hover: #0b5f59;
+  --theme-accent-light: #68d9cf;
+  --theme-accent-contrast: #ffffff;
+}
+
+:root[data-accent='ocean'] {
+  --theme-accent-strong: #2f67c7;
+  --theme-accent-hover: #2555aa;
+  --theme-accent-light: #8eb7f1;
+  --theme-accent-contrast: #ffffff;
+}
+
+:root[data-accent='indigo'] {
+  --theme-accent-strong: #5b4bc4;
+  --theme-accent-hover: #493ba9;
+  --theme-accent-light: #aaa0ed;
+  --theme-accent-contrast: #ffffff;
+}
+
+:root[data-accent='amber'] {
+  --theme-accent-strong: #a8610c;
+  --theme-accent-hover: #8b4e05;
+  --theme-accent-light: #e6b468;
+  --theme-accent-contrast: #ffffff;
+}
+
+/* ---------- Derived light environment ---------- */
+:root[data-accent] {
+  --theme-canvas: color-mix(in srgb, var(--theme-accent-strong) 3.2%, #f5f7f4);
+  --theme-surface: color-mix(in srgb, var(--theme-accent-strong) 1.6%, #ffffff);
+  --theme-surface-subtle: color-mix(in srgb, var(--theme-accent-strong) 4.5%, #fafbf9);
+  --theme-surface-muted: color-mix(in srgb, var(--theme-accent-strong) 7.5%, #f2f5f3);
+  --theme-line: color-mix(in srgb, var(--theme-accent-strong) 10%, #dde4df);
+  --theme-line-strong: color-mix(in srgb, var(--theme-accent-strong) 18%, #cbd5cf);
+
+  --theme-sidebar: color-mix(in srgb, var(--theme-accent-strong) 17%, #101614);
+  --theme-sidebar-surface: color-mix(in srgb, var(--theme-accent-strong) 19%, #151d1a);
+  --theme-sidebar-hover: color-mix(in srgb, var(--theme-accent-strong) 23%, #18201d);
+  --theme-sidebar-active: color-mix(in srgb, var(--theme-accent-strong) 31%, #1c2923);
+  --theme-sidebar-line: color-mix(in srgb, var(--theme-accent-strong) 23%, #2d3934);
+
+  --theme-accent-soft: color-mix(in srgb, var(--theme-accent-strong) 8%, #ffffff);
+  --theme-accent-soft-strong: color-mix(in srgb, var(--theme-accent-strong) 15%, #ffffff);
+  --theme-accent-border: color-mix(in srgb, var(--theme-accent-strong) 34%, #d8e0db);
+  --theme-accent-focus: color-mix(in srgb, var(--theme-accent-strong) 28%, transparent);
+
+  --theme-bar-strong: color-mix(in srgb, var(--theme-accent-strong) 58%, #20342d);
+  --theme-bar-mid: color-mix(in srgb, var(--theme-accent-strong) 78%, #a9c6b8);
+  --theme-bar-soft: color-mix(in srgb, var(--theme-accent-strong) 20%, #edf1ee);
+  --theme-bar-track: color-mix(in srgb, var(--theme-accent-strong) 9%, #e9edea);
+
+  --theme-shadow: 0 1px 2px rgba(22, 39, 31, .03), 0 9px 28px rgba(22, 39, 31, .045);
+
+  --ui-surface: var(--theme-surface);
+  --ui-surface-subtle: var(--theme-surface-subtle);
+  --ui-surface-muted: var(--theme-surface-muted);
+  --ui-line: var(--theme-line);
+  --ui-line-strong: var(--theme-line-strong);
+  --ui-accent: var(--theme-accent-strong);
+  --ui-accent-soft: var(--theme-accent-soft);
+  --ui-focus: var(--theme-accent-focus);
+
+  --ink: var(--ui-text);
+  --muted: var(--ui-muted);
+  --line: var(--ui-line);
+  --white: var(--ui-surface);
+  --sidebar: var(--theme-sidebar);
+
+  --green: var(--semantic-positive);
+  --green-light: var(--semantic-positive-soft);
+}
+
+/* ---------- Derived dark environment ---------- */
+:root[data-theme='dark'][data-accent] {
+  --theme-canvas: color-mix(in srgb, var(--theme-accent-strong) 6%, #111613);
+  --theme-surface: color-mix(in srgb, var(--theme-accent-strong) 5%, #161d19);
+  --theme-surface-subtle: color-mix(in srgb, var(--theme-accent-strong) 7%, #1a231e);
+  --theme-surface-muted: color-mix(in srgb, var(--theme-accent-strong) 9%, #202923);
+  --theme-line: color-mix(in srgb, var(--theme-accent-light) 12%, #303b35);
+  --theme-line-strong: color-mix(in srgb, var(--theme-accent-light) 18%, #3d4a43);
+
+  --theme-sidebar: color-mix(in srgb, var(--theme-accent-strong) 12%, #0d1210);
+  --theme-sidebar-surface: color-mix(in srgb, var(--theme-accent-strong) 16%, #141b18);
+  --theme-sidebar-hover: color-mix(in srgb, var(--theme-accent-strong) 21%, #19211d);
+  --theme-sidebar-active: color-mix(in srgb, var(--theme-accent-strong) 28%, #202b26);
+  --theme-sidebar-line: color-mix(in srgb, var(--theme-accent-light) 15%, #29342f);
+
+  --theme-accent-soft: color-mix(in srgb, var(--theme-accent-strong) 19%, #161d19);
+  --theme-accent-soft-strong: color-mix(in srgb, var(--theme-accent-strong) 27%, #161d19);
+  --theme-accent-border: color-mix(in srgb, var(--theme-accent-light) 34%, #303b35);
+  --theme-accent-focus: color-mix(in srgb, var(--theme-accent-light) 30%, transparent);
+
+  --theme-bar-strong: color-mix(in srgb, var(--theme-accent-light) 46%, #17251f);
+  --theme-bar-mid: color-mix(in srgb, var(--theme-accent-light) 72%, #315143);
+  --theme-bar-soft: color-mix(in srgb, var(--theme-accent-strong) 28%, #25302b);
+  --theme-bar-track: color-mix(in srgb, var(--theme-accent-strong) 13%, #26302c);
+
+  --theme-shadow: 0 1px 2px rgba(0, 0, 0, .15), 0 10px 32px rgba(0, 0, 0, .16);
+
+  --ui-accent: var(--theme-accent-light);
+  --ui-accent-soft: var(--theme-accent-soft);
+  --ui-focus: var(--theme-accent-focus);
+
+  --green: var(--semantic-positive);
+  --green-light: var(--semantic-positive-soft);
+}
+
+/* ---------- Application shell and navigation ---------- */
+:root[data-accent] body,
+:root[data-accent] .app-shell,
+:root[data-accent] main {
+  color: var(--ui-text);
+  background: var(--theme-canvas);
+}
+
+:root[data-accent] .topbar {
+  border-color: var(--ui-line);
+  background: color-mix(in srgb, var(--theme-surface) 92%, transparent);
+}
+
+:root[data-accent] .sidebar {
+  background: var(--theme-sidebar);
+}
+
+:root[data-accent] .brand > span {
+  color: var(--theme-accent-light);
+  border-color: var(--theme-sidebar-line);
+  background: var(--theme-sidebar-surface);
+}
+
+:root[data-accent] .sidebar-model-inputs,
+:root[data-accent] .sidebar-profile-editor {
+  border-color: var(--theme-sidebar-line);
+  background: var(--theme-sidebar-surface);
+}
+
+:root[data-accent] .sidebar nav button:hover {
+  background: var(--theme-sidebar-hover);
+}
+
+:root[data-accent] .sidebar nav button.active {
+  background: var(--theme-sidebar-active);
+  box-shadow: inset 3px 0 var(--theme-accent-light);
+}
+
+:root[data-accent] .property-nav > i {
+  background: color-mix(in srgb, var(--theme-accent-strong) 12%, #222b28);
+}
+
+:root[data-accent] .sidebar-plan {
+  border-color: var(--theme-sidebar-line);
+  background: var(--theme-sidebar-surface);
+}
+
+:root[data-accent] .sidebar-plan:hover {
+  border-color: color-mix(in srgb, var(--theme-accent-light) 36%, var(--theme-sidebar-line));
+  background: var(--theme-sidebar-hover);
+}
+
+:root[data-accent] .sidebar-plan.pro {
+  color: var(--theme-accent-light);
+  border-color: color-mix(in srgb, var(--theme-accent-light) 42%, var(--theme-sidebar-line));
+  background: color-mix(in srgb, var(--theme-accent-strong) 30%, var(--theme-sidebar));
+}
+
+:root[data-accent] .sidebar-settings:hover {
+  color: var(--theme-accent-light);
+  border-color: color-mix(in srgb, var(--theme-accent-light) 42%, var(--theme-sidebar-line));
+  background: color-mix(in srgb, var(--theme-accent-light) 8%, transparent);
+}
+
+:root[data-accent] .mobile-bottom-nav {
+  border-color: var(--ui-line);
+  background: color-mix(in srgb, var(--theme-surface) 96%, transparent);
+}
+
+/* ---------- Primary surfaces, cards and panel hierarchy ---------- */
+:root[data-accent] .panel,
+:root[data-accent] .property-card,
+:root[data-accent] .metric-card,
+:root[data-accent] .tenant-card,
+:root[data-accent] .bank-account,
+:root[data-accent] .bank-metric,
+:root[data-accent] .pricing-card,
+:root[data-accent] .credential-row,
+:root[data-accent] .remortgage-comparison,
+:root[data-accent] .remortgage-scenario-card,
+:root[data-accent] .expense-summary,
+:root[data-accent] .settings-modal,
+:root[data-accent] .expense-modal,
+:root[data-accent] .tenant-editor {
+  border-color: var(--ui-line);
+  background: var(--theme-surface);
+}
+
+:root[data-accent] .panel,
+:root[data-accent] .property-card,
+:root[data-accent] .metric-card,
+:root[data-accent] .tenant-card,
+:root[data-accent] .bank-account,
+:root[data-accent] .pricing-card,
+:root[data-accent] .remortgage-comparison {
+  box-shadow: var(--theme-shadow);
+}
+
+:root[data-accent] .metric-card.green {
+  border-color: var(--theme-accent-border);
+  background: var(--theme-accent-soft);
+}
+
+:root[data-accent] .metric-card.dark,
+:root[data-accent] .bank-metric.dark {
+  border-color: var(--theme-sidebar-line);
+  background: var(--theme-sidebar-surface);
+}
+
+:root[data-accent] .property-group-panel > header,
+:root[data-accent] .projection-toolbar,
+:root[data-accent] .projection-table-toggle,
+:root[data-accent] .private-tax-summary > footer,
+:root[data-accent] .archived-tenants > .tenant-grid,
+:root[data-accent] .credentials-archive-list,
+:root[data-accent] .data-table thead th,
+:root[data-accent] .expenses-table th,
+:root[data-accent] .bank-transaction-table th {
+  background: var(--theme-surface-subtle);
+}
+
+:root[data-accent] .data-table tr > :first-child {
+  background: var(--theme-surface-subtle);
+}
+
+:root[data-accent] .data-table tbody tr:hover td,
+:root[data-accent] .data-table tbody tr:hover th:not(.advanced-metric-label),
+:root[data-accent] .ch-search-results button:hover {
+  background: var(--theme-surface-muted);
+}
+
+/* ---------- Drawers, sheets and editors ---------- */
+:root[data-accent] .drawer,
+:root[data-accent] .billing-modal {
+  color: var(--ui-text);
+  background: var(--theme-canvas);
+}
+
+:root[data-accent] .drawer > header,
+:root[data-accent] .drawer > footer,
+:root[data-accent] .form-section,
+:root[data-accent] .setup-modal,
+:root[data-accent] .expense-transfer-sheet,
+:root[data-accent] .mobile-remortgage-modal,
+:root[data-accent] .mobile-remortgage-field-modal,
+:root[data-accent] .mobile-remortgage-details,
+:root[data-accent] .mobile-remortgage-derived {
+  color: var(--ui-text);
+  border-color: var(--ui-line);
+  background: var(--theme-surface);
+}
+
+:root[data-accent] .drawer-body,
+:root[data-accent] .mobile-remortgage-cost-strip,
+:root[data-accent] .mobile-remortgage-decision-row,
+:root[data-accent] .mobile-remortgage-focused-input {
+  background: var(--theme-surface-subtle);
+}
+
+/* ---------- Product highlights and controls ---------- */
+:root[data-accent] .eyebrow,
+:root[data-accent] .kicker,
+:root[data-accent] .text-button,
+:root[data-accent] .theme-toggle:hover,
+:root[data-accent] .assumption-pill,
+:root[data-accent] .sidebar-disclosure > summary,
+:root[data-accent] .sidebar-model-inputs > header,
+:root[data-accent] .sidebar-profile-editor > header,
+:root[data-accent] .property-index,
+:root[data-accent] .date-badge:not(.urgent),
+:root[data-accent] .setup-icon,
+:root[data-accent] .ch-mark,
+:root[data-accent] .tenants-empty > svg,
+:root[data-accent] .bank-empty-state > svg,
+:root[data-accent] .ch-list-panel > header a,
+:root[data-accent] .property-map a,
+:root[data-accent] .billing-features svg,
+:root[data-accent] .owner-access-panel > header > svg {
+  color: var(--ui-accent);
+}
+
+:root[data-accent] .property-index,
+:root[data-accent] .date-badge:not(.urgent),
+:root[data-accent] .setup-icon,
+:root[data-accent] .ch-mark {
+  background: var(--theme-accent-soft-strong);
+}
+
+:root[data-accent] .primary-button,
+:root[data-accent] .tax-jurisdiction button.active,
+:root[data-accent] .account-type-toggle button.active,
+:root[data-accent] .property-view-choice.active,
+:root[data-accent] .segmented button.active,
+:root[data-accent] .remortgage-segmented button.active {
+  color: var(--theme-accent-contrast);
+  border-color: var(--theme-accent-strong);
+  background: var(--theme-accent-strong);
+}
+
+:root[data-accent] .primary-button:hover {
+  background: var(--theme-accent-hover);
+}
+
+:root[data-accent] .switch-label input:checked + i,
+:root[data-accent] .property-nav-visibility input:checked + i,
+:root[data-accent] .per-flat-toggle input:checked + i,
+:root[data-accent] .cashflow-enabled input:checked + i,
+:root[data-accent] .bank-account > header input:checked + i {
+  border-color: var(--theme-accent-strong);
+  background: var(--theme-accent-strong);
+}
+
+:root[data-accent] input[type='checkbox'],
+:root[data-accent] input[type='radio'] {
+  accent-color: var(--theme-accent-strong);
+}
+
+:root[data-accent] button:focus-visible,
+:root[data-accent] summary:focus-visible,
+:root[data-accent] input:focus-visible,
+:root[data-accent] select:focus-visible,
+:root[data-accent] textarea:focus-visible {
+  outline-color: var(--theme-accent-focus);
+}
+
+:root[data-accent] .form-grid input:focus,
+:root[data-accent] .money-input:focus-within,
+:root[data-accent] .cashflow-line > label > input:focus,
+:root[data-accent] .cashflow-line > label > select:focus,
+:root[data-accent] .tenant-editor select:focus,
+:root[data-accent] .tenant-editor input:focus,
+:root[data-accent] .setup-company-name input:focus,
+:root[data-accent] .auth-card form label div:focus-within {
+  border-color: var(--theme-accent-border);
+  box-shadow: 0 0 0 3px var(--theme-accent-focus);
+}
+
+/* ---------- Theme-coloured non-semantic data visualisation ---------- */
+:root[data-accent] .asset-track {
+  box-shadow: inset 0 0 0 1px var(--theme-accent-border);
+}
+
+:root[data-accent] .asset-value-bar {
+  background: var(--theme-bar-soft);
+}
+
+:root[data-accent] .asset-loan-bar {
+  background: var(--theme-bar-strong);
+}
+
+:root[data-accent] .dot.equity,
+:root[data-accent] .dot.value,
+:root[data-accent] .bar-values span {
+  background: var(--theme-bar-mid);
+}
+
+:root[data-accent] .dot.loan,
+:root[data-accent] .bar-values i {
+  background: var(--theme-bar-strong);
+}
+
+:root[data-accent] .bars {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 45px,
+    var(--ui-line) 46px
+  );
+}
+
+:root[data-accent] .equity-bar {
+  background: var(--theme-bar-track);
+}
+
+:root[data-accent] .equity-bar i {
+  background: var(--theme-accent-strong);
+}
+
+/* Advanced fields are product highlights, not financial semantics. */
+:root[data-accent] .property-group-panel .data-table tbody th.advanced-metric-label {
+  color: color-mix(in srgb, var(--ui-accent) 74%, var(--ui-text));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--theme-accent-strong) 12%, transparent),
+      color-mix(in srgb, var(--theme-accent-strong) 4%, transparent) 72%,
+      transparent
+    ),
+    var(--theme-surface-subtle);
+  box-shadow: inset 3px 0 var(--theme-accent-border);
+}
+
+:root[data-accent] .property-group-panel .data-table tbody tr:hover th.advanced-metric-label {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--theme-accent-strong) 16%, transparent),
+      color-mix(in srgb, var(--theme-accent-strong) 6%, transparent) 72%,
+      transparent
+    ),
+    var(--theme-surface-muted);
+}
+
+@media (max-width: 720px) {
+  :root[data-accent] .mobile-property-row.advanced {
+    color: color-mix(in srgb, var(--ui-accent) 74%, var(--ui-text));
+    background:
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--theme-accent-strong) 12%, transparent),
+        color-mix(in srgb, var(--theme-accent-strong) 4%, transparent) 72%,
+        transparent
+      ),
+      var(--theme-surface-subtle);
+    box-shadow: inset 3px 0 var(--theme-accent-border);
+  }
+
+  :root[data-accent] .mobile-property-row.advanced > span {
+    color: inherit;
+  }
+}
+
+/* ---------- Billing/product identity ---------- */
+:root[data-accent] .billing-mark,
+:root[data-accent] .loading-mark {
+  color: var(--theme-accent-contrast);
+  background: linear-gradient(
+    145deg,
+    var(--theme-accent-strong),
+    color-mix(in srgb, var(--theme-accent-strong) 78%, var(--theme-accent-light))
+  );
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--theme-accent-strong) 22%, transparent);
+}
+
+:root[data-accent] .pricing-card.featured {
+  border-color: var(--theme-accent-strong);
+  box-shadow: 0 15px 40px color-mix(in srgb, var(--theme-accent-strong) 13%, transparent);
+}
+
+:root[data-accent] .pricing-card > i {
+  background: var(--theme-accent-strong);
+}
+
+/* ---------- SEMANTIC CONTRACT: sign/status colours never follow the theme ---------- */
+:root[data-accent] .positive,
+:root[data-accent] .data-table td.money-positive,
+:root[data-accent] .mobile-property-row > strong.money-positive,
+:root[data-accent] .expense-summary.income strong,
+:root[data-accent] .reconciliation-wrap tr.income td,
+:root[data-accent] .bank-metric.positive strong,
+:root[data-accent] .bank-average-grid .positive,
+:root[data-accent] .bank-transaction-table td.positive {
+  color: var(--semantic-positive) !important;
+}
+
+:root[data-accent] .negative,
+:root[data-accent] .data-table td.money-negative,
+:root[data-accent] .mobile-property-row > strong.money-negative,
+:root[data-accent] .expense-summary.expense strong,
+:root[data-accent] .reconciliation-wrap tr.cost td,
+:root[data-accent] .bank-metric.negative strong,
+:root[data-accent] .bank-average-grid .negative,
+:root[data-accent] .bank-transaction-table td.negative {
+  color: var(--semantic-negative) !important;
+}
+
+:root[data-accent] .remortgage-scenario-cashflow-metric > b.positive,
+:root[data-accent] .remortgage-summary-option > em.positive,
+:root[data-accent] .mobile-remortgage-cost-strip span.positive,
+:root[data-accent] .mobile-remortgage-detail-row b.positive {
+  color: var(--semantic-positive) !important;
+}
+
+:root[data-accent] .remortgage-scenario-cashflow-metric > b.negative,
+:root[data-accent] .remortgage-summary-option > em.negative,
+:root[data-accent] .mobile-remortgage-cost-strip span.negative,
+:root[data-accent] .mobile-remortgage-detail-row b.negative {
+  color: var(--semantic-negative) !important;
+}
+
+:root[data-accent] .date-badge.urgent,
+:root[data-accent] .ch-status.warning {
+  color: var(--semantic-warning);
+  background: var(--semantic-warning-soft);
+}
+
+:root[data-accent] .danger-button,
+:root[data-accent] .billing-message.error,
+:root[data-accent] .auth-message.error,
+:root[data-accent] .bank-error,
+:root[data-accent] .ch-error {
+  color: var(--semantic-danger);
+}
+
+/* Remortgage rate orange, scenario --scenario colours and Safety Buffer
+   --buffer-colour are intentionally not overridden here. */
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-accent] body,
+  :root[data-accent] .topbar,
+  :root[data-accent] .sidebar,
+  :root[data-accent] .panel,
+  :root[data-accent] .property-card {
+    transition-duration: .01ms !important;
+  }
+}

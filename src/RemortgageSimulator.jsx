@@ -153,7 +153,7 @@ function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
       </div>
       {property && <div className="remortgage-scenario-cashflow-metric">
         <small>True cash flow</small>
-        <b>{money.format(animatedCashFlow)} / month</b>
+        <b className={animatedCashFlow >= 0 ? 'positive' : 'negative'}>{money.format(animatedCashFlow)} / month</b>
         <span>Rent minus property costs and mortgage</span>
       </div>}
       {!property && <small className="remortgage-scenario-manual-note">Mortgage-only comparison · property cash flow unavailable</small>}
@@ -563,13 +563,13 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
         <div>
           <small>Current mortgage cost</small>
           <strong>{money.format(animatedLeftMortgageCost)} / mo</strong>
-          {property && <span>True cash flow {money.format(animatedLeftCashFlow)} / mo</span>}
+          {property && <span className={animatedLeftCashFlow >= 0 ? 'positive' : 'negative'}>True cash flow {money.format(animatedLeftCashFlow)} / mo</span>}
         </div>
         <ArrowRight size={18} aria-hidden="true" />
         <div>
           <small>New mortgage cost</small>
           <strong>{money.format(animatedRightMortgageCost)} / mo</strong>
-          {property && <span>True cash flow {money.format(animatedRightCashFlow)} / mo</span>}
+          {property && <span className={animatedRightCashFlow >= 0 ? 'positive' : 'negative'}>True cash flow {money.format(animatedRightCashFlow)} / mo</span>}
         </div>
       </div>
 
@@ -616,8 +616,8 @@ function MobileRemortgageEditor({ comparison, property, onClose, onSave }) {
             <div className="mobile-remortgage-detail-row"><span>New LTV</span><b>{roundedLtv(right.resultingLtv)}%</b></div>
             <div className="mobile-remortgage-detail-row"><span>Current mortgage cost</span><b>{money.format(animatedLeftMortgageCost)} / mo</b></div>
             <div className="mobile-remortgage-detail-row"><span>New mortgage cost</span><b>{money.format(animatedRightMortgageCost)} / mo</b></div>
-            {property && <div className="mobile-remortgage-detail-row"><span>Current true cash flow</span><b>{money.format(animatedLeftCashFlow)} / mo</b></div>}
-            {property && <div className="mobile-remortgage-detail-row"><span>New true cash flow</span><b>{money.format(animatedRightCashFlow)} / mo</b></div>}
+            {property && <div className="mobile-remortgage-detail-row"><span>Current true cash flow</span><b className={animatedLeftCashFlow >= 0 ? 'positive' : 'negative'}>{money.format(animatedLeftCashFlow)} / mo</b></div>}
+            {property && <div className="mobile-remortgage-detail-row"><span>New true cash flow</span><b className={animatedRightCashFlow >= 0 ? 'positive' : 'negative'}>{money.format(animatedRightCashFlow)} / mo</b></div>}
           </div>
         </div>
       </details>
@@ -695,7 +695,7 @@ function CollapsedSummary({ comparison, property, expanded, onToggle }) {
       <small>Current rate</small>
       <strong className="remortgage-summary-rate">{rate.format(diff.left.rate)}%</strong>
       <span className="remortgage-summary-mortgage-cost">Mortgage cost {money.format(animatedLeftMortgageCost)} / mo</span>
-      {property && <em>True cash flow {money.format(animatedLeftCashFlow)} / mo</em>}
+      {property && <em className={animatedLeftCashFlow >= 0 ? 'positive' : 'negative'}>True cash flow {money.format(animatedLeftCashFlow)} / mo</em>}
     </div>
 
     <ArrowRight className="remortgage-summary-arrow" size={20} aria-hidden="true" />
@@ -704,7 +704,7 @@ function CollapsedSummary({ comparison, property, expanded, onToggle }) {
       <small>New rate</small>
       <strong className="remortgage-summary-rate">{rate.format(diff.right.rate)}%</strong>
       <span className="remortgage-summary-mortgage-cost">Mortgage cost {money.format(animatedRightMortgageCost)} / mo</span>
-      {property && <em>True cash flow {money.format(animatedRightCashFlow)} / mo</em>}
+      {property && <em className={animatedRightCashFlow >= 0 ? 'positive' : 'negative'}>True cash flow {money.format(animatedRightCashFlow)} / mo</em>}
     </div>
 
     <div className={`remortgage-summary-difference ${animatedCashFlowChange >= 0 ? 'positive' : 'negative'}`}>
