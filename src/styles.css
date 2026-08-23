@@ -8890,3 +8890,458 @@ textarea {
     transition: none !important;
   }
 }
+
+/* Brain Drain 2026-08-23 14:51 BST — iOS-native Overview cash-flow scenarios */
+
+.overview-cashflow-panel {
+  overflow: hidden;
+}
+
+.overview-cashflow-panel > header {
+  padding-bottom: 4px;
+}
+
+.overview-cashflow-panel > header p {
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.overview-cashflow-scenarios {
+  margin-top: 17px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+.overview-cashflow-selector {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 38px;
+  margin-bottom: 12px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--ui-line) 82%, transparent);
+  border-radius: 11px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  gap: 2px;
+  background: color-mix(in srgb, var(--ui-surface-subtle) 90%, var(--ui-surface));
+  box-shadow: inset 0 1px 2px rgba(20, 36, 29, .035);
+}
+
+.overview-cashflow-selector button {
+  min-height: 32px;
+  min-width: 108px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ui-muted);
+  background: transparent;
+  font: 600 11px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  letter-spacing: -.006em;
+  white-space: nowrap;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease,
+    transform 150ms ease;
+}
+
+.overview-cashflow-selector button:hover {
+  color: var(--ui-text);
+}
+
+.overview-cashflow-selector button.desktop-active {
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  box-shadow: 0 1px 4px rgba(20, 36, 29, .10), 0 1px 1px rgba(20, 36, 29, .04);
+}
+
+.overview-cashflow-selector button.desktop-active::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin-right: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: 1px;
+  background: var(--scenario);
+}
+
+.overview-cashflow-selector button:active {
+  transform: scale(.975);
+}
+
+.overview-cashflow-selector button:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 1px;
+}
+
+.overview-cashflow-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-cashflow-card {
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ui-line) 88%, transparent);
+  border-radius: 17px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--scenario) 3.5%, var(--ui-surface)) 0,
+      var(--ui-surface) 72px
+    );
+  box-shadow:
+    0 1px 2px rgba(20, 36, 29, .025),
+    0 9px 28px rgba(20, 36, 29, .045);
+  transition:
+    opacity 220ms ease,
+    transform 260ms cubic-bezier(.22, 1, .36, 1),
+    box-shadow 220ms ease;
+}
+
+.overview-cashflow-card:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 2px rgba(20, 36, 29, .03),
+    0 12px 32px rgba(20, 36, 29, .065);
+}
+
+.overview-cashflow-card::before {
+  content: "";
+  height: 3px;
+  position: absolute;
+  inset: 0 0 auto;
+  background: color-mix(in srgb, var(--scenario) 72%, transparent);
+}
+
+.overview-cashflow-card-head {
+  min-height: 72px;
+  padding: 18px 17px 13px;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+}
+
+.overview-cashflow-scenario-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--scenario);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--scenario) 10%, transparent);
+}
+
+.overview-cashflow-scenario-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.overview-cashflow-scenario-copy b {
+  color: var(--ui-text);
+  font: 680 14px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  letter-spacing: -.012em;
+  line-height: 1.15;
+}
+
+.overview-cashflow-scenario-copy small {
+  color: var(--ui-muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.overview-cashflow-scenario-index {
+  padding: 4px 6px;
+  border-radius: 7px;
+  color: var(--ui-muted);
+  background: color-mix(in srgb, var(--ui-surface-subtle) 86%, transparent);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: .025em;
+  white-space: nowrap;
+}
+
+.overview-cashflow-hero {
+  padding: 16px 17px 15px;
+  border-top: 1px solid color-mix(in srgb, var(--ui-line) 82%, transparent);
+}
+
+.overview-cashflow-label {
+  display: block;
+  color: var(--ui-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.overview-cashflow-hero-number {
+  margin-top: 5px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.overview-cashflow-hero-number strong {
+  min-width: 0;
+  color: var(--ui-text);
+  font: 720 clamp(28px, 2.2vw, 34px) -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  letter-spacing: -.045em;
+  line-height: .98;
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}
+
+.overview-cashflow-card.positive-flow .overview-cashflow-hero-number strong {
+  color: var(--semantic-positive);
+}
+
+.overview-cashflow-card.negative-flow .overview-cashflow-hero-number strong {
+  color: var(--semantic-danger);
+}
+
+.overview-cashflow-hero-number small {
+  color: var(--ui-muted);
+  font-size: 10px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.overview-cashflow-hero > p {
+  margin: 5px 0 0;
+  color: var(--ui-muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.overview-cashflow-annual {
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid color-mix(in srgb, var(--ui-line) 78%, transparent);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.overview-cashflow-annual span {
+  color: var(--ui-muted);
+  font-size: 10px;
+  font-weight: 550;
+}
+
+.overview-cashflow-annual b {
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 680;
+  letter-spacing: -.012em;
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}
+
+.overview-cashflow-secondary {
+  margin: 0;
+  padding: 2px 17px 14px;
+  display: grid;
+}
+
+.overview-cashflow-secondary > div {
+  min-height: 42px;
+  padding: 9px 0;
+  border-top: 1px solid color-mix(in srgb, var(--ui-line) 78%, transparent);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.overview-cashflow-secondary dt {
+  min-width: 0;
+  color: var(--ui-muted);
+  font-size: 10px;
+  font-weight: 550;
+}
+
+.overview-cashflow-secondary dd {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 660;
+  letter-spacing: -.008em;
+  text-align: right;
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}
+
+.overview-cashflow-secondary dd > small {
+  margin-left: 3px;
+  color: var(--ui-muted);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.overview-cashflow-total-gain {
+  min-height: 50px !important;
+}
+
+.overview-cashflow-total-gain dt {
+  display: grid;
+  gap: 2px;
+}
+
+.overview-cashflow-total-gain dt > span {
+  color: var(--ui-text);
+  font-weight: 620;
+}
+
+.overview-cashflow-total-gain dt > small {
+  color: var(--ui-muted);
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.overview-cashflow-total-gain dd {
+  color: var(--ui-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (min-width: 761px) {
+  .overview-cashflow-card.desktop-hidden {
+    display: none;
+  }
+}
+
+@media (max-width: 1040px) and (min-width: 761px) {
+  .overview-cashflow-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .overview-cashflow-panel {
+    padding-inline: 14px;
+  }
+
+  .overview-cashflow-panel > header {
+    padding-inline: 1px;
+  }
+
+  .overview-cashflow-scenarios {
+    margin-top: 14px;
+  }
+
+  .overview-cashflow-selector {
+    width: 100%;
+    min-height: 40px;
+    margin-bottom: 10px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .overview-cashflow-selector button {
+    min-width: 0;
+    min-height: 34px;
+    padding: 0 5px;
+    font-size: 9.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .overview-cashflow-selector button.desktop-active::before {
+    display: none;
+  }
+
+  .overview-cashflow-selector button.mobile-active {
+    color: var(--ui-text);
+    background: var(--ui-surface);
+    box-shadow: 0 1px 4px rgba(20, 36, 29, .11);
+  }
+
+  .overview-cashflow-card-grid {
+    display: block;
+  }
+
+  .overview-cashflow-card {
+    display: none;
+    width: 100%;
+    border-radius: 17px;
+    animation: overview-cashflow-card-in 240ms cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .overview-cashflow-scenarios[data-mobile-scenario="0"] .overview-cashflow-card-0,
+  .overview-cashflow-scenarios[data-mobile-scenario="1"] .overview-cashflow-card-1,
+  .overview-cashflow-scenarios[data-mobile-scenario="2"] .overview-cashflow-card-2 {
+    display: block;
+  }
+
+  .overview-cashflow-card-head {
+    min-height: 68px;
+    padding: 16px 15px 12px;
+  }
+
+  .overview-cashflow-hero {
+    padding: 15px;
+  }
+
+  .overview-cashflow-hero-number strong {
+    font-size: clamp(30px, 9vw, 36px);
+  }
+
+  .overview-cashflow-secondary {
+    padding-inline: 15px;
+  }
+}
+
+@media (max-width: 350px) {
+  .overview-cashflow-selector button {
+    font-size: 9px;
+  }
+
+  .overview-cashflow-scenario-index {
+    display: none;
+  }
+
+  .overview-cashflow-hero-number strong {
+    font-size: 29px;
+  }
+}
+
+@keyframes overview-cashflow-card-in {
+  from {
+    opacity: .45;
+    transform: translateY(5px) scale(.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+:root[data-theme='dark'] .overview-cashflow-selector {
+  background: color-mix(in srgb, var(--ui-surface-subtle) 88%, #101613);
+}
+
+:root[data-theme='dark'] .overview-cashflow-selector button.desktop-active,
+:root[data-theme='dark'] .overview-cashflow-selector button.mobile-active {
+  background: color-mix(in srgb, var(--ui-surface) 94%, white 2%);
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .overview-cashflow-card {
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overview-cashflow-selector button,
+  .overview-cashflow-card {
+    animation: none !important;
+    transition: none !important;
+  }
+}

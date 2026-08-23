@@ -67,7 +67,25 @@ const propertyGroups = [
 const scenarioMeta = [
   { name: 'Conservative', note: 'Expected cash flow', colour: '#b35c54' },
   { name: 'No voids', note: 'Assumes full occupancy', colour: '#c78b3e' },
-  { name: 'No repairs or voids', note: 'Unrealistic maximum', colour: '#27795c' },
+  { name: 'No repairs or voids', note: 'Best-case operating ceiling', colour: '#27795c' },
+]
+
+const overviewScenarioMeta = [
+  {
+    title: 'Conservative',
+    selector: 'Conservative',
+    note: 'Voids + repair reserve included',
+  },
+  {
+    title: 'Full occupancy',
+    selector: 'Full occupancy',
+    note: 'No void allowance · repair reserve included',
+  },
+  {
+    title: 'Maximum cash',
+    selector: 'Maximum',
+    note: 'No voids · no repair reserve',
+  },
 ]
 
 const modelInputFields = [
@@ -640,7 +658,7 @@ function ModelControls({ settings, onChange, compact = false }) {
   )
 }
 
-function ScenarioTable({ scenarios, count, accountType = 'company' }) {
+function ScenarioTable({ scenarios, count, accountType = 'company', variant = 'default' }) {
   const isPrivate = accountType === 'private'
   const [mobileScenario, setMobileScenario] = useState(0)
   const [desktopScenarios, setDesktopScenarios] = useState(() => new Set([0, 1, 2]))
@@ -661,6 +679,86 @@ function ScenarioTable({ scenarios, count, accountType = 'company' }) {
       }
       return next
     })
+  }
+
+if (variant === 'overview') {
+    return <div
+      className="overview-cashflow-scenarios"
+      data-mobile-scenario={mobileScenario}
+    >
+      <div className="overview-cashflow-selector" role="group" aria-label="Cash flow scenarios">
+        {overviewScenarioMeta.map((copy, index) => {
+          const desktopSelected = desktopScenarios.has(index)
+          return <button
+            type="button"
+            key={copy.title}
+            className={`${mobileScenario === index ? 'mobile-active' : ''} ${desktopSelected ? 'desktop-active' : ''}`}
+            aria-pressed={desktopSelected}
+            style={{ '--scenario': scenarioMeta[index].colour }}
+            onClick={() => selectScenario(index)}
+          >
+            <span>{copy.selector}</span>
+          </button>
+        })}
+      </div>
+
+      <div className="overview-cashflow-card-grid">
+        {scenarios.map((scenario, index) => {
+          const copy = overviewScenarioMeta[index]
+          const positive = Number(scenario.cashflow || 0) >= 0
+          const monthlyLabel = isPrivate ? 'Net cash flow' : 'Company + extraction cash'
+          const monthlyNote = isPrivate
+            ? 'After estimated income tax'
+            : 'Before personal tax on extraction'
+
+          return <article
+            className={`overview-cashflow-card overview-cashflow-card-${index} ${desktopScenarios.has(index) ? 'desktop-selected' : 'desktop-hidden'} ${positive ? 'positive-flow' : 'negative-flow'}`}
+            key={scenario.id}
+            style={{ '--scenario': scenarioMeta[index].colour }}
+          >
+            <header className="overview-cashflow-card-head">
+              <span className="overview-cashflow-scenario-dot" aria-hidden="true" />
+              <span className="overview-cashflow-scenario-copy">
+                <b>{copy.title}</b>
+                <small>{copy.note}</small>
+              </span>
+              <span className="overview-cashflow-scenario-index">Scenario {scenario.id}</span>
+            </header>
+
+            <div className="overview-cashflow-hero">
+              <span className="overview-cashflow-label">{monthlyLabel}</span>
+              <div className="overview-cashflow-hero-number">
+                <strong>{currency(scenario.cashflow)}</strong>
+                <small>/ month</small>
+              </div>
+              <p>{monthlyNote}</p>
+              <div className="overview-cashflow-annual">
+                <span>Annual cash flow</span>
+                <b>{currency(scenario.cashflow * 12)}</b>
+              </div>
+            </div>
+
+            <dl className="overview-cashflow-secondary">
+              <div>
+                <dt>Tax</dt>
+                <dd>{currency(scenario.tax)}<small>/ month</small></dd>
+              </div>
+              <div>
+                <dt>Per property</dt>
+                <dd>{currency(count ? scenario.cashflow / count : 0)}<small>/ month</small></dd>
+              </div>
+              <div className="overview-cashflow-total-gain">
+                <dt>
+                  <span>Total gain</span>
+                  <small>Cash flow + appreciation</small>
+                </dt>
+                <dd>{currency(scenario.totalGain * 12)}<small>/ year</small></dd>
+              </div>
+            </dl>
+          </article>
+        })}
+      </div>
+    </div>
   }
 
   return <div className="scenario-table scenario-selector-enabled" data-mobile-scenario={mobileScenario}>
@@ -1624,7 +1722,16 @@ function PortfolioApp({ user }) {
               </section>}
             </div>
 
-            <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
+            <section className="panel scenarios-panel overview-cashflow-panel">
+              <header>
+                <div>
+                  <span className="kicker">CURRENT CASH POSITION</span>
+                  <h2>Cash flow scenarios</h2>
+                  <p>Compare monthly cash available under different operating assumptions.</p>
+                </div>
+              </header>
+              <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
+            </section>
           </>}
 
           {section === 'Properties' && <>
