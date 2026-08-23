@@ -8705,3 +8705,188 @@ textarea {
     color-scheme: dark;
   }
 }
+
+/* Brain Drain 2026-08-23 13:44 BST — iOS-native destructive confirmation */
+.delete-confirm-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 12, 11, .28);
+  backdrop-filter: blur(12px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  animation: delete-confirm-backdrop-in 180ms ease-out both;
+}
+
+.delete-confirm-dialog {
+  width: min(356px, calc(100vw - 40px));
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ui-line) 82%, transparent);
+  border-radius: 19px;
+  color: var(--ui-text);
+  background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
+  box-shadow: 0 24px 70px rgba(8, 18, 14, .20), 0 2px 8px rgba(8, 18, 14, .08);
+  transform-origin: 50% 58%;
+  animation: delete-confirm-dialog-in 300ms cubic-bezier(.2, .9, .2, 1.08) both;
+}
+
+.delete-confirm-icon {
+  width: 42px;
+  height: 42px;
+  margin: 22px auto 11px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  color: var(--semantic-danger);
+  background: var(--semantic-danger-soft);
+}
+
+.delete-confirm-copy {
+  padding: 0 24px 20px;
+  text-align: center;
+}
+
+.delete-confirm-copy h2 {
+  margin: 0;
+  color: var(--ui-text);
+  font: 700 17px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  letter-spacing: -.018em;
+}
+
+.delete-confirm-copy p {
+  margin: 7px 0 0;
+  color: var(--ui-muted);
+  font: 450 12px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+.delete-confirm-actions {
+  min-height: 50px;
+  border-top: 1px solid var(--ui-line);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.delete-confirm-actions button {
+  min-height: 50px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font: 600 15px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.delete-confirm-actions button:active {
+  background: var(--ui-surface-muted);
+}
+
+.delete-confirm-actions button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--ui-focus);
+  outline-offset: -2px;
+}
+
+.delete-confirm-cancel {
+  color: var(--ui-accent);
+  border-right: 1px solid var(--ui-line) !important;
+}
+
+.delete-confirm-delete {
+  color: var(--semantic-danger);
+  font-weight: 700 !important;
+}
+
+.delete-confirm-layer.closing {
+  animation: delete-confirm-backdrop-out 180ms ease-in both;
+}
+
+.delete-confirm-layer.closing .delete-confirm-dialog {
+  animation: delete-confirm-dialog-out 180ms ease-in both;
+}
+
+@keyframes delete-confirm-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes delete-confirm-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes delete-confirm-dialog-in {
+  from { opacity: 0; transform: scale(.92) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes delete-confirm-dialog-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(.96) translateY(4px); }
+}
+
+@media (max-width: 680px) {
+  .delete-confirm-layer {
+    padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+    place-items: end center;
+    background: rgba(8, 12, 11, .24);
+  }
+
+  .delete-confirm-dialog {
+    width: 100%;
+    max-width: 430px;
+    border-radius: 20px;
+    transform-origin: 50% 100%;
+    animation-name: delete-confirm-sheet-in;
+  }
+
+  .delete-confirm-icon {
+    margin-top: 18px;
+  }
+
+  .delete-confirm-actions,
+  .delete-confirm-actions button {
+    min-height: 54px;
+  }
+
+  .delete-confirm-actions button {
+    font-size: 16px;
+  }
+
+  .delete-confirm-layer.closing .delete-confirm-dialog {
+    animation-name: delete-confirm-sheet-out;
+  }
+}
+
+@keyframes delete-confirm-sheet-in {
+  from { opacity: 0; transform: translateY(28px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes delete-confirm-sheet-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(22px) scale(.99); }
+}
+
+:root[data-theme='dark'] .delete-confirm-layer {
+  background: rgba(0, 0, 0, .38);
+}
+
+:root[data-theme='dark'] .delete-confirm-dialog {
+  background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .42);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .delete-confirm-layer,
+  .delete-confirm-dialog,
+  .delete-confirm-actions button,
+  .delete-confirm-layer.closing,
+  .delete-confirm-layer.closing .delete-confirm-dialog {
+    animation: none !important;
+    transition: none !important;
+  }
+}

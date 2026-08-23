@@ -8,6 +8,7 @@ import {
   roundedLtv,
   updateRemortgageScenario,
 } from './remortgage.js'
+import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
 
 const money = new Intl.NumberFormat('en-GB', {
   style: 'currency',
@@ -728,6 +729,7 @@ export default function RemortgageSimulator({
   const [sourceId, setSourceId] = useState(properties[0]?.id || 'manual')
   const [expandedIds, setExpandedIds] = useState(() => new Set())
   const [mobileEditorId, setMobileEditorId] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
   const [dragState, setDragState] = useState(null)
   const comparisonNodes = useRef(new Map())
   const selectedSource = properties.some((property) => property.id === sourceId) ? sourceId : 'manual'
@@ -853,12 +855,13 @@ export default function RemortgageSimulator({
     if (!cancelled && fromIndex !== toIndex) onChange(reorderedComparisons(fromIndex, toIndex))
   }
 
-  const removeComparison = (id) => {
-    const comparison = comparisons.find((item) => item.id === id)
-    if (!window.confirm(`Delete ${comparison?.name || 'this remortgage comparison'}? This cannot be undone.`)) return
+  const confirmRemoveComparison = () => {
+    if (!pendingDelete) return
+    const id = pendingDelete.id
     onChange(comparisons.filter((item) => item.id !== id))
     setExpanded(id, false)
     if (mobileEditorId === id) setMobileEditorId(null)
+    setPendingDelete(null)
   }
 
   const duplicateComparison = (comparison) => {
@@ -961,7 +964,7 @@ export default function RemortgageSimulator({
               </button>
               <button
                 className="icon-button danger"
-                onClick={() => removeComparison(comparison.id)}
+                onClick={() => setPendingDelete(comparison)}
                 aria-label={`Delete ${comparison.name || 'comparison'}`}
                 title="Delete comparison"
               >
@@ -1032,5 +1035,12 @@ export default function RemortgageSimulator({
         }}
       />
     })()}
+
+    {pendingDelete && <DeleteConfirmDialog
+      title={`Delete ${pendingDelete.name || 'remortgage comparison'}?`}
+      message="This saved remortgage comparison will be permanently removed. This cannot be undone."
+      onCancel={() => setPendingDelete(null)}
+      onConfirm={confirmRemoveComparison}
+    />}
   </section>
 }

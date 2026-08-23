@@ -34,7 +34,10 @@ describe('desktop property editor prefilled values', () => {
     const marker = styles.indexOf(
       '/* Brain Drain 2026-08-23 12:40 BST — desktop property editor visible prefill */'
     )
-    const block = marker >= 0 ? styles.slice(marker) : ''
+    const nextMarker = marker >= 0 ? styles.indexOf('/* Brain Drain ', marker + 1) : -1
+    const block = marker >= 0
+      ? styles.slice(marker, nextMarker >= 0 ? nextMarker : styles.length)
+      : ''
     expect(block).toContain('@media (min-width: 761px)')
     expect(block).not.toContain('@media (max-width:')
   })

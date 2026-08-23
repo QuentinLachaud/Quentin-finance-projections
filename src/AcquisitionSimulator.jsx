@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, ChevronDown, ChevronUp, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { acquisitionCosts, acquisitionJurisdictions, createAcquisition, nextAcquisitionName, prependAcquisition, reorderAcquisitions } from './acquisition.js'
 import { currency } from './calculations.js'
+import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
 
 const numericKeys = new Set(['purchasePrice','expectedMonthlyRent','ltv','adsRate','legalFees','mortgageFee'])
 const numericValue = (value) => value === '' ? '' : Number(value)
@@ -178,6 +179,7 @@ export default function AcquisitionSimulator({
 }) {
   const [expandedId, setExpandedId] = useState('')
   const [editor, setEditor] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
   const [dragState, setDragState] = useState(null)
   const acquisitionNodes = useRef(new Map())
 
@@ -223,11 +225,13 @@ export default function AcquisitionSimulator({
     setEditor(null)
   }
 
-  const remove = (id) => {
-    if (!window.confirm('Remove this potential acquisition?')) return
+  const confirmRemove = () => {
+    if (!pendingDelete) return
+    const id = pendingDelete.id
     const next = acquisitions.filter((item) => item.id !== id)
     onChange(next)
     if (expandedId === id) setExpandedId('')
+    setPendingDelete(null)
   }
 
   const moveAcquisition = (fromIndex, toIndex) => {
@@ -327,7 +331,7 @@ export default function AcquisitionSimulator({
               expanded={expandedId === item.id}
               onToggle={() => setExpandedId((current) => current === item.id ? '' : item.id)}
               onEdit={() => edit(item)}
-              onRemove={() => remove(item.id)}
+              onRemove={() => setPendingDelete(item)}
               reorder={{
                 dragging: isDragging,
                 style: {
@@ -358,5 +362,12 @@ export default function AcquisitionSimulator({
         </div>}
 
     {editor && <AcquisitionEditorModal draft={editor.draft} mode={editor.mode} warning={editor.warning} onChange={updateDraft} onCancel={() => setEditor(null)} onConfirm={confirm} />}
+
+    {pendingDelete && <DeleteConfirmDialog
+      title={`Delete ${pendingDelete.name || 'acquisition'}?`}
+      message="This potential acquisition will be permanently removed. This cannot be undone."
+      onCancel={() => setPendingDelete(null)}
+      onConfirm={confirmRemove}
+    />}
   </div>
 }
