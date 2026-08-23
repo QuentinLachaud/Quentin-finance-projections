@@ -8663,3 +8663,45 @@ textarea {
     }
   }
 }
+
+/* Brain Drain 2026-08-23 12:40 BST — desktop property editor visible prefill */
+
+/*
+ * EditDrawer already binds every field to the selected raw property. Desktop
+ * browsers can nevertheless resolve native form-control text through their
+ * own colour-scheme/FieldText styling. The drawer has explicit light surfaces
+ * while the browser may be using a dark OS colour scheme, which can make the
+ * bound values look blank. Pin desktop property editor controls to the app
+ * theme so the existing values are always visibly rendered.
+ */
+@media (min-width: 761px) {
+  .drawer .form-grid input {
+    color: var(--ui-text);
+    -webkit-text-fill-color: var(--ui-text);
+    caret-color: var(--ui-accent);
+    background: var(--ui-surface);
+    opacity: 1;
+    color-scheme: light;
+  }
+
+  .drawer .form-grid input::placeholder {
+    color: var(--ui-muted);
+    -webkit-text-fill-color: var(--ui-muted);
+    opacity: .72;
+  }
+
+  .drawer .form-grid input:-webkit-autofill,
+  .drawer .form-grid input:-webkit-autofill:hover,
+  .drawer .form-grid input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--ui-text);
+    caret-color: var(--ui-accent);
+    box-shadow: 0 0 0 1000px var(--ui-surface) inset;
+  }
+
+  :root[data-theme='dark'] .drawer .form-grid input {
+    color: var(--ui-text);
+    -webkit-text-fill-color: var(--ui-text);
+    background: var(--ui-surface);
+    color-scheme: dark;
+  }
+}
