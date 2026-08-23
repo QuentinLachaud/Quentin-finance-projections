@@ -347,6 +347,132 @@ function PropertyCard({ property, onEdit, onClone, onToggle }) {
   )
 }
 
+const overviewPropertyViewOptions = [
+  ['cards', 'Cards'],
+  ['rows', 'Rows'],
+  ['mini', 'Mini'],
+]
+
+function OverviewPropertyViewSelector({ value, onChange }) {
+  return <div
+    className="overview-property-view-selector"
+    data-view={value}
+    role="radiogroup"
+    aria-label="Property overview display"
+  >
+    {overviewPropertyViewOptions.map(([id, label]) => <button
+      key={id}
+      type="button"
+      role="radio"
+      aria-checked={value === id}
+      className={value === id ? 'selected' : ''}
+      onClick={() => onChange(id)}
+    >{label}</button>)}
+  </div>
+}
+
+function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
+  const [expanded, setExpanded] = useState(false)
+  const address = formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'
+  const mapQuery = [property.flatNumber, property.address, property.postcode, 'UK'].filter(Boolean).join(', ')
+  const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}`
+
+  return <article className={`overview-property-row ${expanded ? 'expanded' : ''} ${property.active ? '' : 'muted'}`}>
+    <button
+      type="button"
+      className="overview-property-row-toggle"
+      aria-expanded={expanded}
+      onClick={() => setExpanded((current) => !current)}
+    >
+      <span className="overview-property-row-index">{property.name.replace(/\D/g, '') || '•'}</span>
+      <span className="overview-property-row-identity">
+        <b>{property.name}</b>
+        <small>{address}{property.postcode ? ` · ${property.postcode}` : ''}</small>
+      </span>
+      <span className="overview-property-row-value">
+        <b>{currency(property.latestValuation)}</b>
+        <small>{percent(property.currentLtv, 1)} LTV</small>
+      </span>
+      <span className="overview-property-row-chevron" aria-hidden="true">
+        {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+      </span>
+    </button>
+
+    <div className="overview-property-row-shell" aria-hidden={!expanded}>
+      <div className="overview-property-row-inner">
+        <div className="overview-property-row-metrics">
+          <div><span>Equity</span><b>{currency(property.equity)}</b></div>
+          <div><span>Loan</span><b>{currency(property.loanAmount)}</b></div>
+          <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
+          <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
+        </div>
+        <div className="overview-property-row-actions">
+          <button type="button" onClick={() => onEdit(property.id)}><Pencil size={16} /><span>Edit</span></button>
+          <a href={mapUrl} target="_blank" rel="noreferrer"><MapPin size={16} /><span>Map</span></a>
+          <button type="button" onClick={() => onClone(property.id)}><Copy size={16} /><span>Clone</span></button>
+          <label className="overview-property-native-switch">
+            <span>In totals</span>
+            <input
+              type="checkbox"
+              checked={Boolean(property.active)}
+              onChange={() => onToggle(property.id)}
+              aria-label={property.active ? `Exclude ${property.name} from totals` : `Include ${property.name} in totals`}
+            />
+            <i />
+          </label>
+        </div>
+      </div>
+    </div>
+  </article>
+}
+
+function OverviewPropertyMiniCard({ property, onEdit, onClone, onToggle }) {
+  const address = formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'
+  const mapQuery = [property.flatNumber, property.address, property.postcode, 'UK'].filter(Boolean).join(', ')
+  const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}`
+
+  return <article className={`overview-property-mini-card ${property.active ? '' : 'muted'}`}>
+    <header>
+      <span>
+        <b>{property.name}</b>
+        <small>{address}{property.postcode ? ` · ${property.postcode}` : ''}</small>
+      </span>
+      <button type="button" className="overview-mini-edit" onClick={() => onEdit(property.id)} aria-label={`Edit ${property.name}`}>
+        <Pencil size={16} />
+      </button>
+    </header>
+
+    <div className="overview-mini-value">
+      <span>Current value</span>
+      <strong>{currency(property.latestValuation)}</strong>
+    </div>
+
+    <div className="overview-mini-metrics">
+      <div><span>Equity</span><b>{currency(property.equity)}</b></div>
+      <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
+      <div><span>LTV</span><b>{percent(property.currentLtv, 1)}</b></div>
+      <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
+    </div>
+
+    <footer>
+      <label className="overview-property-native-switch">
+        <span>In totals</span>
+        <input
+          type="checkbox"
+          checked={Boolean(property.active)}
+          onChange={() => onToggle(property.id)}
+          aria-label={property.active ? `Exclude ${property.name} from totals` : `Include ${property.name} in totals`}
+        />
+        <i />
+      </label>
+      <span className="overview-mini-utility">
+        <a href={mapUrl} target="_blank" rel="noreferrer" aria-label={`Open ${property.name} in Maps`}><MapPin size={16} /></a>
+        <button type="button" onClick={() => onClone(property.id)} aria-label={`Clone ${property.name}`}><Copy size={16} /></button>
+      </span>
+    </footer>
+  </article>
+}
+
 function ModelInputFields({ settings, onSettingChange, onPercentChange, compact = false }) {
   const isPrivate = settings.accountType === 'private'
   return <div className={compact ? 'sidebar-input-list' : 'assumptions-grid'}>{modelInputFields.map(([key, label, suffix, type, scope, help]) => {
@@ -990,6 +1116,12 @@ function PortfolioApp({ user }) {
   const [editingId, setEditingId] = useState(null)
   const [pendingProperty, setPendingProperty] = useState(null)
   const sectionStorageKey = `btl-active-section:${user.id}`
+  const overviewPropertyViewStorageKey = `btl-overview-property-view:${user.id}`
+  const [overviewPropertyView, setOverviewPropertyView] = useState(() => {
+    const savedView = window.localStorage.getItem(overviewPropertyViewStorageKey)
+    if (overviewPropertyViewOptions.some(([id]) => id === savedView)) return savedView
+    return window.matchMedia?.('(max-width: 680px)').matches ? 'rows' : 'cards'
+  })
   const [section, setSection] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     if (BANKING_ENABLED && params.get('bank_callback') === '1') return 'Banking'
@@ -1042,6 +1174,10 @@ function PortfolioApp({ user }) {
   useEffect(() => {
     window.localStorage.setItem(sectionStorageKey, section)
   }, [section, sectionStorageKey])
+
+  useEffect(() => {
+    window.localStorage.setItem(overviewPropertyViewStorageKey, overviewPropertyView)
+  }, [overviewPropertyView, overviewPropertyViewStorageKey])
 
   useEffect(() => {
     if (state?.settings.accountType === 'private' && section === 'Companies House') setSection('Overview')
@@ -1406,8 +1542,30 @@ function PortfolioApp({ user }) {
               </article>
             </section>
 
-            <section className="properties-heading"><div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div><button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button></section>
-            <section className="property-cards">{calculated.map((p) => <PropertyCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}<button className="add-property-card" onClick={addProperty}><span><Plus /></span><b>Add another BTL</b><small>Start blank or clone an existing property</small></button></section>
+            <section className="properties-heading overview-properties-heading">
+              <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
+              <div className="overview-properties-heading-actions">
+                <OverviewPropertyViewSelector value={overviewPropertyView} onChange={setOverviewPropertyView} />
+                <button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button>
+              </div>
+            </section>
+
+            <div key={overviewPropertyView} className="overview-property-view-stage" data-view={overviewPropertyView}>
+              {overviewPropertyView === 'cards' && <section className="property-cards">
+                {calculated.map((p) => <PropertyCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
+                <button className="add-property-card" onClick={addProperty}><span><Plus /></span><b>Add another BTL</b><small>Start blank or clone an existing property</small></button>
+              </section>}
+
+              {overviewPropertyView === 'rows' && <section className="overview-property-rows">
+                {calculated.map((p) => <OverviewPropertyRow key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
+                <button type="button" className="overview-property-row-add" onClick={addProperty}><span><Plus size={17} /></span>Add another BTL</button>
+              </section>}
+
+              {overviewPropertyView === 'mini' && <section className="overview-property-mini-grid">
+                {calculated.map((p) => <OverviewPropertyMiniCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
+                <button type="button" className="overview-property-mini-add" onClick={addProperty}><span><Plus size={17} /></span><b>Add another BTL</b></button>
+              </section>}
+            </div>
 
             <section className="panel scenarios-panel"><header><div><span className="kicker">DYNAMIC PROJECTIONS</span><h2>Cashflow scenarios</h2></div></header><ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} /></section>
           </>}
