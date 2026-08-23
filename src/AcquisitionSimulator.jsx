@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronUp, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Building2, ChevronDown, ChevronUp, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { acquisitionCosts, acquisitionJurisdictions, createAcquisition, nextAcquisitionName, prependAcquisition, reorderAcquisitions } from './acquisition.js'
 import { currency } from './calculations.js'
 
@@ -315,7 +315,7 @@ export default function AcquisitionSimulator({
     </div>
 
     {!acquisitions.length
-      ? <section className="panel acquisition-empty"><Building2 size={24} /><h2>No potential acquisitions yet</h2><p>Import a listing or create a manual entry above.</p></section>
+      ? <section className="panel acquisition-empty"><Building2 size={24} /><h2>No potential acquisitions yet</h2><p>Add an acquisition above to estimate the cash required to complete it.</p></section>
       : <div className={`acquisition-list acq-list ${dragState ? 'is-reordering' : ''}`}>
           {acquisitions.map((item, index) => {
             const isDragging = dragState?.id === item.id

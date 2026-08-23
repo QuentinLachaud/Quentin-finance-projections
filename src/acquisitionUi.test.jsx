@@ -81,3 +81,27 @@ describe('Acquisition card default expansion', () => {
   })
 })
 
+describe('Acquisition empty-state runtime safety', () => {
+  it('renders the empty Acquisition Simulator without throwing', () => {
+    expect(() => renderToStaticMarkup(
+      <AcquisitionSimulator
+        acquisitions={[]}
+        onChange={noop}
+        defaultJurisdiction="scotland"
+        existingPropertyCount={2}
+      />
+    )).not.toThrow()
+
+    const html = renderToStaticMarkup(
+      <AcquisitionSimulator
+        acquisitions={[]}
+        onChange={noop}
+        defaultJurisdiction="scotland"
+        existingPropertyCount={2}
+      />
+    )
+    expect(html).toContain('No potential acquisitions yet')
+    expect(html).toContain('Add acquisition')
+    expect(html).not.toContain('Import a listing')
+  })
+})
