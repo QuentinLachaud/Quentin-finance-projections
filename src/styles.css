@@ -9345,3 +9345,188 @@ textarea {
     transition: none !important;
   }
 }
+
+/* Brain Drain 2026-08-23 18:04 BST — final iOS polish for collapsed remortgage cards */
+
+@media (min-width: 681px) and (max-width: 1024px),
+       (min-width: 1025px) and (max-width: 1194px) and (hover: none) and (pointer: coarse) {
+  .remortgage-comparison.collapsed {
+    border-color: color-mix(in srgb, var(--ui-line) 78%, transparent);
+    border-radius: 17px;
+    background: var(--ui-surface);
+    box-shadow: 0 1px 2px rgba(20,36,29,.025), 0 7px 22px rgba(20,36,29,.035);
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-main { padding: 12px 15px 11px; }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile {
+    grid-template-columns: minmax(100px,.62fr) minmax(300px,1.7fr) minmax(108px,auto);
+    gap: 15px;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-name {
+    font: 680 15px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    letter-spacing: -.015em;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates {
+    grid-template-columns: minmax(0,1fr) 24px minmax(0,1fr);
+    gap: 7px;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates > svg {
+    width: 15px; height: 15px;
+    color: color-mix(in srgb,var(--ui-muted) 72%,transparent);
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates small {
+    font: 620 8px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    letter-spacing: .045em;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates b {
+    font: 720 21px -apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif !important;
+    letter-spacing: -.032em;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates em {
+    font: 520 10px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash {
+    min-width: 0; padding: 0; border: 0; border-radius: 0;
+    grid-template-columns: auto auto;
+    gap: 1px 4px;
+    background: transparent !important;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash small:first-child {
+    margin: 0; color: var(--ui-muted); opacity: 1;
+    font: 560 8.5px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    letter-spacing: 0; text-transform: none;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash b {
+    font: 720 17px -apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;
+    letter-spacing: -.025em;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash small:last-child {
+    opacity: .7;
+    font: 540 9px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+  }
+  .remortgage-comparison.collapsed .remortgage-reorder-handle,
+  .remortgage-comparison.collapsed .remortgage-summary-actions { min-height: 36px; }
+  .remortgage-comparison.collapsed .remortgage-reorder-handle { width: 40px; }
+  .remortgage-comparison.collapsed .remortgage-summary-actions { padding: 1px 7px 1px 2px; gap: 1px; }
+  .remortgage-comparison.collapsed .remortgage-summary-actions .icon-button {
+    width: 32px; height: 32px; padding: 5px; border-radius: 9px;
+  }
+}
+
+@media (max-width: 680px) {
+  .remortgage-comparison.collapsed {
+    border: 1px solid color-mix(in srgb,var(--ui-line) 78%,transparent);
+    border-radius: 18px;
+    background: var(--ui-surface);
+    box-shadow: 0 1px 2px rgba(20,36,29,.02), 0 7px 22px rgba(20,36,29,.04);
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-row {
+    grid-template-columns: 40px minmax(0,1fr) auto;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-main {
+    padding: 12px 15px 10px;
+    border: 0; border-radius: 0;
+    background: transparent;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 140ms ease;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-main:active {
+    background: color-mix(in srgb,var(--ui-accent) 4%,var(--ui-surface));
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile {
+    grid-template-columns: minmax(0,1fr) max-content;
+    grid-template-areas: "name delta" "compare compare";
+    gap: 8px 12px;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-name {
+    font: 690 16px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    letter-spacing: -.018em; line-height: 1.15;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash {
+    min-width: 0; padding: 0; border: 0; border-radius: 0;
+    grid-template-columns: auto auto;
+    column-gap: 4px; row-gap: 0;
+    background: transparent !important;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash small:first-child {
+    grid-column: 1 / -1;
+    margin: 0 0 1px;
+    color: var(--ui-muted); opacity: 1;
+    font: 560 8.5px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    letter-spacing: 0; line-height: 1.15; text-transform: none;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash b {
+    font: 730 18px -apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;
+    letter-spacing: -.028em; line-height: 1;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-cash small:last-child {
+    color: currentColor; opacity: .68;
+    font: 560 9px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates {
+    padding: 9px 0 0;
+    border-top: 1px solid color-mix(in srgb,var(--ui-line) 80%,transparent);
+    grid-template-columns: minmax(0,1fr) 24px minmax(0,1fr);
+    gap: 6px;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates > svg {
+    width: 15px; height: 15px;
+    color: color-mix(in srgb,var(--ui-muted) 68%,transparent);
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates > span { gap: 2px; }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates small {
+    font: 620 8px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    letter-spacing: .045em;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates b {
+    font: 725 23px -apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif !important;
+    letter-spacing: -.035em; line-height: 1;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates em {
+    color: color-mix(in srgb,var(--ui-muted) 94%,var(--ui-text));
+    font: 520 10.5px -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .remortgage-comparison.collapsed .remortgage-reorder-handle,
+  .remortgage-comparison.collapsed .remortgage-summary-actions { min-height: 37px; }
+  .remortgage-comparison.collapsed .remortgage-reorder-handle {
+    width: 40px; padding: 0;
+    color: color-mix(in srgb,var(--ui-muted) 72%,transparent);
+  }
+  .remortgage-comparison.collapsed .remortgage-reorder-handle svg { width: 16px; height: 16px; }
+  .remortgage-comparison.collapsed .remortgage-summary-actions {
+    padding: 1px 7px 1px 2px; gap: 1px;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-actions .icon-button {
+    width: 33px; height: 33px; padding: 5px; border-radius: 9px;
+    color: color-mix(in srgb,var(--ui-muted) 78%,transparent);
+    background: transparent;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-row::after {
+    background: color-mix(in srgb,var(--ui-line) 78%,transparent);
+  }
+  :root[data-theme='dark'] .remortgage-comparison.collapsed {
+    box-shadow: 0 1px 2px rgba(0,0,0,.16), 0 8px 22px rgba(0,0,0,.12);
+  }
+}
+
+@media (max-width: 350px) {
+  .remortgage-comparison.collapsed .remortgage-summary-main { padding: 11px 12px 9px; }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile { column-gap: 8px; }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates {
+    grid-template-columns: minmax(0,1fr) 20px minmax(0,1fr); gap: 4px;
+  }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates b { font-size: 21px !important; }
+  .remortgage-comparison.collapsed .remortgage-summary-mobile-rates em { font-size: 9.5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .remortgage-comparison.collapsed .remortgage-summary-main,
+  .remortgage-comparison.collapsed .remortgage-summary-actions .icon-button {
+    transition: none !important;
+  }
+}

@@ -683,7 +683,7 @@ function CollapsedSummary({ comparison, property, expanded, onToggle }) {
         </span>
       </span>
       <span className={`remortgage-summary-mobile-cash ${animatedCashFlowChange >= 0 ? 'positive' : 'negative'}`}>
-        <small>{property ? 'True CF Δ' : 'Saving'}</small><b>{signedMoney(animatedCashFlowChange)}</b><small>/ mo</small>
+        <small>{property ? 'Cash flow change' : 'Mortgage saving'}</small><b>{signedMoney(animatedCashFlowChange)}</b><small>/ month</small>
       </span>
     </div>
 
