@@ -1,24 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, ChevronDown, ChevronUp, GripVertical, Link2, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { acquisitionCosts, acquisitionJurisdictions, createAcquisition, nextAcquisitionName, prependAcquisition, reorderAcquisitions } from './acquisition.js'
 import { currency } from './calculations.js'
-import { supabase } from './supabase.js'
 
 const numericKeys = new Set(['purchasePrice','expectedMonthlyRent','ltv','adsRate','legalFees','mortgageFee'])
 const numericValue = (value) => value === '' ? '' : Number(value)
-
-const listingRequest = async (url) => {
-  const { data } = await supabase.auth.getSession()
-  const token = data?.session?.access_token
-  const response = await fetch('/api/property-listing', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify({ url }),
-  })
-  const body = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(body.error || 'The listing could not be imported.')
-  return body
-}
 
 function InputShell({ label, prefix = '', suffix = '', children }) {
   return <label className="acq-sheet-field"><span>{label}</span><div className="acq-sheet-input">{prefix && <b>{prefix}</b>}{children}{suffix && <em>{suffix}</em>}</div></label>
@@ -55,7 +41,7 @@ export function AcquisitionEditorModal({ draft, mode, warning = '', onChange, on
         <section className="acq-sheet-group name"><label><span>Acquisition name</span><input aria-label="Acquisition name" value={draft.name} onChange={set('name')} /></label></section>
         {warning && <p className="acq-sheet-warning">{warning}</p>}
         <section className="acq-sheet-group">
-          <header><b>Property assumptions</b><small>Only purchase price is imported from a listing.</small></header>
+          <header><b>Property assumptions</b><small>Enter the purchase price and expected monthly rent.</small></header>
           <div className="acq-sheet-grid">
             <InputShell label="Purchase price" prefix="£"><input aria-label="Purchase price" type="number" min="0" step="1000" placeholder="200,000" value={draft.purchasePrice} onChange={set('purchasePrice')} /></InputShell>
             <InputShell label="Expected rent per month" prefix="£"><input aria-label="Expected rent per month" type="number" min="0" step="50" placeholder="1,200" value={draft.expectedMonthlyRent} onChange={set('expectedMonthlyRent')} /></InputShell>
@@ -117,7 +103,7 @@ export function AcquisitionCard({
         </div>
 
         <div className="acq-card-metrics" aria-label="Acquisition summary">
-          <div>
+          <div className="price">
             <span>Price</span>
             <b>{costs.price ? currency(costs.price) : '—'}</b>
           </div>
@@ -190,10 +176,6 @@ export default function AcquisitionSimulator({
   defaultJurisdiction = 'england-ni',
   existingPropertyCount = 0,
 }) {
-  const [listingUrl, setListingUrl] = useState('')
-  const [importing, setImporting] = useState(false)
-  const [error, setError] = useState('')
-  const [dragging, setDragging] = useState(false)
   const [expandedId, setExpandedId] = useState('')
   const [editor, setEditor] = useState(null)
   const [dragState, setDragState] = useState(null)
@@ -214,30 +196,7 @@ export default function AcquisitionSimulator({
       expectedMonthlyRent: '',
     }, values.jurisdiction || defaultJurisdiction),
   })
-  const openManual = () => {
-    setError('')
-    openNew()
-  }
-
-  const importUrl = async (value = listingUrl) => {
-    const url = String(value || '').trim()
-    if (!url || importing) return
-    setImporting(true)
-    setError('')
-    try {
-      const result = await listingRequest(url)
-      openNew({
-        purchasePrice: result.listing?.purchasePrice ?? '',
-        sourceUrl: url,
-        sourceProvider: result.provider,
-      }, result.warning || '')
-      setListingUrl('')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setImporting(false)
-    }
-  }
+  const openManual = () => openNew()
 
   const edit = (item) => setEditor({
     mode: 'edit',
@@ -348,23 +307,12 @@ export default function AcquisitionSimulator({
     }
   }
 
-  const droppedUrl = (event) => {
-    event.preventDefault()
-    setDragging(false)
-    const value = event.dataTransfer.getData('text/uri-list') || event.dataTransfer.getData('text/plain')
-    const url = value.split(/\s+/).find((item) => /^https?:\/\//i.test(item)) || ''
-    if (!url) return setError('Drop a Rightmove or Zoopla property link.')
-    setListingUrl(url)
-    importUrl(url)
-  }
-
   return <div className="acquisition-workspace acq-simplified">
-    <section className={`panel acquisition-import acq-import ${dragging ? 'dragging' : ''}`} onDragOver={(event) => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={droppedUrl}>
-      <div className="acquisition-import-copy"><span className="kicker">NEW POTENTIAL ACQUISITION</span><h2>Paste a listing or enter a price manually</h2><p>A listing import only fills the purchase price. You review everything before the acquisition is saved.</p></div>
-      <div className="acquisition-import-controls"><label><Link2 size={17} /><input aria-label="Rightmove or Zoopla listing URL" type="url" placeholder="https://www.rightmove.co.uk/…" value={listingUrl} onChange={(event) => setListingUrl(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); importUrl() } }} /></label><button type="button" className="primary-button" disabled={!listingUrl.trim() || importing} onClick={() => importUrl()}>{importing ? <LoaderCircle className="spin" size={16} /> : <Link2 size={16} />}{importing ? 'Reading price…' : 'Import listing'}</button><button type="button" className="secondary-button" onClick={openManual}><Plus size={16} /> Manual entry</button></div>
-      {error && <p className="acquisition-import-message error">{error} <button type="button" onClick={openManual}>Enter manually</button></p>}
-      <div className="acquisition-import-hint"><Building2 size={15} /><span>Review before saving · 75% LTV · £1,500 legal fees · Scottish ADS 8% by default.</span></div>
-    </section>
+    <div className="acq-add-toolbar">
+      <button type="button" className="primary-button acq-add-button" onClick={openManual}>
+        <Plus size={16} /> Add acquisition
+      </button>
+    </div>
 
     {!acquisitions.length
       ? <section className="panel acquisition-empty"><Building2 size={24} /><h2>No potential acquisitions yet</h2><p>Import a listing or create a manual entry above.</p></section>
