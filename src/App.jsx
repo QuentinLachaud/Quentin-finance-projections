@@ -1105,6 +1105,42 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
   )
 }
 
+
+function ModelInputsPopup({ settings, onSettingChange, onPercentChange, onClose }) {
+  useEffect(() => {
+    const onKeyDown = (event) => event.key === 'Escape' && onClose()
+    const previousOverflow = document.body.style.overflow
+    document.addEventListener('keydown', onKeyDown)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [onClose])
+
+  return <div className="model-inputs-popup-layer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="model-inputs-popup" role="dialog" aria-modal="true" aria-labelledby="model-inputs-popup-title">
+      <div className="model-inputs-popup-grabber" aria-hidden="true" />
+      <header>
+        <button type="button" onClick={onClose}>Close</button>
+        <div><small>PORTFOLIO ASSUMPTIONS</small><h2 id="model-inputs-popup-title">Model inputs</h2><span>Changes save automatically.</span></div>
+        <button type="button" className="done" onClick={onClose}>Done</button>
+      </header>
+      <div className="model-inputs-popup-body">
+        <section className="model-inputs-popup-group">
+          <h3>Portfolio model</h3>
+          <ModelInputFields settings={settings} onSettingChange={onSettingChange} onPercentChange={onPercentChange} />
+        </section>
+        <section className="model-inputs-popup-group">
+          <h3>Management</h3>
+          <ModelControls settings={settings} onChange={onSettingChange} />
+        </section>
+        <PrivateLandlordInputs settings={settings} onSettingChange={onSettingChange} />
+      </div>
+    </section>
+  </div>
+}
+
 function PortfolioApp({ user }) {
   const [state, setState] = useState(null)
   const [entitlement, setEntitlement] = useState(null)
@@ -1136,6 +1172,7 @@ function PortfolioApp({ user }) {
     () => new Set(propertyGroups.map(({ title }) => title)),
   )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [modelInputsPopupOpen, setModelInputsPopupOpen] = useState(false)
   const [mobileBufferExpanded, setMobileBufferExpanded] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const accentKey = accentStorageKey(user.id)
@@ -1421,7 +1458,7 @@ function PortfolioApp({ user }) {
               </label>
             </div>)}
           </nav>
-          <details className="sidebar-model-inputs sidebar-disclosure">
+          <details className="sidebar-model-inputs sidebar-disclosure sidebar-model-inputs-desktop">
             <summary>
               <Sparkles size={15} />
               <div><b>Model inputs</b><small>Portfolio assumptions</small></div>
@@ -1433,6 +1470,19 @@ function PortfolioApp({ user }) {
               <PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} compact />
             </div>
           </details>
+          <button
+            type="button"
+            className="model-inputs-popup-trigger"
+            aria-haspopup="dialog"
+            onClick={() => {
+              setMobileNavOpen(false)
+              setModelInputsPopupOpen(true)
+            }}
+          >
+            <Sparkles size={15} />
+            <span><b>Model inputs</b><small>Portfolio assumptions</small></span>
+            <Pencil size={15} />
+          </button>
           <AccountProfileEditor settings={state.settings} onChange={updateSetting} />
           <button className={`sidebar-plan ${effectiveEntitlement.isPro ? 'pro' : ''}`} onClick={() => { setSection('Plan & billing'); setMobileNavOpen(false) }}><Sparkles size={17} /><span><b>{effectiveEntitlement.isPro ? 'Pro access' : 'Free · 1 BTL'}</b><small>{effectiveEntitlement.isOwner ? 'Owner account' : effectiveEntitlement.isPro ? 'Unlimited properties' : 'View upgrade options'}</small></span></button>
           {SUPPORT.enabled && showFreeSupport(effectiveEntitlement) && <a className="sidebar-support" href={SUPPORT.url} target="_blank" rel="noreferrer"><Coffee size={17} /><span><b>Buy me a coffee</b><small>Support BTL Portfolio</small></span><ExternalLink size={13} /></a>}
@@ -1450,6 +1500,13 @@ function PortfolioApp({ user }) {
           <button className="sidebar-signout" onClick={() => supabase.auth.signOut()} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button>
         </div>
       </aside>
+
+      {modelInputsPopupOpen && <ModelInputsPopup
+        settings={state.settings}
+        onSettingChange={updateSetting}
+        onPercentChange={updatePercentSetting}
+        onClose={() => setModelInputsPopupOpen(false)}
+      />}
 
       {settingsOpen && <div className="settings-layer" onMouseDown={() => setSettingsOpen(false)}>
         <section

@@ -8479,3 +8479,145 @@ textarea {
     touch-action: manipulation;
   }
 }
+
+/* Brain Drain 2026-08-23 10:11 BST — corrected iOS Model Inputs popup */
+.model-inputs-popup-trigger { display: none; }
+
+.model-inputs-popup-layer {
+  position: fixed; inset: 0; z-index: 1600; padding: 24px;
+  display: grid; place-items: center;
+  background: rgba(8,12,11,.44);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.model-inputs-popup {
+  width: min(600px, calc(100vw - 48px));
+  max-height: min(760px, calc(100dvh - 48px));
+  overflow: hidden; border: 1px solid var(--ui-line, var(--line));
+  border-radius: 26px; color: var(--ui-ink, var(--ink));
+  background: var(--ui-canvas, #f4f5f3);
+  box-shadow: 0 28px 90px rgba(0,0,0,.25);
+}
+.model-inputs-popup-grabber { display: none; }
+.model-inputs-popup > header {
+  min-height: 78px; padding: 10px 15px;
+  display: grid; grid-template-columns: 64px minmax(0,1fr) 64px;
+  align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--ui-line, var(--line));
+  background: color-mix(in srgb, var(--ui-surface, #fff) 93%, transparent);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.model-inputs-popup > header > div { min-width: 0; text-align: center; }
+.model-inputs-popup > header small {
+  display: block; color: var(--ui-accent, var(--green));
+  font-size: 8px; font-weight: 750; letter-spacing: .13em;
+}
+.model-inputs-popup > header h2 { margin: 2px 0 0; font-size: 20px; }
+.model-inputs-popup > header span { color: var(--ui-muted, var(--muted)); font-size: 9.5px; }
+.model-inputs-popup > header button {
+  min-height: 38px; padding: 0 3px; border: 0;
+  color: var(--ui-accent, var(--green)); background: transparent;
+  font-size: 13px; text-align: left;
+}
+.model-inputs-popup > header button.done { font-weight: 750; text-align: right; }
+
+.model-inputs-popup-body {
+  max-height: calc(min(760px, 100dvh - 48px) - 78px);
+  padding: 17px; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.model-inputs-popup-group { margin-bottom: 18px; }
+.model-inputs-popup-group > h3 {
+  margin: 0; padding: 0 9px 7px;
+  color: var(--ui-muted, var(--muted)); font-size: 11px; font-weight: 650;
+}
+
+/* Turn the existing model inputs into an iOS grouped settings list inside the popup. */
+.model-inputs-popup .assumptions-grid {
+  margin: 0; padding: 0; display: block; overflow: hidden;
+  border: 1px solid var(--ui-line, var(--line)); border-radius: 14px;
+  background: var(--ui-surface, #fff);
+}
+.model-inputs-popup .assumptions-grid > label {
+  min-height: 58px; margin: 0; padding: 8px 12px;
+  display: grid; grid-template-columns: minmax(0,1fr) minmax(116px,42%);
+  align-items: center; gap: 10px;
+  border: 0; border-bottom: 1px solid var(--ui-line, var(--line));
+  background: transparent;
+}
+.model-inputs-popup .assumptions-grid > label:last-child { border-bottom: 0; }
+.model-inputs-popup .assumptions-grid > label > span {
+  display: flex; align-items: center; min-width: 0;
+  color: var(--ui-ink, var(--ink)); font-size: 13px; font-weight: 550;
+}
+.model-inputs-popup .assumptions-grid > label > div {
+  min-height: 40px; padding: 0 9px; display: flex; align-items: center;
+  border: 0; border-radius: 9px; overflow: hidden;
+  background: var(--ui-surface-muted, #f0f2f0);
+}
+.model-inputs-popup .assumptions-grid input {
+  width: 100%; min-width: 0; padding: 8px 0; border: 0; outline: 0;
+  color: var(--ui-ink, var(--ink)); background: transparent;
+  font-size: 16px; font-weight: 650; text-align: right;
+}
+.model-inputs-popup .assumptions-grid label > div > b {
+  padding-left: 6px; color: var(--ui-muted, var(--muted));
+  font-size: 10px; font-weight: 600; white-space: nowrap;
+}
+.model-inputs-popup .model-controls {
+  width: 100%; margin: 0; padding: 0; display: block; overflow: hidden;
+  border: 1px solid var(--ui-line, var(--line)); border-radius: 14px;
+  background: var(--ui-surface, #fff);
+}
+.model-inputs-popup .model-controls label,
+.model-inputs-popup .model-controls label.selected {
+  width: 100%; min-height: 58px; margin: 0; padding: 10px 12px;
+  border: 0; border-radius: 0; justify-content: flex-start;
+  color: var(--ui-ink, var(--ink)); background: transparent;
+}
+.model-inputs-popup .private-tax-inputs { margin: 0 0 6px; border-radius: 14px; }
+
+@media (max-width: 760px) {
+  .sidebar-model-inputs-desktop { display: none; }
+  .model-inputs-popup-trigger {
+    width: calc(100% - 8px); min-height: 52px; margin: 14px 4px 0; padding: 10px 11px;
+    border: 1px solid #2d3934; border-radius: 12px;
+    display: grid; grid-template-columns: 18px minmax(0,1fr) 20px;
+    align-items: center; gap: 8px; text-align: left;
+    color: #8fddb9; background: #151d1a;
+  }
+  .model-inputs-popup-trigger > span { min-width: 0; display: grid; gap: 2px; }
+  .model-inputs-popup-trigger b { color: #edf4f0; font-size: 12px; }
+  .model-inputs-popup-trigger small {
+    overflow: hidden; color: #7f8c86; font-size: 10px;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .model-inputs-popup-trigger > svg:last-child { color: #728078; }
+  .model-inputs-popup-layer { padding: 0; place-items: end stretch; }
+  .model-inputs-popup {
+    width: 100%; max-height: 92dvh;
+    border-inline: 0; border-bottom: 0; border-radius: 24px 24px 0 0;
+  }
+  .model-inputs-popup-grabber {
+    width: 36px; height: 5px; margin: 7px auto -3px;
+    display: block; border-radius: 999px;
+    background: color-mix(in srgb, var(--ui-muted, var(--muted)) 32%, transparent);
+  }
+  .model-inputs-popup-body {
+    max-height: calc(92dvh - 78px);
+    padding: 15px 12px calc(20px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (min-width: 761px) and (max-width: 1366px) {
+  .sidebar-model-inputs-desktop { display: none; }
+  .model-inputs-popup-trigger {
+    width: calc(100% - 8px); min-height: 52px; margin: 14px 4px 0; padding: 10px 11px;
+    border: 1px solid #2d3934; border-radius: 12px;
+    display: grid; grid-template-columns: 18px minmax(0,1fr) 20px;
+    align-items: center; gap: 8px; text-align: left;
+    color: #8fddb9; background: #151d1a;
+  }
+  .model-inputs-popup-trigger > span { min-width: 0; display: grid; gap: 2px; }
+  .model-inputs-popup-trigger b { color: #edf4f0; font-size: 12px; }
+  .model-inputs-popup-trigger small { color: #7f8c86; font-size: 10px; }
+}
