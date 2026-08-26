@@ -325,7 +325,6 @@ function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disab
 
 function PropertyCard({ property, onEdit, onClone, onToggle }) {
   const [mobileExpanded, setMobileExpanded] = useState(false)
-  const equityPercent = property.latestValuation ? property.equity / property.latestValuation : 0
   const mapQuery = [property.flatNumber, property.address, property.postcode, 'UK'].filter(Boolean).join(', ')
   const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}`
   return (
@@ -339,14 +338,10 @@ function PropertyCard({ property, onEdit, onClone, onToggle }) {
         <h3>{formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'}</h3>
         <p>{property.postcode} · {property.bedrooms} bed · {property.areaSqm}m²</p>
       </div>
-      <div className="property-value">
-        <span>Current valuation</span>
-        <strong>{currency(property.latestValuation)}</strong>
-      </div>
-      <div className="equity-bar"><i style={{ width: `${Math.max(0, Math.min(100, equityPercent * 100))}%` }} /></div>
+      <PropertyFinancingSummary property={property} variant="card" />
       <div className="property-mini-grid">
-        <div><span>Equity</span><b>{currency(property.equity)}</b></div>
         <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
+        <div><span>Mortgage / mo</span><b>{currency(property.monthlyPayment, 0)}</b></div>
         <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
       </div>
       <div className="property-map">
@@ -418,10 +413,10 @@ function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
 
     <div className="overview-property-row-shell" aria-hidden={!expanded}>
       <div className="overview-property-row-inner">
+        <PropertyFinancingSummary property={property} variant="row" />
         <div className="overview-property-row-metrics">
-          <div><span>Equity</span><b>{currency(property.equity)}</b></div>
-          <div><span>Loan</span><b>{currency(property.loanAmount)}</b></div>
           <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
+          <div><span>Mortgage / mo</span><b>{currency(property.monthlyPayment, 0)}</b></div>
           <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
         </div>
         <div className="overview-property-row-actions">
@@ -460,15 +455,10 @@ function OverviewPropertyMiniCard({ property, onEdit, onClone, onToggle }) {
       </button>
     </header>
 
-    <div className="overview-mini-value">
-      <span>Current value</span>
-      <strong>{currency(property.latestValuation)}</strong>
-    </div>
+    <PropertyFinancingSummary property={property} variant="mini" />
 
     <div className="overview-mini-metrics">
-      <div><span>Equity</span><b>{currency(property.equity)}</b></div>
       <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
-      <div><span>LTV</span><b>{percent(property.currentLtv, 1)}</b></div>
       <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
     </div>
 
@@ -617,34 +607,27 @@ function AccountSetupModal({ onComplete }) {
   return <div className="setup-layer"><section className="setup-modal" role="dialog" aria-modal="true" aria-labelledby="setup-title"><span className="setup-icon">{isPrivate ? <Home /> : <Building2 />}</span><span className="kicker">ONE QUICK DETAIL</span><h2 id="setup-title">How do you hold your properties?</h2><p>This keeps company-only fields out of the way when they do not apply.</p><div className="setup-account-types"><button className={!isPrivate ? 'active' : ''} onClick={() => setAccountType('company')}><Building2 /><span><b>Limited company</b><small>Company costs and corporation tax</small></span><Check /></button><button className={isPrivate ? 'active' : ''} onClick={() => setAccountType('private')}><Home /><span><b>Private landlord</b><small>Personal property portfolio</small></span><Check /></button></div>{!isPrivate && <label className="setup-company-name"><span>Company name <small>optional</small></span><input autoFocus value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="e.g. Quark Holdings" /></label>}<button className="primary-button setup-continue" onClick={() => onComplete({ accountType, companyName: isPrivate ? '' : companyName.trim(), onboardingComplete: true })}>Continue to portfolio <ArrowUpRight size={17} /></button></section></div>
 }
 
-function AssetPositionChart({ properties }) {
-  const [mobileExpanded, setMobileExpanded] = useState(() => new Set())
-  const maxValue = Math.max(1, ...properties.map((p) => p.latestValuation))
-  const toggleMobileAsset = (id) => setMobileExpanded((current) => {
-    const next = new Set(current)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    return next
-  })
-  return (
-    <div className="asset-position" aria-label="Property loan-to-value positions">
-      <div className="asset-rows">
-        {properties.map((p) => {
-          const expanded = mobileExpanded.has(p.id)
-          return <div className={`asset-row mobile-asset-row ${expanded ? 'mobile-expanded' : ''}`} key={p.id}>
-            <button type="button" className="asset-mobile-toggle" aria-expanded={expanded} onClick={() => toggleMobileAsset(p.id)}>
-              <span className="asset-mobile-identity"><b>{p.name}</b><small>{p.postcode || p.address || 'Property'}</small></span>
-              <span className="asset-mobile-track" aria-hidden="true"><span className="asset-track"><span className="asset-value-bar" /><span className="asset-loan-bar" style={{ width: `${Math.min(100, p.currentLtv * 100)}%` }}><span className="asset-ltv-label">LTV {percent(p.currentLtv, 1)}</span></span></span></span>
-              <span className="asset-mobile-chevron" aria-hidden="true">{expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
-            </button>
-            <div className="asset-label"><b>{p.name}</b><small>{p.flatNumber}, {p.address}</small></div>
-            <div className="asset-track-wrap"><div className="asset-track" style={{ width: `${Math.max(30, p.latestValuation / maxValue * 100)}%` }}><span className="asset-value-bar" /><span className="asset-loan-bar" style={{ width: `${Math.min(100, p.currentLtv * 100)}%` }}><span className="asset-ltv-label">LTV {percent(p.currentLtv, 1)}</span></span></div></div>
-            <div className="asset-numbers"><span><b>{currency(p.latestValuation)}</b><small>Value</small></span><span><b>{currency(p.loanAmount)}</b><small>Loan</small></span><span><b>{currency(p.equity)}</b><small>Equity</small></span></div>
-          </div>
-        })}
+function PropertyFinancingSummary({ property, variant = 'card' }) {
+  const ltv = Math.max(0, Math.min(1, Number(property.currentLtv || 0)))
+  return <section className={`property-financing property-financing-${variant}`} aria-label={`${property.name} asset financing`}>
+    <div className="property-financing-heading">
+      <span>Asset financing</span>
+      <b>{percent(ltv, 1)} LTV</b>
+    </div>
+    <div className="property-financing-track-wrap" aria-hidden="true">
+      <div className="asset-track property-financing-track">
+        <span className="asset-value-bar" />
+        <span className="asset-loan-bar" style={{ width: `${ltv * 100}%` }}>
+          <span className="asset-ltv-label">LTV {percent(ltv, 1)}</span>
+        </span>
       </div>
     </div>
-  )
+    <div className="property-financing-numbers">
+      <span><b>{currency(property.latestValuation)}</b><small>Value</small></span>
+      <span><b>{currency(property.loanAmount)}</b><small>Loan</small></span>
+      <span><b>{currency(property.equity)}</b><small>Equity</small></span>
+    </div>
+  </section>
 }
 
 function ModelControls({ settings, onChange, compact = false }) {
@@ -1679,8 +1662,7 @@ function PortfolioApp({ user }) {
               </MetricCard>
             </section>
 
-            <section className="main-grid">
-              <article className="panel span-2 overview-asset-panel"><header><div><h2>Asset Financing</h2><span className="mobile-portfolio-ltv">{percent(portfolio.totalLoans / portfolio.totalValue, 1)} portfolio LTV</span></div><span className="panel-stat">{percent(portfolio.totalLoans / portfolio.totalValue, 1)} portfolio LTV</span></header><AssetPositionChart properties={portfolio.selected} /></article>
+            <section className="main-grid overview-buffer-only">
               <article className={`panel buffer-panel mobile-buffer-disclosure ${mobileBufferExpanded ? 'mobile-expanded' : ''}`}>
                 <button type="button" className="mobile-buffer-header-toggle" aria-expanded={mobileBufferExpanded} onClick={() => setMobileBufferExpanded((current) => !current)}>
                   <span><span className="kicker">SAFETY BUFFER</span><h2>Safety Cash Buffer</h2></span>

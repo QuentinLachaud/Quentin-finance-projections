@@ -9755,3 +9755,130 @@ textarea {
   .properties-tools .property-view-choice,
   .property-group-toggle { transition: none !important; }
 }
+
+/* Brain Drain 2026-08-26 14:03 BST — move Asset Financing into property cards */
+.property-financing {
+  min-width: 0;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.property-financing-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+.property-financing-heading > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.property-financing-heading > b {
+  color: var(--ink);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.property-financing-track-wrap {
+  width: 100%;
+  min-width: 0;
+}
+.property-financing-track {
+  width: 100% !important;
+  max-width: none !important;
+}
+.property-financing-numbers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.property-financing-numbers > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.property-financing-numbers b {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.property-financing-numbers small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+/* Full Overview cards keep financing visible even before mobile detail disclosure. */
+.overview-property-card .property-financing {
+  display: block;
+}
+
+/* Row financing belongs to the expanded shell, not the collapsed summary. */
+.overview-property-row-inner > .property-financing-row {
+  margin: 0 0 15px;
+  padding: 0 0 15px;
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+}
+.overview-property-row-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Mini cards use the same information and bar at a denser scale. */
+.property-financing-mini {
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.property-financing-mini .property-financing-heading {
+  margin-bottom: 7px;
+}
+.property-financing-mini .property-financing-numbers {
+  gap: 7px;
+  margin-top: 8px;
+}
+.property-financing-mini .property-financing-numbers b {
+  font-size: 12px;
+}
+.property-financing-mini .asset-ltv-label {
+  font-size: 8px;
+}
+.overview-mini-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Once the portfolio-wide Asset Financing panel is gone, the safety buffer owns this Overview row. */
+.overview-buffer-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+.overview-buffer-only > .buffer-panel {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .property-financing {
+    margin-top: 13px;
+    padding-top: 12px;
+  }
+  .property-financing-numbers {
+    gap: 7px;
+  }
+  .property-financing-numbers b {
+    font-size: 12px;
+  }
+  .property-financing-numbers small {
+    font-size: 9px;
+  }
+  .overview-property-row-inner > .property-financing-row {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+  }
+}
+
