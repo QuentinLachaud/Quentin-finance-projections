@@ -20,6 +20,7 @@ import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import CredentialsWorkspace from './CredentialsWorkspace.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 import AcquisitionSimulator from './AcquisitionSimulator.jsx'
+import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
 import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
@@ -1254,7 +1255,6 @@ function PortfolioApp({ user }) {
   )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [modelInputsPopupOpen, setModelInputsPopupOpen] = useState(false)
-  const [mobileBufferExpanded, setMobileBufferExpanded] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const accentKey = accentStorageKey(user.id)
   const [accentHue, setAccentHue] = useState(() => initialAccent(window.localStorage.getItem(accentKey)))
@@ -1650,34 +1650,7 @@ function PortfolioApp({ user }) {
           {(section === 'Overview' || section === 'Projections') && <PrivateTaxSummary portfolio={portfolio} settings={state.settings} />}
 
           {section === 'Overview' && <>
-            <section className="metrics-grid">
-              <MetricCard eyebrow="PORTFOLIO VALUE" value={currency(portfolio.totalValue)} delta={`${currency(portfolio.totalEquity)} total equity`} icon={Landmark} tone="dark" />
-              <MetricCard eyebrow="MONTHLY RENT" value={currency(portfolio.rent)} delta={`${currency(portfolio.rent * 12)} annually`} icon={PoundSterling} tone="green" />
-              <MetricCard eyebrow={state.settings.accountType === 'private' ? 'MONTHLY CASHFLOW' : 'COMPANY + EXTRACTION / MONTH'} value={currency(portfolio.scenarios[0]?.cashflow)} delta={state.settings.accountType === 'private' ? 'Conservative scenario' : `${currency(portfolio.scenarios[0]?.bankCashflow)} company bank cashflow · before personal tax on extraction`} icon={portfolio.scenarios[0]?.cashflow >= 0 ? ArrowUpRight : ArrowDownRight} />
-              <MetricCard eyebrow="WEIGHTED RATE" value={percent(portfolio.weightedRate, 2)} delta={`${percent(state.settings.rateShock, 2)} rate shock included`} icon={TrendingUp} className="weighted-rate-card">
-                <div className="rate-shock-stepper" aria-label="Rate shock controls">
-                  <button type="button" className="decrease" aria-label="Decrease rate shock by 0.1 percent" onClick={() => updateSetting('rateShock', Number((Number(state.settings.rateShock || 0) - 0.001).toFixed(4)))}>− 0.1%</button>
-                  <button type="button" className="increase" aria-label="Increase rate shock by 0.1 percent" onClick={() => updateSetting('rateShock', Number((Number(state.settings.rateShock || 0) + 0.001).toFixed(4)))}>+ 0.1%</button>
-                </div>
-              </MetricCard>
-            </section>
-
-            <section className="main-grid overview-buffer-only">
-              <article className={`panel buffer-panel mobile-buffer-disclosure ${mobileBufferExpanded ? 'mobile-expanded' : ''}`}>
-                <button type="button" className="mobile-buffer-header-toggle" aria-expanded={mobileBufferExpanded} onClick={() => setMobileBufferExpanded((current) => !current)}>
-                  <span><span className="kicker">SAFETY BUFFER</span><h2>Safety Cash Buffer</h2></span>
-                  <span className="mobile-expand-cue">{mobileBufferExpanded ? 'Hide' : 'Expand'}{mobileBufferExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
-                </button>
-                <AnimatedBufferRing
-                  cashHeld={portfolio.cashHeld}
-                  safeCashNeeded={portfolio.safeCashNeeded}
-                  bufferMonths={portfolio.bufferMonths}
-                  expanded={mobileBufferExpanded}
-                  onToggle={() => setMobileBufferExpanded((current) => !current)}
-                />
-                <div className="buffer-lines"><p><span>Cash held</span><b>{currency(portfolio.cashHeld)}</b></p><p><span>Six-month target</span><b>{currency(portfolio.safeCashNeeded)}</b></p><p className={portfolio.extraCashNeeded ? 'warn' : 'ok'}><span>{portfolio.extraCashNeeded ? 'Additional cash needed' : 'Buffer status'}</span><b>{portfolio.extraCashNeeded ? currency(portfolio.extraCashNeeded) : 'Safe'}</b></p></div>
-              </article>
-            </section>
+            <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
 
             <section className="properties-heading overview-properties-heading">
               <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
