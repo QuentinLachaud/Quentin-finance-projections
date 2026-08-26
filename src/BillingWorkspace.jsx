@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Check, Crown, ExternalLink, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { PLAN_PRICES } from './billing.js'
 import { supabase } from './supabase.js'
@@ -26,6 +26,9 @@ export default function BillingWorkspace({ entitlement, onRefresh, modal = false
   const [adminEmail, setAdminEmail] = useState('')
   const [adminPlan, setAdminPlan] = useState('pro')
   const [adminResult, setAdminResult] = useState('')
+  const [proAccessEmails, setProAccessEmails] = useState([])
+  const [proAccessStatus, setProAccessStatus] = useState('idle')
+  const [proAccessError, setProAccessError] = useState('')
 
   const perform = async (action, values = {}) => {
     setBusy(action + (values.interval || ''))
@@ -42,6 +45,23 @@ export default function BillingWorkspace({ entitlement, onRefresh, modal = false
     }
   }
 
+  const loadProAccess = async () => {
+    setProAccessStatus('loading')
+    setProAccessError('')
+    try {
+      const result = await billingRequest({ action: 'admin-list-pro-access' })
+      setProAccessEmails(Array.isArray(result.emails) ? result.emails : [])
+      setProAccessStatus('ready')
+    } catch (requestError) {
+      setProAccessError(requestError.message)
+      setProAccessStatus('error')
+    }
+  }
+
+  useEffect(() => {
+    if (entitlement?.isOwner && !modal) loadProAccess()
+  }, [entitlement?.isOwner, modal])
+
   const setManualPlan = async (event) => {
     event.preventDefault()
     setAdminResult('')
@@ -50,6 +70,7 @@ export default function BillingWorkspace({ entitlement, onRefresh, modal = false
       setAdminResult(`${result.email} now has ${result.plan === 'pro' ? 'Pro' : 'Free'} access.`)
       setAdminEmail('')
       onRefresh?.()
+      await loadProAccess()
     }
   }
 
@@ -88,6 +109,16 @@ export default function BillingWorkspace({ entitlement, onRefresh, modal = false
         <button className="primary-button" disabled={Boolean(busy)}><Sparkles size={16} /> {busy === 'admin-set-plan' ? 'Updating…' : 'Update access'}</button>
       </form>
       {adminResult && <p className="billing-message success">{adminResult}</p>}
+      {entitlement?.isOwner && <div className="owner-pro-access-list">
+        <header>
+          <span><b>Pro access emails</b><small>{proAccessEmails.length} {proAccessEmails.length === 1 ? 'account' : 'accounts'}</small></span>
+          <button type="button" className="text-button" onClick={loadProAccess} disabled={proAccessStatus === 'loading'} aria-label="Refresh Pro access emails">Refresh</button>
+        </header>
+        {proAccessStatus === 'loading' && <p className="owner-pro-access-state">Loading Pro accounts…</p>}
+        {proAccessStatus === 'error' && <p className="owner-pro-access-state error">{proAccessError || 'Could not load Pro accounts.'}</p>}
+        {proAccessStatus === 'ready' && proAccessEmails.length === 0 && <p className="owner-pro-access-state">No Pro accounts found.</p>}
+        {proAccessStatus === 'ready' && proAccessEmails.length > 0 && <ul>{proAccessEmails.map((email) => <li key={email}>{email}</li>)}</ul>}
+      </div>}
     </section>}
   </div>
 

@@ -60,6 +60,23 @@ export async function onRequestPost({ request, env }) {
       return json({ url: session.url })
     }
 
+
+    if (action === 'admin-list-pro-access') {
+      if (!entitlement.isOwner) return json({ error: 'Owner access is required.' }, 403)
+      const proRows = await adminRequest(
+        env,
+        '/rest/v1/account_entitlements?plan=eq.pro&select=user_id&order=user_id.asc',
+      )
+      const proUserIds = new Set((proRows || []).map((row) => row.user_id).filter(Boolean))
+      const authUsers = await adminRequest(env, '/auth/v1/admin/users?per_page=1000')
+      const emails = [...new Set((authUsers?.users || [])
+        .filter((account) => proUserIds.has(account.id))
+        .map((account) => String(account.email || '').trim().toLowerCase())
+        .filter(Boolean))]
+        .sort((left, right) => left.localeCompare(right))
+      return json({ emails })
+    }
+
     if (action === 'admin-set-plan') {
       if (!entitlement.isAdmin) return json({ error: 'Owner access is required.' }, 403)
       const target = await findUserByEmail(env, input.email)

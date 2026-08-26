@@ -62,6 +62,37 @@ describe('billing API', () => {
     expect(response.status).toBe(403)
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
+
+  it('lets only the configured owner retrieve a sorted email-only Pro access list', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'owner-id', email: 'owner@example.com' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ user_id: 'owner-id', plan: 'pro', source: 'owner', is_admin: true }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ user_id: 'owner-id' }, { user_id: 'friend-id' }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ users: [
+        { id: 'owner-id', email: 'OWNER@example.com' },
+        { id: 'friend-id', email: 'friend@example.com' },
+        { id: 'free-id', email: 'free@example.com' },
+      ] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await onRequestPost({ request: request({ action: 'admin-list-pro-access' }), env })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ emails: ['friend@example.com', 'owner@example.com'] })
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('forbids a non-owner admin from retrieving Pro account emails', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'admin-1', email: 'admin@example.com' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ user_id: 'admin-1', plan: 'pro', source: 'manual', is_admin: true }]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await onRequestPost({ request: request({ action: 'admin-list-pro-access' }), env })
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'Owner access is required.' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
 })
 
 describe('billing endpoint edge-case audit', () => {

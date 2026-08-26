@@ -11646,3 +11646,63 @@ textarea {
     text-overflow: ellipsis;
   }
 }
+
+/* Brain Drain 2026-08-26 22:51 BST — owner-only Pro access list */
+.owner-pro-access-list {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--ui-line, var(--line));
+  border-radius: 14px;
+  background: var(--ui-surface-subtle, #fafbf9);
+}
+.owner-pro-access-list > header {
+  min-height: 50px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--ui-line, var(--line));
+}
+.owner-pro-access-list > header > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.owner-pro-access-list > header b {
+  color: var(--ui-text, var(--ink));
+  font-size: 13px;
+  font-weight: 650;
+}
+.owner-pro-access-list > header small,
+.owner-pro-access-state {
+  color: var(--ui-muted, var(--muted));
+  font-size: 11px;
+}
+.owner-pro-access-list > header .text-button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding-inline: 8px;
+}
+.owner-pro-access-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.owner-pro-access-list li {
+  min-height: 42px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--ui-line, var(--line));
+  color: var(--ui-text, var(--ink));
+  font: 550 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  overflow-wrap: anywhere;
+}
+.owner-pro-access-list li:last-child { border-bottom: 0; }
+.owner-pro-access-state {
+  margin: 0;
+  padding: 13px 12px;
+}
+.owner-pro-access-state.error { color: var(--semantic-negative, #b54b41); }
