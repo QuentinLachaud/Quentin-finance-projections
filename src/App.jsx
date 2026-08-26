@@ -20,6 +20,7 @@ import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import CredentialsWorkspace from './CredentialsWorkspace.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 import AcquisitionSimulator from './AcquisitionSimulator.jsx'
+import TimeToNextBtl from './TimeToNextBtl.jsx'
 import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
 import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
@@ -1865,6 +1866,12 @@ function PortfolioApp({ user }) {
               <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
             </section>
             <ProjectionExplorer properties={includedProperties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
+            <TimeToNextBtl
+              properties={includedProperties}
+              settings={state.settings}
+              portfolio={portfolio}
+              acquisitions={state.acquisitionScenarios || []}
+            />
             <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
           </>}
 
