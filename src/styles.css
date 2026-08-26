@@ -11583,3 +11583,66 @@ textarea {
     scroll-behavior: auto;
   }
 }
+
+/* Brain Drain 2026-08-26 22:43 BST — screenshot UI polish */
+/*
+ * Light pages must not inherit dark native form-control painting from the host
+ * browser/OS. Keep this at the theme boundary, then explicitly guard the two
+ * screenshot contexts that previously exposed black input interiors.
+ */
+:root:not([data-theme='dark']) {
+  color-scheme: light;
+}
+
+:root:not([data-theme='dark']) .properties-search {
+  background: var(--ui-surface, var(--white, #fff)) !important;
+}
+
+:root:not([data-theme='dark']) .properties-search input {
+  color: var(--ui-text, var(--ink));
+  -webkit-text-fill-color: var(--ui-text, var(--ink));
+  caret-color: var(--ui-accent, var(--green));
+  background: transparent !important;
+  color-scheme: light;
+}
+
+:root:not([data-theme='dark']) .assumptions-grid label > div {
+  background: var(--ui-surface, var(--white, #fff));
+}
+
+:root:not([data-theme='dark']) .assumptions-grid input {
+  color: var(--ui-text, var(--ink));
+  -webkit-text-fill-color: var(--ui-text, var(--ink));
+  caret-color: var(--ui-accent, var(--green));
+  background: transparent !important;
+  color-scheme: light;
+}
+
+/*
+ * The ledger remains horizontally scrollable when genuinely necessary, but on
+ * a normal desktop canvas it should fit inside the panel rather than forcing
+ * Notes / Receipt Link / actions beyond the visible reading area.
+ */
+@media (min-width: 1181px) {
+  .expenses-table {
+    min-width: 1180px;
+    table-layout: fixed;
+  }
+
+  .expenses-table th:nth-child(1), .expenses-table td:nth-child(1) { width: 10%; }
+  .expenses-table th:nth-child(2), .expenses-table td:nth-child(2) { width: 9%; }
+  .expenses-table th:nth-child(3), .expenses-table td:nth-child(3) { width: 7%; }
+  .expenses-table th:nth-child(4), .expenses-table td:nth-child(4) { width: 10%; }
+  .expenses-table th:nth-child(5), .expenses-table td:nth-child(5) { width: 8%; }
+  .expenses-table th:nth-child(6), .expenses-table td:nth-child(6) { width: 15%; }
+  .expenses-table th:nth-child(7), .expenses-table td:nth-child(7) { width: 9%; }
+  .expenses-table th:nth-child(8), .expenses-table td:nth-child(8) { width: 14%; }
+  .expenses-table th:nth-child(9), .expenses-table td:nth-child(9) { width: 14%; }
+  .expenses-table th:nth-child(10), .expenses-table td:nth-child(10) { width: 4%; }
+
+  .expenses-table input {
+    min-width: 0 !important;
+    width: 100%;
+    text-overflow: ellipsis;
+  }
+}

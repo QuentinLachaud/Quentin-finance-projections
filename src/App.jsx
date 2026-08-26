@@ -1842,7 +1842,7 @@ function PortfolioApp({ user }) {
 
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} />}
 
-          {section === 'Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} onChange={updateExpenses} />}
+          {section === 'Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} accountType={state.settings.accountType} onChange={updateExpenses} />}
 
           {section === 'IDs & Credentials' && <CredentialsWorkspace credentials={state.credentials || []} onChange={updateCredentials} />}
 
@@ -1854,15 +1854,15 @@ function PortfolioApp({ user }) {
 
           {section === 'Projections' && <>
             <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>
-            <section className="panel scenarios-panel projections-scenarios">
+            <section className="panel scenarios-panel overview-cashflow-panel projections-scenarios">
               <header>
                 <div>
-                  <span className="kicker">CURRENT MONTHLY OUTLOOK</span>
+                  <span className="kicker">CURRENT CASH POSITION</span>
                   <h2>Cash flow scenarios</h2>
-                  <p>Three operating cases using the BTLs currently included in your portfolio model.</p>
+                  <p>Compare monthly cash available under different operating assumptions.</p>
                 </div>
               </header>
-              <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />
+              <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
             </section>
             <ProjectionExplorer properties={includedProperties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
             <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>

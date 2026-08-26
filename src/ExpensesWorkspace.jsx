@@ -16,7 +16,7 @@ function TypeBadge({ amount }) {
   return <span className={`expense-type ${type}`}>{label}</span>
 }
 
-export default function ExpensesWorkspace({ expenses = [], properties = [], onChange }) {
+export default function ExpensesWorkspace({ expenses = [], properties = [], accountType = 'company', onChange }) {
   const [filters, setFilters] = useState(blankFilters)
   const [importStatus, setImportStatus] = useState('')
   const [draftExpense, setDraftExpense] = useState(null)
@@ -32,6 +32,10 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
   ])].sort((a, b) => a.localeCompare(b)), [expenses, properties])
   const categories = useMemo(() => uniqueValues(expenses, 'category'), [expenses])
   const recurrences = useMemo(() => uniqueValues(expenses, 'recurrence'), [expenses])
+  const incomeLabel = accountType === 'company' ? 'Income & DLA' : 'Income'
+  const ledgerSignHelp = accountType === 'company'
+    ? 'Positive amounts are income or DLA funding; negative amounts are expenses.'
+    : 'Positive amounts are income; negative amounts are expenses.'
 
   const update = (id, key, value) => onChange(expenses.map((item) => item.id === id ? { ...item, [key]: value } : item))
   const openAddExpense = () => setDraftExpense({
@@ -100,7 +104,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
       title: 'Expense report',
       subtitle: activeFilterParts.length ? `Current filtered ledger · ${activeFilterParts.join(' · ')}` : 'Complete expense ledger',
       summary: [
-        ['Income', money.format(summary.income)],
+        [incomeLabel, money.format(summary.income)],
         ['Expenses', money.format(summary.expense)],
         ['Net movement', money.format(summary.net)],
         ['Entries', String(summary.count)],
@@ -122,7 +126,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
 
   return <div className="expenses-workspace">
     <section className="panel expenses-command-bar">
-      <div className="expenses-command-context"><span>Positive amounts are income; negative amounts are expenses.</span></div>
+      <div className="expenses-command-context"><span>{ledgerSignHelp}</span></div>
       <div className="expenses-actions">
         <div className="report-export-control desktop-expense-transfer" aria-label="Export expense report">
           <span><Download size={14} /> Export</span>
@@ -139,7 +143,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], onCh
     </section>
 
     <section className="expenses-summary-grid">
-      <article className="panel expense-summary income"><span>Income</span><strong>{money.format(summary.income)}</strong><small>matching filters</small></article>
+      <article className="panel expense-summary income"><span>{incomeLabel}</span><strong>{money.format(summary.income)}</strong><small>positive ledger entries</small></article>
       <article className="panel expense-summary expense"><span>Expenses</span><strong>{money.format(summary.expense)}</strong><small>absolute spend</small></article>
       <article className={`panel expense-summary ${summary.net >= 0 ? 'income' : 'expense'}`}><span>Net movement</span><strong>{money.format(summary.net)}</strong><small>income less expenses</small></article>
       <article className="panel expense-summary"><span>Entries</span><strong>{summary.count}</strong><small>{summary.count === expenses.length ? 'all entries' : `of ${expenses.length}`}</small></article>

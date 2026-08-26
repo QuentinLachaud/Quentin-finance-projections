@@ -5,11 +5,12 @@ const app = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8')
 const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 
 describe('Overview iOS-native cash-flow scenarios', () => {
-  it('uses an Overview-only ScenarioTable variant and leaves Projections on the default table', () => {
+  it('uses the polished overview ScenarioTable variant in both Overview and Projections', () => {
     expect(app).toContain("function ScenarioTable({ scenarios, count, accountType = 'company', variant = 'default' })")
     expect(app).toContain("if (variant === 'overview')")
-    expect(app).toContain('variant="overview"')
-    expect(app).toContain('<ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />')
+    expect((app.match(/variant=\"overview\"/g) || [])).toHaveLength(2)
+    expect(app).not.toContain('<ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />')
+    expect(app).toContain('className="panel scenarios-panel overview-cashflow-panel projections-scenarios"')
   })
 
   it('uses clearer operating-assumption copy', () => {
@@ -34,7 +35,7 @@ describe('Overview iOS-native cash-flow scenarios', () => {
     expect(styles).toMatch(/\.overview-cashflow-hero-number strong\s*\{[\s\S]*?font:\s*720 clamp\(28px/)
   })
 
-  it('has a phone-native selector/card layout with no horizontal scrolling', () => {
+  it('has a phone-native selector/card layout with no horizontal scrolling inside its own CSS section', () => {
     expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.overview-cashflow-selector\s*\{[\s\S]*?width:\s*100%/)
     expect(styles).toContain('data-mobile-scenario="0"')
     const marker = styles.indexOf('/* Brain Drain 2026-08-23 14:51 BST — iOS-native Overview cash-flow scenarios */')
