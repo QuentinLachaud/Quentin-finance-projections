@@ -6,7 +6,8 @@ const dashboard = readFileSync(fileURLToPath(new URL('./OverviewPortfolioDashboa
 const styles = readFileSync(fileURLToPath(new URL('./styles.css', import.meta.url)), 'utf8')
 const marker = '/* Brain Drain 2026-08-26 20:40 BST — compact phone Portfolio Overview */'
 const start = styles.indexOf(marker)
-const css = start >= 0 ? styles.slice(start) : ''
+const nextMarker = start >= 0 ? styles.indexOf('/* Brain Drain ', start + marker.length) : -1
+const css = start >= 0 ? styles.slice(start, nextMarker >= 0 ? nextMarker : undefined) : ''
 
 describe('compact phone Portfolio Overview', () => {
   it('keeps the approved four-card architecture and rich drill-down implementation', () => {

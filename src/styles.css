@@ -10793,3 +10793,117 @@ textarea {
   }
 }
 
+/* Brain Drain 2026-08-26 20:42 BST — desktop Portfolio Overview typography */
+/*
+ * Wide desktop has more viewing distance than iPad/iPhone, so the Overview needs one larger typographic step.
+ * Keep the same hierarchy and card geometry; increase legibility without turning the page into an oversized BI dashboard.
+ */
+@media (min-width: 1181px) {
+  .overview-summary-card-head {
+    grid-template-columns: 42px minmax(0, 1fr) 24px;
+    gap: 12px;
+  }
+
+  .overview-summary-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .overview-summary-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .overview-summary-title > b {
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .overview-summary-title > strong {
+    font-size: 34px;
+    line-height: 1.02;
+  }
+
+  .overview-summary-title > small {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .overview-summary-info {
+    width: 24px;
+    height: 24px;
+  }
+
+  .overview-summary-info svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .overview-summary-rows > div {
+    min-height: 32px;
+    gap: 18px;
+  }
+
+  .overview-summary-rows span {
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .overview-summary-rows b {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .overview-insight-sheet-head small {
+    font-size: 10.5px;
+  }
+
+  .overview-insight-sheet-head h2 {
+    font-size: 23px;
+    line-height: 1.15;
+  }
+
+  .overview-insight-value > strong {
+    font-size: 34px;
+  }
+
+  .overview-insight-value > span {
+    font-size: 12px;
+  }
+
+  .overview-insight-explainer {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .overview-insight-ledger-row > span > b,
+  .overview-insight-property-list > div > span:first-child > b {
+    font-size: 13px;
+  }
+
+  .overview-insight-ledger-row > span > small,
+  .overview-insight-property-list > div small {
+    font-size: 11px;
+  }
+
+  .overview-insight-ledger-row > strong,
+  .overview-insight-property-list > div > span:not(:first-child) > b {
+    font-size: 13px;
+  }
+
+  .overview-financing-hero > span,
+  .overview-buffer-detail-hero > div:last-child span {
+    font-size: 11.5px;
+  }
+
+  .overview-financing-hero > strong {
+    font-size: 31px;
+  }
+
+  .overview-financing-hero > small,
+  .overview-buffer-detail-hero > div:last-child strong {
+    font-size: 12.5px;
+  }
+}
+
