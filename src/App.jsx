@@ -1736,10 +1736,10 @@ function PortfolioApp({ user }) {
 
           {section === 'Properties' && <>
             <section className="panel properties-toolbar">
-              <div>
-                <span className="kicker">CLEAR COMPARISON VIEW</span>
-                <h2>Property information by section</h2>
-                <p>Expand a section to compare properties. Advanced reveals projected and specialist metrics.</p>
+              <div className="properties-toolbar-copy">
+                <span className="kicker">PROPERTY COMPARISON</span>
+                <h2>Compare properties</h2>
+                <p>Review key BTL details side by side. Use Advanced for projected and specialist metrics.</p>
               </div>
               <div className="table-tools properties-tools">
                 <div className="property-view-mode" role="group" aria-label="Property detail level">
@@ -1760,8 +1760,8 @@ function PortfolioApp({ user }) {
                     Advanced
                   </button>
                 </div>
-                <label><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-                <button className="primary-button small" onClick={addProperty}><Plus size={16} /> New BTL</button>
+                <label className="properties-search"><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+                <button className="primary-button small properties-new-button" onClick={addProperty}><Plus size={16} /> New BTL</button>
               </div>
             </section>
 
@@ -1802,9 +1802,16 @@ function PortfolioApp({ user }) {
                         {mobileProperty ? rows.map(([label, getter, kind, advanced]) => <div className={`mobile-property-row ${advanced ? 'advanced' : ''}`} key={label}><span>{label}</span><strong className={kind}>{getter(mobileProperty)}</strong></div>) : <div className="mobile-property-empty">No BTL selected</div>}
                       </div>
                       <div className="data-table-wrap">
-                        <table className="data-table">
+                        <table
+                          className="data-table property-comparison-table"
+                          style={{ '--property-count': Math.max(filtered.length, 1) }}
+                        >
+                          <colgroup>
+                            <col className="property-metric-column" />
+                            {filtered.map((p) => <col className="property-value-column" key={`col-${p.id}`} />)}
+                          </colgroup>
                           <thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead>
-                          <tbody>{rows.map(([label, getter, kind, advanced]) => <tr key={label}><th className={advanced ? 'advanced-metric-label' : undefined}>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody>
+                          <tbody>{rows.map(([label, getter, kind, advanced]) => <tr data-metric={label} data-kind={kind} key={label}><th className={advanced ? 'advanced-metric-label' : undefined}>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody>
                         </table>
                       </div>
                     </>}

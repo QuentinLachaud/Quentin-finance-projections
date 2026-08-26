@@ -9530,3 +9530,228 @@ textarea {
     transition: none !important;
   }
 }
+
+/* Brain Drain 2026-08-24 07:21 BST — iPad-native Properties comparison workspace */
+@media (min-width: 721px) and (max-width: 1180px) {
+  .properties-toolbar {
+    padding: 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 14px;
+    border-radius: 15px;
+  }
+
+  .properties-toolbar-copy {
+    min-width: 0;
+    max-width: 760px;
+  }
+
+  .properties-toolbar-copy .kicker {
+    font: 700 9px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    letter-spacing: .12em;
+  }
+
+  .properties-toolbar-copy h2 {
+    margin: 5px 0 3px;
+    font: 650 20px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    letter-spacing: -.025em;
+  }
+
+  .properties-toolbar-copy p {
+    max-width: 660px;
+    margin: 0;
+    font: 450 12px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+
+  .properties-tools {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(176px, .72fr) minmax(210px, 1.35fr) max-content;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .properties-tools .property-view-mode {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 3px;
+    border-color: color-mix(in srgb, var(--ui-line) 82%, transparent);
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--ui-surface-subtle) 88%, var(--ui-surface));
+    box-shadow: inset 0 1px 2px rgba(20, 36, 29, .035);
+  }
+
+  .properties-tools .property-view-choice {
+    min-width: 0;
+    min-height: 36px;
+    padding-inline: 10px;
+    border-radius: 8px;
+    font: 620 12px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+
+  .properties-search {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px !important;
+    padding: 0 11px !important;
+    border: 1px solid var(--ui-line) !important;
+    border-radius: 11px !important;
+    gap: 7px;
+    color: var(--ui-muted) !important;
+    background: var(--ui-surface) !important;
+  }
+
+  .properties-search input {
+    width: 100% !important;
+    min-width: 0;
+    min-height: 42px;
+    padding: 0 !important;
+    border: 0 !important;
+    outline: 0;
+    color: var(--ui-text) !important;
+    -webkit-text-fill-color: var(--ui-text);
+    caret-color: var(--ui-accent);
+    background: transparent !important;
+    opacity: 1;
+    color-scheme: light;
+    font: 500 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+
+  .properties-search input::placeholder {
+    color: var(--ui-muted);
+    -webkit-text-fill-color: var(--ui-muted);
+    opacity: .72;
+  }
+
+  .properties-new-button {
+    min-height: 44px !important;
+    padding-inline: 15px !important;
+    border-radius: 11px !important;
+    white-space: nowrap;
+  }
+
+  .property-group-stack { gap: 12px; }
+  .property-group-panel { border-radius: 15px; }
+
+  .property-group-toggle {
+    min-height: 74px;
+    padding: 15px 17px;
+  }
+
+  .property-group-toggle h2 {
+    font: 650 17px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    letter-spacing: -.018em;
+  }
+
+  .property-group-toggle p {
+    font: 450 11.5px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+
+  .property-group-panel .data-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow: auto hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .property-comparison-table {
+    width: 100%;
+    min-width: calc(174px + (var(--property-count) * 150px));
+    table-layout: fixed;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+
+  .property-comparison-table col.property-metric-column { width: 174px; }
+  .property-comparison-table col.property-value-column { width: 150px; }
+
+  .property-comparison-table th,
+  .property-comparison-table td {
+    padding: 12px 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  .property-comparison-table tr > :first-child {
+    width: 174px;
+    min-width: 174px;
+    max-width: 174px;
+    padding-left: 15px;
+    font-size: 11.5px;
+  }
+
+  .property-comparison-table thead th {
+    height: 58px;
+    vertical-align: middle;
+  }
+
+  .property-comparison-table thead th:not(:first-child) { text-align: center; }
+
+  .property-comparison-table th button {
+    width: 100%;
+    min-height: 40px;
+    margin: 0;
+    align-items: center;
+    justify-content: center;
+    color: var(--ui-accent);
+    font: 680 12px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    text-align: center;
+  }
+
+  .property-comparison-table th button small {
+    margin-top: 2px;
+    color: var(--ui-muted);
+    font: 500 9px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+
+  .property-comparison-table tbody td {
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .property-comparison-table tbody tr[data-kind='text'] td {
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    white-space: normal;
+    line-height: 1.38;
+  }
+
+  .property-comparison-table tbody tr[data-metric='Address'] th,
+  .property-comparison-table tbody tr[data-metric='Address'] td {
+    min-height: 58px;
+    padding-top: 13px;
+    padding-bottom: 13px;
+    vertical-align: top;
+  }
+
+  :root[data-theme='dark'] .properties-search {
+    background: var(--ui-surface) !important;
+    border-color: var(--ui-line) !important;
+  }
+
+  :root[data-theme='dark'] .properties-search input {
+    color: var(--ui-text) !important;
+    -webkit-text-fill-color: var(--ui-text);
+    background: transparent !important;
+    color-scheme: dark;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 860px) {
+  .properties-tools { grid-template-columns: minmax(0, 1fr) max-content; }
+  .properties-search { grid-column: 1 / -1; grid-row: 2; }
+  .properties-new-button { grid-column: 2; grid-row: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .properties-tools .property-view-choice,
+  .property-group-toggle { transition: none !important; }
+}
