@@ -38,7 +38,8 @@ describe('Overview iOS-native cash-flow scenarios', () => {
     expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.overview-cashflow-selector\s*\{[\s\S]*?width:\s*100%/)
     expect(styles).toContain('data-mobile-scenario="0"')
     const marker = styles.indexOf('/* Brain Drain 2026-08-23 14:51 BST — iOS-native Overview cash-flow scenarios */')
-    const block = marker >= 0 ? styles.slice(marker) : ''
+    const nextMarker = marker >= 0 ? styles.indexOf('/* Brain Drain ', marker + 1) : -1
+    const block = marker >= 0 ? styles.slice(marker, nextMarker >= 0 ? nextMarker : undefined) : ''
     expect(block).not.toMatch(/overflow-x:\s*(auto|scroll)/)
   })
 

@@ -324,42 +324,203 @@ function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disab
   )
 }
 
-function PropertyCard({ property, onEdit, onClone, onToggle }) {
-  const [mobileExpanded, setMobileExpanded] = useState(false)
-  const mapQuery = [property.flatNumber, property.address, property.postcode, 'UK'].filter(Boolean).join(', ')
-  const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}`
-  return (
-    <article className={`property-card overview-property-card ${mobileExpanded ? 'mobile-expanded' : ''} ${property.active ? '' : 'muted'}`}>
-      <div className="property-card-head">
-        <span className="property-index">{property.name.replace(/\D/g, '') || '•'}</span>
-        <button className="icon-button property-card-edit" aria-label={`Edit ${property.name}`} onClick={() => onEdit(property.id)}><Pencil size={18} /></button>
-      </div>
-      <div className="property-card-identity">
-        <span className="kicker">{property.name}</span>
-        <h3>{formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'}</h3>
-        <p>{property.postcode} · {property.bedrooms} bed · {property.areaSqm}m²</p>
-      </div>
-      <PropertyFinancingSummary property={property} variant="card" />
-      <div className="property-mini-grid">
-        <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
-        <div><span>Mortgage / mo</span><b>{currency(property.monthlyPayment, 0)}</b></div>
-        <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
-      </div>
-      <div className="property-map">
-        <iframe title={`${property.name} location on Google Maps`} src={`${mapUrl}&output=embed`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" allowFullScreen />
-        <a className="property-map-hit" href={mapUrl} target="_blank" rel="noreferrer" aria-label={`Open ${property.name} location in Google Maps`} />
-      </div>
-      <div className="property-actions">
-        <label className="switch-label"><input type="checkbox" checked={property.active} onChange={() => onToggle(property.id)} /><i /><span>In totals</span></label>
-        <button className="text-button property-secondary-action" onClick={() => onClone(property.id)}><Copy size={15} /> Clone</button>
-      </div>
-      <button type="button" className="property-mobile-disclosure" aria-expanded={mobileExpanded} onClick={() => setMobileExpanded((current) => !current)}>
-        <span>{mobileExpanded ? 'Hide property details' : 'Show property details'}</span>
-        {mobileExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-      </button>
-    </article>
-  )
+function overviewPropertySubtitle(property) {
+  const address = formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'
+  return property.postcode ? `${address} · ${property.postcode}` : address
 }
+
+function OverviewPropertyMetric({ label, value, emphasis = false }) {
+  return <span className={`overview-property-metric ${emphasis ? 'emphasis' : ''}`}>
+    <small>{label}</small>
+    <b>{value}</b>
+  </span>
+}
+
+function OverviewLtvBar({ property, compact = false }) {
+  const ltv = Math.min(1, Math.max(0, Number(property.currentLtv) || 0))
+  return <span
+    className={`overview-property-ltv-bar ${compact ? 'compact' : ''}`}
+    role="img"
+    aria-label={`Current LTV ${percent(ltv, 1)}`}
+  >
+    <span style={{ width: `${ltv * 100}%` }} />
+  </span>
+}
+
+function OverviewPropertyActionMenu({ property, onEdit, onClone, onToggle }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  const triggerRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+
+    const handlePointerDown = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false)
+    }
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      requestAnimationFrame(() => triggerRef.current?.focus?.({ preventScroll: true }))
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
+  const runAction = (event, action) => {
+    event.stopPropagation()
+    setOpen(false)
+    action()
+  }
+
+  return <span className="overview-property-action-menu" ref={rootRef} onPointerDown={(event) => event.stopPropagation()}>
+    <button
+      ref={triggerRef}
+      type="button"
+      className="overview-property-menu-trigger"
+      aria-label={`More actions for ${property.name}`}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      onClick={(event) => {
+        event.stopPropagation()
+        setOpen((current) => !current)
+      }}
+    >
+      <span aria-hidden="true">•••</span>
+    </button>
+    {open && <span className="overview-property-menu-popover" role="menu" aria-label={`${property.name} actions`}>
+      <button type="button" role="menuitem" onClick={(event) => runAction(event, () => onEdit(property.id))}>
+        <Pencil size={15} /><span>Edit</span>
+      </button>
+      <button type="button" role="menuitem" onClick={(event) => runAction(event, () => onClone(property.id))}>
+        <Copy size={15} /><span>Duplicate</span>
+      </button>
+      <button type="button" role="menuitem" onClick={(event) => runAction(event, () => onToggle(property.id))}>
+        <Check size={15} /><span>{property.active ? 'Exclude from totals' : 'Include in totals'}</span>
+      </button>
+    </span>}
+  </span>
+}
+
+function PropertyCard({ property, onEdit, onClone, onToggle }) {
+  const subtitle = overviewPropertySubtitle(property)
+  return <article className={`overview-property-card ${property.active ? '' : 'muted'}`}>
+    <button
+      type="button"
+      className="overview-property-card-open"
+      aria-label={`Open ${property.name} property details`}
+      onClick={() => onEdit(property.id)}
+    >
+      <span className="overview-property-card-top">
+        <span className="overview-property-card-identity">
+          <b>{property.name}</b>
+          <small>{subtitle}</small>
+        </span>
+        <span className="overview-property-card-ltv-pill">{percent(property.currentLtv, 1)} LTV</span>
+      </span>
+      <span className="overview-property-card-value">
+        <strong>{currency(property.latestValuation)}</strong>
+        <small>Current value</small>
+      </span>
+      <span className="overview-property-card-ltv-line"><small>Loan to value</small><b>{percent(property.currentLtv, 1)}</b></span>
+      <OverviewLtvBar property={property} />
+      <span className="overview-property-card-metrics">
+        <OverviewPropertyMetric label="Equity" value={currency(property.equity)} emphasis />
+        <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} />
+        <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} />
+        <OverviewPropertyMetric label="Mortgage / mo" value={currency(property.monthlyPayment, 0)} />
+      </span>
+    </button>
+    <OverviewPropertyActionMenu property={property} onEdit={onEdit} onClone={onClone} onToggle={onToggle} />
+  </article>
+}
+
+function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
+  const [expanded, setExpanded] = useState(false)
+  const subtitle = overviewPropertySubtitle(property)
+
+  return <article className={`overview-property-row ${expanded ? 'expanded' : ''} ${property.active ? '' : 'muted'}`}>
+    <span className="overview-property-row-top">
+      <button
+        type="button"
+        className="overview-property-row-toggle"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${property.name} property overview`}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        <span className="overview-property-row-index">{property.name.replace(/\D/g, '') || '•'}</span>
+        <span className="overview-property-row-identity">
+          <b>{property.name}</b>
+          <small>{subtitle}</small>
+        </span>
+        <span className="overview-property-row-key">
+          <OverviewPropertyMetric label="Value" value={currency(property.latestValuation)} emphasis />
+          <OverviewPropertyMetric label="LTV" value={percent(property.currentLtv, 1)} />
+        </span>
+        <span className="overview-property-row-quick">
+          <OverviewPropertyMetric label="Equity" value={currency(property.equity)} emphasis />
+          <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} />
+          <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} />
+        </span>
+        <span className="overview-property-row-chevron" aria-hidden="true">
+          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </span>
+      </button>
+      <OverviewPropertyActionMenu property={property} onEdit={onEdit} onClone={onClone} onToggle={onToggle} />
+    </span>
+
+    <div className="overview-property-row-shell" aria-hidden={!expanded}>
+      <div className="overview-property-row-inner">
+        <PropertyFinancingSummary property={property} variant="row" />
+        <div className="overview-property-row-metrics overview-property-row-detail-metrics">
+          <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
+          <div><span>Mortgage / mo</span><b>{currency(property.monthlyPayment, 0)}</b></div>
+          <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
+          <div><span>Current rate</span><b>{percent(property.currentRate, 2)}</b></div>
+        </div>
+        <div className="overview-property-row-lender">
+          <span>Lender</span><b>{property.lender || 'Not set'}</b>
+        </div>
+        <div className="overview-property-row-open-action">
+          <button type="button" onClick={() => onEdit(property.id)}>Open property <ArrowUpRight size={15} /></button>
+        </div>
+      </div>
+    </div>
+  </article>
+}
+
+function OverviewPropertyMiniCard({ property, onEdit, onClone, onToggle }) {
+  const subtitle = overviewPropertySubtitle(property)
+  return <article className={`overview-property-mini-card ${property.active ? '' : 'muted'}`}>
+    <button
+      type="button"
+      className="overview-property-mini-open"
+      aria-label={`Open ${property.name} property details`}
+      onClick={() => onEdit(property.id)}
+    >
+      <span className="overview-property-mini-identity">
+        <b>{property.name}</b>
+        <small>{subtitle}</small>
+      </span>
+      <span className="overview-property-mini-value">
+        <strong>{currency(property.latestValuation)}</strong>
+        <small>Value</small>
+      </span>
+      <span className="overview-property-mini-metrics">
+        <OverviewPropertyMetric label="LTV" value={percent(property.currentLtv, 1)} />
+        <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} />
+        <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} />
+      </span>
+    </button>
+    <OverviewPropertyActionMenu property={property} onEdit={onEdit} onClone={onClone} onToggle={onToggle} />
+  </article>
+}
+
 
 const overviewPropertyViewOptions = [
   ['cards', 'Cards'],
@@ -383,103 +544,6 @@ function OverviewPropertyViewSelector({ value, onChange }) {
       onClick={() => onChange(id)}
     >{label}</button>)}
   </div>
-}
-
-function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
-  const [expanded, setExpanded] = useState(false)
-  const address = formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'
-  const mapQuery = [property.flatNumber, property.address, property.postcode, 'UK'].filter(Boolean).join(', ')
-  const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}`
-
-  return <article className={`overview-property-row ${expanded ? 'expanded' : ''} ${property.active ? '' : 'muted'}`}>
-    <button
-      type="button"
-      className="overview-property-row-toggle"
-      aria-expanded={expanded}
-      onClick={() => setExpanded((current) => !current)}
-    >
-      <span className="overview-property-row-index">{property.name.replace(/\D/g, '') || '•'}</span>
-      <span className="overview-property-row-identity">
-        <b>{property.name}</b>
-        <small>{address}{property.postcode ? ` · ${property.postcode}` : ''}</small>
-      </span>
-      <span className="overview-property-row-value">
-        <b>{currency(property.latestValuation)}</b>
-        <small>{percent(property.currentLtv, 1)} LTV</small>
-      </span>
-      <span className="overview-property-row-chevron" aria-hidden="true">
-        {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-      </span>
-    </button>
-
-    <div className="overview-property-row-shell" aria-hidden={!expanded}>
-      <div className="overview-property-row-inner">
-        <PropertyFinancingSummary property={property} variant="row" />
-        <div className="overview-property-row-metrics">
-          <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
-          <div><span>Mortgage / mo</span><b>{currency(property.monthlyPayment, 0)}</b></div>
-          <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
-        </div>
-        <div className="overview-property-row-actions">
-          <button type="button" onClick={() => onEdit(property.id)}><Pencil size={16} /><span>Edit</span></button>
-          <a href={mapUrl} target="_blank" rel="noreferrer"><MapPin size={16} /><span>Map</span></a>
-          <button type="button" onClick={() => onClone(property.id)}><Copy size={16} /><span>Clone</span></button>
-          <label className="overview-property-native-switch">
-            <span>In totals</span>
-            <input
-              type="checkbox"
-              checked={Boolean(property.active)}
-              onChange={() => onToggle(property.id)}
-              aria-label={property.active ? `Exclude ${property.name} from totals` : `Include ${property.name} in totals`}
-            />
-            <i />
-          </label>
-        </div>
-      </div>
-    </div>
-  </article>
-}
-
-function OverviewPropertyMiniCard({ property, onEdit, onClone, onToggle }) {
-  const address = formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'
-  const mapQuery = [property.flatNumber, property.address, property.postcode, 'UK'].filter(Boolean).join(', ')
-  const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}`
-
-  return <article className={`overview-property-mini-card ${property.active ? '' : 'muted'}`}>
-    <header>
-      <span>
-        <b>{property.name}</b>
-        <small>{address}{property.postcode ? ` · ${property.postcode}` : ''}</small>
-      </span>
-      <button type="button" className="overview-mini-edit" onClick={() => onEdit(property.id)} aria-label={`Edit ${property.name}`}>
-        <Pencil size={16} />
-      </button>
-    </header>
-
-    <PropertyFinancingSummary property={property} variant="mini" />
-
-    <div className="overview-mini-metrics">
-      <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
-      <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
-    </div>
-
-    <footer>
-      <label className="overview-property-native-switch">
-        <span>In totals</span>
-        <input
-          type="checkbox"
-          checked={Boolean(property.active)}
-          onChange={() => onToggle(property.id)}
-          aria-label={property.active ? `Exclude ${property.name} from totals` : `Include ${property.name} in totals`}
-        />
-        <i />
-      </label>
-      <span className="overview-mini-utility">
-        <a href={mapUrl} target="_blank" rel="noreferrer" aria-label={`Open ${property.name} in Maps`}><MapPin size={16} /></a>
-        <button type="button" onClick={() => onClone(property.id)} aria-label={`Clone ${property.name}`}><Copy size={16} /></button>
-      </span>
-    </footer>
-  </article>
 }
 
 function ModelInputFields({ settings, onSettingChange, onPercentChange, compact = false }) {
@@ -1234,11 +1298,11 @@ function PortfolioApp({ user }) {
   const [editingId, setEditingId] = useState(null)
   const [pendingProperty, setPendingProperty] = useState(null)
   const sectionStorageKey = `btl-active-section:${user.id}`
-  const overviewPropertyViewStorageKey = `btl-overview-property-view:${user.id}`
+  const overviewPropertyViewStorageKey = `btl-overview-property-view-v2:${user.id}`
   const [overviewPropertyView, setOverviewPropertyView] = useState(() => {
     const savedView = window.localStorage.getItem(overviewPropertyViewStorageKey)
     if (overviewPropertyViewOptions.some(([id]) => id === savedView)) return savedView
-    return window.matchMedia?.('(max-width: 680px)').matches ? 'rows' : 'cards'
+    return 'rows'
   })
   const [section, setSection] = useState(() => {
     const params = new URLSearchParams(window.location.search)

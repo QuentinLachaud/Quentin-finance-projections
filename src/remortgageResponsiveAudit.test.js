@@ -5,7 +5,8 @@ const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 
 const marker = '/* Brain Drain 2026-08-23 00:40 BST — iOS-native collapsed remortgage cards */'
 const start = styles.indexOf(marker)
-const redesign = start >= 0 ? styles.slice(start) : ''
+const nextMarker = start >= 0 ? styles.indexOf('/* Brain Drain ', start + marker.length) : -1
+const redesign = start >= 0 ? styles.slice(start, nextMarker >= 0 ? nextMarker : undefined) : ''
 
 describe('Remortgage collapsed cards on phone and iPad', () => {
   it('replaces the prior 00:30 collapsed-card treatment', () => {

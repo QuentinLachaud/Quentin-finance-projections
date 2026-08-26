@@ -7,7 +7,8 @@ const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 describe('final iOS polish for collapsed remortgage cards', () => {
   const marker = '/* Brain Drain 2026-08-23 18:04 BST — final iOS polish for collapsed remortgage cards */'
   const start = styles.indexOf(marker)
-  const block = start >= 0 ? styles.slice(start) : ''
+  const nextMarker = start >= 0 ? styles.indexOf('/* Brain Drain ', start + marker.length) : -1
+  const block = start >= 0 ? styles.slice(start, nextMarker >= 0 ? nextMarker : undefined) : ''
 
   it('uses human-readable cash-flow language', () => {
     expect(simulator).toContain("property ? 'Cash flow change' : 'Mortgage saving'")

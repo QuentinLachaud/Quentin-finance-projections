@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url'
 const styles = readFileSync(fileURLToPath(new URL('./styles.css', import.meta.url)), 'utf8')
 const marker = '/* Brain Drain 2026-08-26 20:42 BST — desktop Portfolio Overview typography */'
 const start = styles.indexOf(marker)
-const block = start >= 0 ? styles.slice(start) : ''
+const nextMarker = start >= 0 ? styles.indexOf('/* Brain Drain ', start + marker.length) : -1
+const block = start >= 0 ? styles.slice(start, nextMarker >= 0 ? nextMarker : undefined) : ''
 
 describe('desktop Portfolio Overview typography', () => {
   it('exists as a desktop-only override', () => {
