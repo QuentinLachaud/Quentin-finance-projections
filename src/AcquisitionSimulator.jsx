@@ -3,6 +3,7 @@ import { Building2, ChevronDown, ChevronUp, GripVertical, Pencil, Plus, Trash2 }
 import { acquisitionCosts, acquisitionJurisdictions, createAcquisition, nextAcquisitionName, prependAcquisition, reorderAcquisitions } from './acquisition.js'
 import { currency } from './calculations.js'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
+import TimeToNextBtl from './TimeToNextBtl.jsx'
 
 const numericKeys = new Set(['purchasePrice','expectedMonthlyRent','ltv','adsRate','legalFees','mortgageFee'])
 const numericValue = (value) => value === '' ? '' : Number(value)
@@ -176,6 +177,9 @@ export default function AcquisitionSimulator({
   onChange,
   defaultJurisdiction = 'england-ni',
   existingPropertyCount = 0,
+  properties = [],
+  settings = {},
+  portfolio = null,
 }) {
   const [expandedId, setExpandedId] = useState('')
   const [editor, setEditor] = useState(null)
@@ -311,12 +315,22 @@ export default function AcquisitionSimulator({
     }
   }
 
-  return <div className="acquisition-workspace acq-simplified">
-    <div className="acq-add-toolbar">
-      <button type="button" className="primary-button acq-add-button" onClick={openManual}>
-        <Plus size={16} /> Add acquisition
-      </button>
-    </div>
+  return <div className="acquisition-workspace acq-simplified acquisition-planning-workspace">
+    <TimeToNextBtl
+      className="acquisition-next-btl"
+      properties={properties}
+      settings={settings}
+      portfolio={portfolio}
+      acquisitions={acquisitions}
+    />
+
+    <section className="acq-library-section" aria-labelledby="acq-library-title">
+      <header className="acq-library-heading">
+        <div><span className="kicker">SAVED TARGETS</span><h2 id="acq-library-title">Potential acquisitions</h2><p>Save candidate BTLs here, compare completion cash, and select any of them directly in the purchase-timing planner above.</p></div>
+        <button type="button" className="primary-button acq-add-button" onClick={openManual}>
+          <Plus size={16} /> Add acquisition
+        </button>
+      </header>
 
     {!acquisitions.length
       ? <section className="panel acquisition-empty"><Building2 size={24} /><h2>No potential acquisitions yet</h2><p>Add an acquisition above to estimate the cash required to complete it.</p></section>
@@ -360,6 +374,7 @@ export default function AcquisitionSimulator({
             />
           })}
         </div>}
+    </section>
 
     {editor && <AcquisitionEditorModal draft={editor.draft} mode={editor.mode} warning={editor.warning} onChange={updateDraft} onCancel={() => setEditor(null)} onConfirm={confirm} />}
 

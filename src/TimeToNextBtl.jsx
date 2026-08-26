@@ -158,8 +158,16 @@ export default function TimeToNextBtl({
   now: suppliedNow = null,
   initialTargetPrice = null,
   initialAssumptions = null,
+  className = '',
 }) {
-  const firstSavedAcquisition = acquisitions.find((item) => Number(item?.purchasePrice || 0) > 0)
+  const savedAcquisitions = useMemo(
+    () => acquisitions.filter((item) => Number(item?.purchasePrice || 0) > 0),
+    [acquisitions],
+  )
+  const firstSavedAcquisition = savedAcquisitions[0] || null
+  const explicitManualSeed = initialTargetPrice != null || initialAssumptions != null
+  const [targetSource, setTargetSource] = useState(() => (!explicitManualSeed && firstSavedAcquisition ? 'saved' : 'manual'))
+  const [selectedAcquisitionId, setSelectedAcquisitionId] = useState(() => firstSavedAcquisition?.id || '')
   const [targetPrice, setTargetPrice] = useState(() => Number(initialTargetPrice ?? firstSavedAcquisition?.purchasePrice ?? 180000))
   const [appreciationPercent, setAppreciationPercent] = useState(DEFAULT_NEXT_BTL_APPRECIATION * 100)
   const [scenarioIndex, setScenarioIndex] = useState(0)
@@ -178,11 +186,31 @@ export default function TimeToNextBtl({
   const [intro, setIntro] = useState(true)
   const nowRef = useRef(suppliedNow instanceof Date ? suppliedNow : new Date())
   const isCompany = settings.accountType !== 'private'
+  const selectedAcquisition = savedAcquisitions.find((item) => item.id === selectedAcquisitionId) || null
+  const usingSavedAcquisition = targetSource === 'saved' && Boolean(selectedAcquisition)
+  const effectiveTargetPrice = usingSavedAcquisition ? Number(selectedAcquisition.purchasePrice || 0) : numberValue(targetPrice)
+  const effectiveAssumptions = useMemo(
+    () => usingSavedAcquisition ? normalizeAcquisitionAssumptions(selectedAcquisition) : assumptions,
+    [usingSavedAcquisition, selectedAcquisition, assumptions],
+  )
+  const targetContext = usingSavedAcquisition
+    ? `${selectedAcquisition.name || 'Saved acquisition'} · ${currency(effectiveTargetPrice)}`
+    : `Manual target · ${currency(effectiveTargetPrice)}`
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIntro(false), 3300)
     return () => window.clearTimeout(timer)
   }, [])
+
+  useEffect(() => {
+    if (targetSource !== 'saved') return
+    if (selectedAcquisition) return
+    if (firstSavedAcquisition) {
+      setSelectedAcquisitionId(firstSavedAcquisition.id)
+      return
+    }
+    setTargetSource('manual')
+  }, [targetSource, selectedAcquisition, firstSavedAcquisition])
 
   useEffect(() => {
     if (!sheetOpen) return undefined
@@ -205,15 +233,15 @@ export default function TimeToNextBtl({
     settings,
     portfolio,
     projectionPoints,
-    targetPriceToday: numberValue(targetPrice),
+    targetPriceToday: effectiveTargetPrice,
     annualAppreciationRate: numberValue(appreciationPercent, 3.25) / 100,
-    acquisitionAssumptions: assumptions,
+    acquisitionAssumptions: effectiveAssumptions,
     scenarioIndex,
     preserveBuffer,
     includeExtraction,
     maxMonths: DEFAULT_NEXT_BTL_MAX_MONTHS,
     now: nowRef.current,
-  }), [properties, settings, portfolio, projectionPoints, targetPrice, appreciationPercent, assumptions, scenarioIndex, preserveBuffer, includeExtraction])
+  }), [properties, settings, portfolio, projectionPoints, effectiveTargetPrice, appreciationPercent, effectiveAssumptions, scenarioIndex, preserveBuffer, includeExtraction])
 
   const openingAssumptions = () => {
     setAssumptionDraft({ ...assumptions })
@@ -242,14 +270,28 @@ export default function TimeToNextBtl({
         : 'Use a positive purchase price to begin.'
   const referencePoint = crossing || result.points?.[0]
 
-  return <section className="panel next-btl-panel">
+  return <section className={`panel next-btl-panel ${className}`.trim()}>
     <header className="next-btl-heading">
       <div><span className="kicker">PURCHASE TIMING</span><h2>Time to next BTL</h2><p>See when accumulated deployable cash can fund the next acquisition as its target price moves over time.</p></div>
     </header>
 
     <div className="next-btl-layout">
       <aside className="next-btl-controls" aria-label="Time to next BTL assumptions">
-        <label className="next-btl-field prominent"><span>BTL price today</span><div><b>£</b><input aria-label="BTL price today" inputMode="numeric" type="number" min="0" step="1000" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value === '' ? '' : Number(event.target.value))} /></div></label>
+        <div className="next-btl-target-control">
+          <span className="next-btl-control-label">Target BTL</span>
+          <div className="next-btl-source-segmented" role="group" aria-label="Target BTL source">
+            <button type="button" className={targetSource === 'manual' ? 'active' : ''} aria-pressed={targetSource === 'manual'} onClick={() => setTargetSource('manual')}>Manual price</button>
+            <button type="button" className={targetSource === 'saved' ? 'active' : ''} aria-pressed={targetSource === 'saved'} disabled={!savedAcquisitions.length} onClick={() => {
+              const next = selectedAcquisition || firstSavedAcquisition
+              if (!next) return
+              setSelectedAcquisitionId(next.id)
+              setTargetSource('saved')
+            }}>Saved acquisition</button>
+          </div>
+          {usingSavedAcquisition
+            ? <label className="next-btl-field prominent saved-target"><span>Saved acquisition</span><select aria-label="Saved acquisition target" value={selectedAcquisitionId} onChange={(event) => setSelectedAcquisitionId(event.target.value)}>{savedAcquisitions.map((item) => <option value={item.id} key={item.id}>{item.name || 'Untitled acquisition'} · {currency(item.purchasePrice)}</option>)}</select><small>Price and funding assumptions stay linked to the selected acquisition card.</small></label>
+            : <label className="next-btl-field prominent"><span>BTL price today</span><div><b>£</b><input aria-label="BTL price today" inputMode="numeric" type="number" min="0" step="1000" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value === '' ? '' : Number(event.target.value))} /></div>{!savedAcquisitions.length && <small>Add an acquisition below to use a saved card instead.</small>}</label>}
+        </div>
 
         <div className="next-btl-control-group">
           <span className="next-btl-control-label">Scenario</span>
@@ -271,13 +313,18 @@ export default function TimeToNextBtl({
           {preserveBuffer && <small className="reserve">Reserve protected: {currency(result.reserveCash)}</small>}
         </div>
 
-        <button type="button" className="next-btl-assumptions-button" onClick={openingAssumptions} aria-haspopup="dialog">
-          <span><b>Purchase assumptions</b><small>{assumptionSummary(assumptions)}</small></span><ChevronRight size={18} />
-        </button>
+        {usingSavedAcquisition
+          ? <div className="next-btl-assumptions-button linked" aria-label={`Purchase assumptions linked to ${selectedAcquisition.name || 'saved acquisition'}`}>
+              <span><b>Purchase assumptions · linked</b><small>{assumptionSummary(effectiveAssumptions)}</small><small className="source-note">Managed by {selectedAcquisition.name || 'the selected acquisition card'}.</small></span>
+            </div>
+          : <button type="button" className="next-btl-assumptions-button" onClick={openingAssumptions} aria-haspopup="dialog">
+              <span><b>Purchase assumptions</b><small>{assumptionSummary(assumptions)}</small></span><ChevronRight size={18} />
+            </button>}
       </aside>
 
       <div className="next-btl-visual">
         <div className={`next-btl-result ${intro ? 'intro' : 'settled'} ${result.status}`} aria-live="polite">
+          <small className="next-btl-target-context">{targetContext}</small>
           <span>ESTIMATED PURCHASE WINDOW</span>
           <strong>{resultPrimary}</strong>
           <p>{resultSecondary}</p>

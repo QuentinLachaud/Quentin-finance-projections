@@ -13,9 +13,12 @@ describe('Acquisition Simulator simplified entry and adaptive mobile metrics', (
   })
 
   it('keeps one Add acquisition action', () => {
-    expect(simulator).toContain('className="acq-add-toolbar"')
+    expect(simulator).toContain('className="acq-library-section"')
+    expect(simulator).toContain('className="acq-library-heading"')
+    expect(simulator).toContain('id="acq-library-title">Potential acquisitions')
     expect(simulator).toContain('className="primary-button acq-add-button"')
     expect(simulator).toContain('Add acquisition')
+    expect((simulator.match(/Add acquisition/g) || []).length).toBe(1)
     expect(simulator).toContain('onClick={openManual}')
   })
 

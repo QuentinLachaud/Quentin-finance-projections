@@ -12429,3 +12429,273 @@ textarea {
     transition: none !important;
   }
 }
+
+/* Brain Drain 2026-08-26 23:39 BST — acquisition planning workspace */
+.acquisition-planning-workspace {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 24px;
+}
+
+.acquisition-next-btl {
+  min-width: 0;
+  margin: 0;
+}
+
+.acq-library-section {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.acq-library-heading {
+  min-width: 0;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 2px;
+}
+
+.acq-library-heading > div {
+  min-width: 0;
+}
+
+.acq-library-heading h2 {
+  margin: 3px 0 3px;
+  color: var(--ink);
+  font-size: 19px;
+  line-height: 1.15;
+  letter-spacing: -.025em;
+}
+
+.acq-library-heading p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.acq-library-heading .acq-add-button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.acq-library-section .acquisition-list,
+.acq-library-section .acquisition-empty {
+  min-width: 0;
+  margin: 0;
+}
+
+.next-btl-target-control {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.next-btl-source-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--ui-surface-muted);
+}
+
+.next-btl-source-segmented button {
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 10.5px;
+  font-weight: 720;
+  line-height: 1.1;
+  white-space: nowrap;
+  transition: color .18s ease, background .18s ease, box-shadow .18s ease, transform .12s ease;
+}
+
+.next-btl-source-segmented button.active {
+  color: var(--ink);
+  background: var(--white);
+  box-shadow: 0 1px 4px rgba(20, 35, 28, .09);
+}
+
+.next-btl-source-segmented button:active:not(:disabled) {
+  transform: scale(.985);
+}
+
+.next-btl-source-segmented button:focus-visible {
+  outline: 3px solid var(--ui-focus);
+  outline-offset: 1px;
+}
+
+.next-btl-source-segmented button:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
+.next-btl-field.prominent.saved-target {
+  gap: 7px;
+}
+
+.next-btl-field.prominent.saved-target > select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 34px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--white);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+}
+
+.next-btl-field > small {
+  display: block;
+  margin: 0 2px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.next-btl-assumptions-button.linked {
+  cursor: default;
+}
+
+.next-btl-assumptions-button.linked:hover {
+  border-color: var(--line);
+  background: var(--white);
+}
+
+.next-btl-assumptions-button .source-note {
+  margin-top: 2px;
+  color: var(--ui-accent);
+  font-weight: 650;
+}
+
+.next-btl-target-context {
+  display: block;
+  max-width: 100%;
+  margin: 0 0 5px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 680;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme='dark'] .next-btl-source-segmented button.active,
+:root[data-theme='dark'] .next-btl-field.prominent.saved-target > select,
+:root[data-theme='dark'] .next-btl-assumptions-button.linked {
+  color-scheme: dark;
+}
+
+@media (min-width: 1181px) {
+  .acquisition-planning-workspace {
+    gap: 28px;
+  }
+
+  .acquisition-next-btl .next-btl-layout {
+    grid-template-columns: minmax(300px, 32%) minmax(0, 68%);
+  }
+
+  .acq-library-section .acquisition-list {
+    gap: 13px;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1180px) {
+  .acquisition-planning-workspace {
+    gap: 22px;
+  }
+
+  .acquisition-next-btl .next-btl-layout {
+    grid-template-columns: minmax(260px, 36%) minmax(0, 64%);
+  }
+
+  .acq-library-heading {
+    align-items: center;
+  }
+}
+
+@media (max-width: 760px) {
+  .acquisition-planning-workspace {
+    gap: 20px;
+  }
+
+  .acq-library-heading {
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+  }
+
+  .acq-library-heading h2 {
+    font-size: 18px;
+  }
+
+  .acq-library-heading p {
+    display: none;
+  }
+
+  .acq-library-heading .acq-add-button {
+    min-height: 44px;
+    padding-inline: 13px;
+  }
+
+  .next-btl-source-segmented button {
+    min-height: 44px;
+    font-size: 10px;
+  }
+
+  .next-btl-field.prominent.saved-target > select {
+    min-height: 48px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .acq-library-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .acq-library-heading .kicker {
+    display: none;
+  }
+
+  .acq-library-heading h2 {
+    margin: 0;
+    font-size: 17px;
+  }
+
+  .acq-library-heading .acq-add-button {
+    min-width: 44px;
+  }
+
+  .next-btl-source-segmented {
+    gap: 2px;
+  }
+
+  .next-btl-source-segmented button {
+    padding-inline: 6px;
+    font-size: 9.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .next-btl-source-segmented button {
+    transition: none !important;
+  }
+}
