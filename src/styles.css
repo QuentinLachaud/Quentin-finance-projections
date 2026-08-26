@@ -9882,3 +9882,156 @@ textarea {
   }
 }
 
+/* Brain Drain 2026-08-26 14:16 BST — compact iOS-native property financing */
+/*
+ * Asset financing is a small piece of property context, not a dashboard inside a card.
+ * Keep it visually close to an iOS grouped cell: compact type, hairlines and a quiet progress track.
+ */
+.property-financing {
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top-color: color-mix(in srgb, var(--ui-line, var(--line)) 86%, transparent);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.property-financing-heading {
+  gap: 10px;
+  margin-bottom: 6px;
+  line-height: 1.15;
+}
+
+.property-financing-heading > span {
+  color: var(--ui-muted, var(--muted));
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: .055em;
+}
+
+.property-financing-heading > b {
+  color: var(--ui-text, var(--ink));
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: -.005em;
+}
+
+.property-financing-track {
+  height: 10px !important;
+  min-width: 0;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--green) 26%, var(--ui-line, var(--line)));
+}
+
+.property-financing-track .asset-value-bar {
+  border-radius: inherit;
+}
+
+.property-financing-track .asset-loan-bar {
+  border-radius: 999px 0 0 999px;
+}
+
+/* LTV is already shown in the heading; repeating it inside a tiny progress bar is dashboard noise. */
+.property-financing .asset-ltv-label {
+  display: none;
+}
+
+.property-financing-numbers {
+  gap: 8px;
+  margin-top: 7px;
+}
+
+.property-financing-numbers > span {
+  gap: 1px;
+}
+
+.property-financing-numbers b {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -.01em;
+}
+
+.property-financing-numbers small {
+  color: var(--ui-muted, var(--muted));
+  font-size: 8.5px;
+  font-weight: 450;
+  line-height: 1.15;
+}
+
+/* Full cards retain a little more breathing room. */
+.property-financing-card {
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.property-financing-card .property-financing-track {
+  height: 10px !important;
+}
+
+/* Expanded Rows should feel like one compact iOS grouped cell, not a full-width dashboard panel. */
+.overview-property-row-inner > .property-financing-row {
+  margin: 0;
+  padding: 10px 58px 11px;
+  border-top: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-line, var(--line)) 86%, transparent);
+}
+
+.property-financing-row .property-financing-heading {
+  margin-bottom: 5px;
+}
+
+.property-financing-row .property-financing-track {
+  height: 9px !important;
+}
+
+.property-financing-row .property-financing-numbers {
+  margin-top: 6px;
+}
+
+/* Mini is intentionally the densest representation. */
+.property-financing-mini {
+  margin-top: 9px;
+  padding-top: 8px;
+}
+
+.property-financing-mini .property-financing-heading {
+  margin-bottom: 5px;
+}
+
+.property-financing-mini .property-financing-track {
+  height: 8px !important;
+}
+
+.property-financing-mini .property-financing-numbers {
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.property-financing-mini .property-financing-numbers b {
+  font-size: 11.5px;
+}
+
+.property-financing-mini .property-financing-numbers small {
+  font-size: 8px;
+}
+
+@media (max-width: 760px) {
+  .property-financing {
+    margin-top: 10px;
+    padding-top: 9px;
+  }
+
+  .overview-property-row-inner > .property-financing-row {
+    margin: 0;
+    padding: 10px 14px 11px;
+  }
+
+  .property-financing-row .property-financing-track {
+    height: 9px !important;
+  }
+
+  .property-financing-numbers {
+    gap: 6px;
+  }
+}
+
