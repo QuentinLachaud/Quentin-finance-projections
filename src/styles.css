@@ -10635,3 +10635,161 @@ textarea {
   .overview-insight-sheet { will-change: auto; }
 }
 
+/* Brain Drain 2026-08-26 20:40 BST — compact phone Portfolio Overview */
+/*
+ * iPhone summary cards deliberately return to metric-card density: the overview answers "what is it?"
+ * and "what is the number?" immediately, while the existing morphing detail sheet carries the breakdown.
+ */
+@media (max-width: 760px) {
+  .overview-summary-dashboard {
+    margin-bottom: 20px;
+  }
+
+  .overview-summary-grid {
+    gap: 8px;
+  }
+
+  .overview-summary-card {
+    min-height: 76px;
+    padding: 10px 12px;
+    gap: 0;
+  }
+
+  /* Detailed rows belong in the tap sheet on phones, not in the at-a-glance card. */
+  .overview-summary-card .overview-summary-rows {
+    display: none;
+  }
+
+  /* "4.1 months" is already the card headline; keep the visual ring for the detail sheet only. */
+  .overview-summary-card .overview-summary-buffer-body {
+    display: none;
+  }
+
+  .overview-summary-card-head {
+    min-height: 54px;
+    grid-template-columns: 30px minmax(0, 1fr) 16px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .overview-summary-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .overview-summary-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .overview-summary-title {
+    align-self: center;
+  }
+
+  .overview-summary-title > b {
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .overview-summary-title > strong {
+    margin-top: 2px;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .overview-summary-title > small {
+    margin-top: 2px;
+    font-size: 8.5px;
+    line-height: 1.15;
+  }
+
+  .overview-summary-info {
+    width: 16px;
+    height: 16px;
+    align-self: start;
+  }
+
+  .overview-summary-info svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .overview-summary-financing,
+  .overview-summary-buffer {
+    min-height: 72px;
+    padding: 9px 10px;
+  }
+
+  .overview-summary-financing .overview-summary-card-head,
+  .overview-summary-buffer .overview-summary-card-head {
+    min-height: 52px;
+    grid-template-columns: 26px minmax(0, 1fr) 14px;
+    gap: 6px;
+  }
+
+  .overview-summary-financing .overview-summary-icon,
+  .overview-summary-buffer .overview-summary-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .overview-summary-financing .overview-summary-icon svg,
+  .overview-summary-buffer .overview-summary-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .overview-summary-financing .overview-summary-title > b,
+  .overview-summary-buffer .overview-summary-title > b {
+    font-size: 9px;
+  }
+
+  .overview-summary-financing .overview-summary-title > strong,
+  .overview-summary-buffer .overview-summary-title > strong {
+    font-size: 18px;
+    white-space: nowrap;
+  }
+
+  .overview-summary-financing .overview-summary-title > small,
+  .overview-summary-buffer .overview-summary-title > small {
+    font-size: 7.75px;
+  }
+}
+
+@media (max-width: 420px) {
+  .overview-summary-grid {
+    gap: 7px;
+  }
+
+  .overview-summary-card {
+    min-height: 72px;
+    padding: 9px 10px;
+  }
+
+  .overview-summary-card-head {
+    min-height: 52px;
+    grid-template-columns: 28px minmax(0, 1fr) 14px;
+    gap: 7px;
+  }
+
+  .overview-summary-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .overview-summary-title > strong {
+    font-size: 20px;
+  }
+
+  .overview-summary-financing,
+  .overview-summary-buffer {
+    min-height: 68px;
+    padding: 8px 9px;
+  }
+
+  .overview-summary-financing .overview-summary-title > strong,
+  .overview-summary-buffer .overview-summary-title > strong {
+    font-size: 17px;
+  }
+}
+
