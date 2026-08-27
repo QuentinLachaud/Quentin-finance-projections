@@ -1,7 +1,7 @@
 import { calculatePortfolio, projectPortfolio } from './calculations.js'
 import { acquisitionCosts, maxAffordablePurchasePrice, normalizeAcquisitionAssumptions } from './acquisitionEngine.js'
 import { potentialEquityReleaseAtMonth } from './equityRelease.js'
-import { buildRealisticEquityReleaseEvents, cumulativeRealisticEquityReleaseByMonth, loanEventsFromRealisticReleases, positiveRealisticEquityReleaseEvents } from './realisticEquityRelease.js'
+import { buildRealisticEquityReleaseSchedule, choosePurchaseEnablingRealisticReleases, cumulativeRealisticEquityReleaseByMonth, loanEventsFromRealisticReleases, realisticEquityReleaseCandidatesAtMonth } from './realisticEquityRelease.js'
 
 const finite = (value, fallback = 0) => {
   const parsed = Number(value)
@@ -151,23 +151,114 @@ export const projectTimeToNextBtl = ({
   const releaseMode = equityReleaseMode === 'realistic' ? 'realistic' : 'smooth'
   const projectionHorizon = Math.max(0, Math.trunc(finite(maxMonths, DEFAULT_NEXT_BTL_MAX_MONTHS)))
 
-  const realisticSchedule = releaseMode === 'realistic'
-    ? buildRealisticEquityReleaseEvents({
-        properties,
-        selections: equityReleaseSelections,
-        annualAppreciationRate: finite(settings.appreciationRate),
-        rateShock: finite(settings.rateShock),
-        now,
-      })
-    : []
-  const realisticEvents = positiveRealisticEquityReleaseEvents(realisticSchedule)
-  const loanEvents = releaseMode === 'realistic' ? loanEventsFromRealisticReleases(realisticEvents) : []
+  const equityReleaseNow = potentialEquityReleaseAtMonth({
+    properties,
+    selections: equityReleaseSelections,
+    annualAppreciationRate: finite(settings.appreciationRate),
+    month: 0,
+  })
 
-  // Smooth mode preserves supplied/current projection semantics exactly.
-  // Realistic mode must regenerate projection points with the enlarged-loan events so financing drag cannot be bypassed.
-  const points = releaseMode === 'smooth' && Array.isArray(projectionPoints)
-    ? projectionPoints
-    : projectPortfolio(properties, settings, maxMonths, now, releaseMode === 'realistic' ? { loanEvents } : {})
+  if (releaseMode === 'smooth') {
+    const points = Array.isArray(projectionPoints)
+      ? projectionPoints
+      : projectPortfolio(properties, settings, maxMonths, now)
+
+    const cumulativeCashByMonth = points.map((point) => cumulativeProjectedCash({
+      projectionPoint: point,
+      scenarioIndex,
+      includeExtraction,
+      startingCashHeld: basePortfolio.cashHeld,
+      isCompany,
+    }))
+
+    const potentialEquityReleaseByMonth = Array.from({ length: projectionHorizon + 1 }, (_, month) => potentialEquityReleaseAtMonth({
+      properties,
+      selections: equityReleaseSelections,
+      annualAppreciationRate: finite(settings.appreciationRate),
+      month,
+    }).total)
+
+    const nextBtlProjection = buildNextBtlProjection({
+      targetPriceToday,
+      annualAppreciationRate,
+      acquisitionAssumptions,
+      startingSurplus,
+      cumulativeCashByMonth,
+      potentialEquityReleaseByMonth,
+      startDate: now,
+      maxMonths,
+    })
+
+    return {
+      ...nextBtlProjection,
+      scenario: NEXT_BTL_SCENARIOS[Math.min(2, Math.max(0, Math.trunc(finite(scenarioIndex))))],
+      monthlyOperatingCosts,
+      reserveCash,
+      startingSurplus,
+      preserveBuffer,
+      includeExtraction: Boolean(includeExtraction && isCompany),
+      equityReleaseNow: equityReleaseNow.total,
+      equityReleaseSelectedCount: equityReleaseNow.selectedCount,
+      equityReleaseMode: 'smooth',
+      equityReleaseSchedule: [],
+      equityReleaseEvents: [],
+      isCompany,
+    }
+  }
+
+  const realisticSchedule = buildRealisticEquityReleaseSchedule({
+    properties,
+    selections: equityReleaseSelections,
+    rateShock: finite(settings.rateShock),
+    now,
+  })
+
+  // Before a refinance actually happens there is no financing drag, so search for the purchase-enabling
+  // month against a clean no-release baseline. Eligibility alone never mutates cash or debt.
+  const baselinePoints = projectPortfolio(properties, settings, maxMonths, now)
+  const baselineCumulativeCashByMonth = baselinePoints.map((point) => cumulativeProjectedCash({
+    projectionPoint: point,
+    scenarioIndex,
+    includeExtraction,
+    startingCashHeld: basePortfolio.cashHeld,
+    isCompany,
+  }))
+
+  const assumptions = normalizeAcquisitionAssumptions(acquisitionAssumptions)
+  let realisticEvents = []
+
+  for (let month = 0; month <= projectionHorizon; month += 1) {
+    const cumulative = finite(
+      baselineCumulativeCashByMonth[month],
+      baselineCumulativeCashByMonth.length ? baselineCumulativeCashByMonth[baselineCumulativeCashByMonth.length - 1] : 0,
+    )
+    const cashWithoutRelease = Math.max(0, startingSurplus + cumulative)
+    const targetPrice = targetPriceAtMonth(targetPriceToday, annualAppreciationRate, month)
+    const cashRequired = acquisitionCosts({ ...assumptions, purchasePrice: targetPrice }).cashRequired
+
+    // If organic cash gets there first, do not refinance merely because capacity exists.
+    if (cashWithoutRelease + 1e-7 >= cashRequired) break
+
+    const candidates = realisticEquityReleaseCandidatesAtMonth({
+      properties,
+      schedule: realisticSchedule,
+      annualAppreciationRate: finite(settings.appreciationRate),
+      month,
+      now,
+    })
+    const shortfall = Math.max(0, cashRequired - cashWithoutRelease)
+    const purchaseEnabling = choosePurchaseEnablingRealisticReleases(candidates, shortfall)
+
+    if (purchaseEnabling.length) {
+      realisticEvents = purchaseEnabling
+      break
+    }
+  }
+
+  const loanEvents = loanEventsFromRealisticReleases(realisticEvents)
+  const points = realisticEvents.length
+    ? projectPortfolio(properties, settings, maxMonths, now, { loanEvents })
+    : baselinePoints
 
   const cumulativeCashByMonth = points.map((point) => cumulativeProjectedCash({
     projectionPoint: point,
@@ -177,21 +268,7 @@ export const projectTimeToNextBtl = ({
     isCompany,
   }))
 
-  const equityReleaseNow = potentialEquityReleaseAtMonth({
-    properties,
-    selections: equityReleaseSelections,
-    annualAppreciationRate: finite(settings.appreciationRate),
-    month: 0,
-  })
-
-  const potentialEquityReleaseByMonth = releaseMode === 'realistic'
-    ? cumulativeRealisticEquityReleaseByMonth(realisticEvents, projectionHorizon)
-    : Array.from({ length: projectionHorizon + 1 }, (_, month) => potentialEquityReleaseAtMonth({
-        properties,
-        selections: equityReleaseSelections,
-        annualAppreciationRate: finite(settings.appreciationRate),
-        month,
-      }).total)
+  const potentialEquityReleaseByMonth = cumulativeRealisticEquityReleaseByMonth(realisticEvents, projectionHorizon)
 
   const nextBtlProjection = buildNextBtlProjection({
     targetPriceToday,
@@ -214,7 +291,7 @@ export const projectTimeToNextBtl = ({
     includeExtraction: Boolean(includeExtraction && isCompany),
     equityReleaseNow: equityReleaseNow.total,
     equityReleaseSelectedCount: equityReleaseNow.selectedCount,
-    equityReleaseMode: releaseMode,
+    equityReleaseMode: 'realistic',
     equityReleaseSchedule: realisticSchedule,
     equityReleaseEvents: realisticEvents,
     isCompany,

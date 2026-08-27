@@ -145,7 +145,7 @@ function TimeToNextBtlChart({ result, intro }) {
         const markerX = x(event.month)
         const markerY = y(point.buyingPower)
         return <g className="next-btl-release-marker" key={`${event.propertyId}-${event.month}`}>
-          <title>{`${event.propertyName}: ${currency(event.release)} equity release at ${formatProjectionMonth(event.remortgageDate)} remortgage`}</title>
+          <title>{`${event.propertyName}: ${currency(event.release)} equity released in ${formatProjectionMonth(event.executionDate)} after becoming eligible at the ${formatProjectionMonth(event.remortgageDate)} remortgage`}</title>
           <line x1={markerX} x2={markerX} y1={markerY - 10} y2={markerY + 10} />
           <circle cx={markerX} cy={markerY} r="3.5" />
           <text x={markerX + 5} y={markerY - 12 - sameMonthIndex * 12}>{event.propertyName}</text>
@@ -466,7 +466,7 @@ export default function TimeToNextBtl({
                 </div>
                 <p className="next-btl-release-mode-copy">
                   {effectiveReleaseMode === 'realistic'
-                    ? <>Selected BTLs release equity only at their next known remortgage month. The enlarged loan then reduces following cash flow using that property's modeled mortgage rate plus Rate shock. <strong>ERCs, refinance fees, lender ICR/affordability and eligibility are not deducted.</strong></>
+                    ? <>Selected BTLs become eligible at their next known remortgage date, but refinancing is deferred until cash plus one or more eligible releases can actually fund the target purchase. The model uses the smallest sufficient full-release combination, then the enlarged loan reduces following cash flow using that property's modeled mortgage rate plus Rate shock. <strong>ERCs, refinance fees, lender ICR/affordability and eligibility are not deducted.</strong></>
                     : <>Current model: selected BTL refinance capacity becomes available smoothly as property values appreciate.</>}
                 </p>
               </section>}
