@@ -7,7 +7,6 @@ import {
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
-import { TAX_YEAR } from './tax.js'
 import {
   activeOfficers, activePsc, companyDeadlines, formatCompanyAddress,
   identityVerificationSummary, officialCompanyUrl, outstandingCharges,
@@ -561,12 +560,6 @@ function PrivateLandlordInputs({ settings, onSettingChange, compact = false }) {
   if (settings.accountType !== 'private') return null
   const moneyField = (key, label, note) => <label><span>{label}</span><div className="private-income-field"><b>£</b><input aria-label={label} type="number" min="0" step="100" value={Number(settings[key] || 0)} onChange={(event) => onSettingChange(key, Number(event.target.value))} /></div>{note && <small>{note}</small>}</label>
   return <section className={`private-tax-inputs ${compact ? 'compact' : ''}`}><header><PoundSterling size={15} /><div><b>Private landlord tax</b><small>Tax-year-aware planning assumptions</small></div></header>{moneyField('grossAnnualIncome', 'Other gross annual income', 'Before property income; excludes savings and dividends.')}{!Number(settings.grossAnnualIncome) && <small className="tax-input-warning">Currently assumes you have no other taxable income.</small>}{moneyField('propertyLossBroughtForward', 'Property loss brought forward', 'Unused loss from the same property business.')}{moneyField('financeCostsBroughtForward', 'Finance costs brought forward', 'Unused restricted residential finance costs from earlier tax years.')}<div className="tax-jurisdiction"><span>Tax jurisdiction</span><div><button className={settings.taxJurisdiction !== 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'england')}>England / Wales / NI</button><button className={settings.taxJurisdiction === 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'scotland')}>Scotland</button></div></div></section>
-}
-
-function PrivateTaxSummary({ portfolio, settings }) {
-  if (settings.accountType !== 'private') return null
-  const futureNote = portfolio.scenarios.find((scenario) => scenario.privateTax?.policyNote)?.privateTax?.policyNote
-  return <section className="panel private-tax-summary"><header><div><span className="kicker">PRIVATE LANDLORD · {portfolio.taxYear || TAX_YEAR}</span><h2>Estimated property income tax</h2><p>Rental profit is stacked on your other income. Restricted residential finance costs receive the applicable basic property-rate tax reduction rather than a profit deduction.</p></div><span className="panel-stat">{settings.taxJurisdiction === 'scotland' ? 'Scotland' : 'England / Wales / NI'}</span></header><div className="private-tax-scenarios">{portfolio.scenarios.map((scenario, index) => <article key={scenario.id} style={{ '--scenario': scenarioMeta[index].colour }}><span>{scenarioMeta[index].name}</span><strong>{currency(scenario.tax * 12)}</strong><small>estimated annual tax</small><dl><div><dt>Taxable property profit</dt><dd>{currency(scenario.privateTax?.propertyProfit)}</dd></div><div><dt>Finance-cost reduction</dt><dd>{currency(scenario.privateTax?.financeCostTaxReduction)}</dd></div><div><dt>Loss carried forward</dt><dd>{currency(scenario.privateTax?.propertyLossCarryForward)}</dd></div><div><dt>Finance costs carried forward</dt><dd>{currency(scenario.privateTax?.financeCostsCarryForward)}</dd></div><div><dt>Marginal property rate</dt><dd>{percent(scenario.privateTax?.marginalRate, 0)}</dd></div></dl></article>)}</div>{futureNote && <p className="tax-input-warning">{futureNote}</p>}<footer>Planning estimate only · excludes pension reliefs, savings, dividends and tax circumstances not represented by these inputs.</footer></section>
 }
 
 const companiesHouseRequest = async (params) => {
@@ -1839,8 +1832,6 @@ function PortfolioApp({ user }) {
               <p>{pageMeta.description}</p>
             </div>
           </section>
-
-          {(section === 'Overview' || section === 'Projections') && <PrivateTaxSummary portfolio={portfolio} settings={state.settings} />}
 
           {section === 'Overview' && <>
             <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
