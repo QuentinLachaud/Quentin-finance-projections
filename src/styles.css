@@ -12177,7 +12177,8 @@ textarea {
 .next-btl-chart.intro .next-btl-buying-path {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: next-btl-path-draw 1.95s cubic-bezier(.25,.7,.25,1) forwards;
+  /* Keep the reveal speed constant. Front-loaded easing makes the last segment look stalled. */
+  animation: next-btl-path-draw 1.95s linear forwards;
 }
 
 .next-btl-chart.intro .next-btl-target-path {

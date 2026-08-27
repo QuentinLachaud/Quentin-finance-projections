@@ -93,6 +93,13 @@ describe('Time to next BTL flagship UI', () => {
     for (const prop of ['properties={properties}','settings={settings}','portfolio={portfolio}','acquisitions={acquisitions}']) expect(acquisitionSimulator).toContain(prop)
   })
 
+  it('keeps the main chart-path reveal linear so it cannot stall near the end', () => {
+    const pathAnimationRule = styles.match(/\.next-btl-chart\.intro \.next-btl-target-path,\s*\.next-btl-chart\.intro \.next-btl-buying-path\s*\{[\s\S]*?\}/)?.[0] || ''
+    expect(pathAnimationRule).toContain('animation: next-btl-path-draw 1.95s linear forwards;')
+    expect(pathAnimationRule).not.toContain('cubic-bezier')
+    expect(styles).toContain('@keyframes next-btl-path-draw { to { stroke-dashoffset: 0; } }')
+  })
+
   it('has explicit cross-device planning layout and reduced-motion final-state CSS', () => {
     expect(styles).toContain('Time to next BTL flagship')
     expect(styles).toContain('acquisition planning workspace')
@@ -100,6 +107,6 @@ describe('Time to next BTL flagship UI', () => {
     expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.next-btl-layout\s*\{[\s\S]*?grid-template-columns:\s*1fr/)
     expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.acq-library-heading/)
     expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?stroke-dashoffset:\s*0 !important/)
-    expect(styles).toContain('next-btl-path-draw 1.95s')
+    expect(styles).toContain('next-btl-path-draw 1.95s linear forwards')
   })
 })
