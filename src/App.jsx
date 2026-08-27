@@ -3,7 +3,7 @@ import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown, CircleHelp,
   ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu,
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp, Moon, Sun,
-  WalletCards, X, LogOut, Settings, Cloud, CloudOff, ReceiptText, FileText, Users, RefreshCw, AlertTriangle, Coffee, KeyRound,
+  WalletCards, X, LogOut, Settings, Cloud, CloudOff, ReceiptText, FileText, Users, UserRound, RefreshCw, AlertTriangle, Coffee, KeyRound,
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
@@ -28,6 +28,7 @@ import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvata
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
 import MoneyPeriodInput from './MoneyPeriodInput.jsx'
 import { moneyEntryPeriodFor, normalizeMoneyEntryPreferences, setMoneyEntryPeriod } from './moneyPeriods.js'
+import { confirmPrivateIncome, privateIncomeIsKnown } from './accountMode.js'
 import { supportConfig } from './support.js'
 import { exportTabularReport } from './reportExports.js'
 import { bufferStrokeOffset, bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
@@ -37,7 +38,7 @@ import { bufferStrokeOffset, bufferVisualTarget, interpolateBufferVisual } from 
 const BANKING_ENABLED = import.meta.env.VITE_BANKING_ENABLED === 'true'
 const SUPPORT = supportConfig({ enabled: import.meta.env.VITE_SUPPORT_ENABLED, url: import.meta.env.VITE_BUY_ME_A_COFFEE_URL || 'https://buymeacoffee.com/btlportfolio.co.uk' })
 
-const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, taxJurisdiction: 'england' }
+const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, privateIncomeConfirmed: false, taxJurisdiction: 'england' }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 const propertyGroups = [
@@ -646,17 +647,60 @@ function CompaniesHouseWorkspace({ settings, onSettingChange }) {
   <button className="text-button ch-unlink" onClick={() => { onSettingChange('companyNumber', ''); onSettingChange('companyMatchedName', '') }}>Choose a different company</button></div>
 }
 
+function AccountModeSwitch({ accountType, onChange }) {
+  const isPrivate = accountType === 'private'
+  return <div className="account-mode-switch" role="group" aria-label="Portfolio ownership mode">
+    <button type="button" className={isPrivate ? 'active' : ''} aria-pressed={isPrivate} onClick={() => onChange('private')} title="Model as a private landlord"><UserRound size={15} /><span>Private</span></button>
+    <button type="button" className={!isPrivate ? 'active' : ''} aria-pressed={!isPrivate} onClick={() => onChange('company')} title="Model as a limited company"><Building2 size={15} /><span>Ltd</span></button>
+  </div>
+}
+
+function PrivateIncomePrompt({ currentIncome = 0, onConfirm, onCancel }) {
+  const [income, setIncome] = useState(() => Number(currentIncome) > 0 ? String(Number(currentIncome)) : '')
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onCancel()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onCancel])
+
+  const parsedIncome = Number(income)
+  const valid = income !== '' && Number.isFinite(parsedIncome) && parsedIncome >= 0
+
+  return <div className="account-income-layer" onMouseDown={onCancel}>
+    <section className="account-income-modal" role="dialog" aria-modal="true" aria-labelledby="account-income-title" onMouseDown={(event) => event.stopPropagation()}>
+      <span className="account-income-icon"><UserRound size={22} /></span>
+      <span className="kicker">PRIVATE LANDLORD</span>
+      <h2 id="account-income-title">Private landlord income</h2>
+      <p>One tax input is needed before the app can model the private-landlord view reliably.</p>
+      <label className="account-income-field">
+        <span>Annual gross income</span>
+        <div className="account-income-money"><b>£</b><input autoFocus aria-label="Annual gross income" type="number" min="0" step="100" inputMode="decimal" value={income} onChange={(event) => setIncome(event.target.value)} /></div>
+        <small>Salary and other taxable non-property income before property rent. Savings and dividends are not represented by this input.</small>
+      </label>
+      <button type="button" className="account-income-zero" onClick={() => onConfirm(0)}>I have £0 other income</button>
+      <div className="account-income-actions">
+        <button type="button" className="secondary-button" onClick={onCancel}>Cancel</button>
+        <button type="button" className="primary-button" disabled={!valid} onClick={() => onConfirm(parsedIncome)}>Switch to Private</button>
+      </div>
+    </section>
+  </div>
+}
+
 function AccountProfileEditor({ settings, onChange }) {
   const isPrivate = settings.accountType === 'private'
   return <details className="sidebar-profile-editor sidebar-disclosure">
     <summary>
-      <Building2 size={15} />
+      {isPrivate ? <UserRound size={15} /> : <Building2 size={15} />}
       <div><b>Portfolio profile</b><small>{isPrivate ? 'Private landlord' : settings.companyName || 'Limited company'}</small></div>
       <ChevronDown className="sidebar-disclosure-chevron" size={16} />
     </summary>
     <div className="sidebar-disclosure-body">
-      <div className="account-type-toggle"><button className={!isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'company')}>Company</button><button className={isPrivate ? 'active' : ''} onClick={() => onChange('accountType', 'private')}>Private</button></div>
-      <label className={isPrivate ? 'not-applicable' : ''} title={isPrivate ? 'Not used for private landlords.' : undefined}><span>Company name <small>optional</small></span><input disabled={isPrivate} value={settings.companyName || ''} onChange={(event) => onChange('companyName', event.target.value)} placeholder="Property company" /></label>
+      {isPrivate
+        ? <p className="sidebar-profile-mode-note">Ownership mode is controlled from the top bar so you can compare Private and Ltd views quickly.</p>
+        : <label><span>Company name <small>optional</small></span><input value={settings.companyName || ''} onChange={(event) => onChange('companyName', event.target.value)} placeholder="Property company" /></label>}
     </div>
   </details>
 }
@@ -1438,6 +1482,7 @@ function PortfolioApp({ user }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [modelInputsPopupOpen, setModelInputsPopupOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [privateIncomePromptOpen, setPrivateIncomePromptOpen] = useState(false)
   const accentKey = accentStorageKey(user.id)
   const [accentHue, setAccentHue] = useState(() => initialAccent(window.localStorage.getItem(accentKey)))
 
@@ -1535,6 +1580,7 @@ function PortfolioApp({ user }) {
           ...(portfolioState.settings || {}),
           companyName: portfolioState.settings?.companyName || (isEstablishedPortfolio ? 'Quark Holdings' : ''),
           onboardingComplete: isEstablishedPortfolio || Boolean(portfolioState.settings?.onboardingComplete),
+          privateIncomeConfirmed: portfolioState.settings?.privateIncomeConfirmed === true || Number(portfolioState.settings?.grossAnnualIncome || 0) > 0,
           companyCosts: Array.isArray(portfolioState.settings?.companyCosts) ? portfolioState.settings.companyCosts.map((item) => ({ ...item, taxDeductible: item.taxDeductible === true })) : [],
           extractions: Array.isArray(portfolioState.settings?.extractions) ? portfolioState.settings.extractions.map((item) => ({ ...item, taxDeductible: item.taxDeductible === true })) : [],
         },
@@ -1629,7 +1675,33 @@ function PortfolioApp({ user }) {
       return { ...property, [key]: value }
     }),
   }))
-  const updateSetting = (key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [key]: value } }))
+  const updateSetting = (key, value) => setState((current) => ({
+    ...current,
+    settings: {
+      ...current.settings,
+      [key]: value,
+      ...(key === 'grossAnnualIncome' ? { privateIncomeConfirmed: true } : {}),
+    },
+  }))
+  const requestAccountType = (nextAccountType) => {
+    if (nextAccountType === state.settings.accountType) return
+    if (nextAccountType === 'private' && !privateIncomeIsKnown(state.settings)) {
+      setPrivateIncomePromptOpen(true)
+      return
+    }
+    setState((current) => ({
+      ...current,
+      settings: {
+        ...current.settings,
+        accountType: nextAccountType,
+        ...(nextAccountType === 'private' && Number(current.settings.grossAnnualIncome || 0) > 0 ? { privateIncomeConfirmed: true } : {}),
+      },
+    }))
+  }
+  const confirmPrivateAccountMode = (grossAnnualIncome) => {
+    setState((current) => ({ ...current, settings: confirmPrivateIncome(current.settings, grossAnnualIncome) }))
+    setPrivateIncomePromptOpen(false)
+  }
   const updateConnectedCashHeld = (value) => setState((current) => Number(current.settings.cashHeld) === Number(value)
     ? current
     : ({ ...current, settings: { ...current.settings, cashHeld: value } }))
@@ -1775,6 +1847,8 @@ function PortfolioApp({ user }) {
         onClose={() => setModelInputsPopupOpen(false)}
       />}
 
+      {privateIncomePromptOpen && <PrivateIncomePrompt currentIncome={state.settings.grossAnnualIncome} onConfirm={confirmPrivateAccountMode} onCancel={() => setPrivateIncomePromptOpen(false)} />}
+
       {settingsOpen && <div className="settings-layer" onMouseDown={() => setSettingsOpen(false)}>
         <section
           className="settings-modal"
@@ -1820,8 +1894,8 @@ function PortfolioApp({ user }) {
 
       <main>
         <header className="topbar">
-          <div><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span>{portfolioName}</span><b>/</b><strong>{section}</strong></div>
-          <div><button className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><button className="secondary-button small topbar-reset" onClick={reset} title="Reset portfolio model assumptions"><RotateCcw size={15} /> Reset model</button></div>
+          <div className="topbar-context"><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span className="topbar-portfolio-name">{portfolioName}</span><b className="topbar-context-separator">/</b><strong>{section}</strong></div>
+          <div className="topbar-actions"><AccountModeSwitch accountType={state.settings.accountType} onChange={requestAccountType} /><button className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><button className="secondary-button small topbar-reset" onClick={reset} title="Reset portfolio model assumptions"><RotateCcw size={15} /> Reset model</button></div>
         </header>
 
         <div className="content">

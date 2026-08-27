@@ -7,7 +7,8 @@ const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 describe('iPad Properties comparison workspace', () => {
   const marker = '/* Brain Drain 2026-08-24 07:21 BST — iPad-native Properties comparison workspace */'
   const start = styles.indexOf(marker)
-  const block = start >= 0 ? styles.slice(start) : ''
+  const nextMarker = start >= 0 ? styles.indexOf('/* Brain Drain ', start + marker.length) : -1
+  const block = start >= 0 ? styles.slice(start, nextMarker >= 0 ? nextMarker : styles.length) : ''
 
   it('uses a clear tablet toolbar structure and copy', () => {
     expect(app).toContain('className="properties-toolbar-copy"')
