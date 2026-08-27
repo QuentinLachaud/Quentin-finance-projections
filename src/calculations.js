@@ -271,6 +271,19 @@ const activeCompanyCostsForMonth = (items, month) => (Array.isArray(items) ? ite
 })
 
 
+export const projectedRentAtMonth = (rent, annualGrowthRate = 0, month = 0) => {
+  const startingRent = Math.max(0, finiteNumber(rent))
+  const annualRate = Math.max(-0.999999, finiteNumber(annualGrowthRate))
+  const projectedMonth = Math.max(0, finiteNumber(month))
+  return startingRent * ((1 + annualRate) ** (projectedMonth / 12))
+}
+
+export const propertiesWithProjectedRentGrowth = (properties = [], annualGrowthRate = 0, month = 0) =>
+  (Array.isArray(properties) ? properties : []).map((property) => ({
+    ...property,
+    rent: projectedRentAtMonth(property?.rent, annualGrowthRate, month),
+  }))
+
 export const propertiesWithProjectedLoanEvents = (properties = [], loanEvents = [], month = 0) => {
   const currentMonth = Math.max(0, Math.trunc(finiteNumber(month)))
   const deltas = new Map()
@@ -318,7 +331,11 @@ export function projectPortfolio(properties, settings, months = settings.project
       companyCosts: activeCompanyCostsForMonth(settings.companyCosts, month),
       privateTaxStates,
     }
-    const projectedProperties = propertiesWithProjectedLoanEvents(properties, loanEvents, month)
+    const projectedProperties = propertiesWithProjectedRentGrowth(
+      propertiesWithProjectedLoanEvents(properties, loanEvents, month),
+      settings.rentGrowthRate,
+      month,
+    )
     const monthlyPortfolio = month === 0 ? basePortfolio : calculatePortfolio(projectedProperties, projectedSettings, date)
 
     if (month > 0) {
@@ -333,7 +350,7 @@ export function projectPortfolio(properties, settings, months = settings.project
 
     previousTaxYear = currentTaxYear
     previousPortfolio = monthlyPortfolio
-    return { month, date, taxYear: currentTaxYear, scenarios: accumulators.map((values) => ({ ...values })) }
+    return { month, date, taxYear: currentTaxYear, rent: monthlyPortfolio.rent, scenarios: accumulators.map((values) => ({ ...values })) }
   })
 }
 

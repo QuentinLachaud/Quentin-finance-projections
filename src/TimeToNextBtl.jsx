@@ -211,6 +211,7 @@ export default function TimeToNextBtl({
   const [scenarioIndex, setScenarioIndex] = useState(() => initialPreferences.scenarioIndex ?? 0)
   const [preserveBuffer, setPreserveBuffer] = useState(() => initialPreferences.preserveBuffer ?? true)
   const [includeExtraction, setIncludeExtraction] = useState(() => initialPreferences.includeExtraction ?? false)
+  const [includeRentGrowth, setIncludeRentGrowth] = useState(() => initialPreferences.includeRentGrowth ?? true)
   const [releaseMode, setReleaseMode] = useState(() => allowRealisticRelease && initialPreferences.releaseMode === 'realistic' ? 'realistic' : 'smooth')
   const effectiveReleaseMode = allowRealisticRelease && releaseMode === 'realistic' ? 'realistic' : 'smooth'
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -241,6 +242,10 @@ export default function TimeToNextBtl({
   const onPreferencesChangeRef = useRef(onPreferencesChange)
   useEffect(() => { onPreferencesChangeRef.current = onPreferencesChange }, [onPreferencesChange])
   const isCompany = settings.accountType !== 'private'
+  const plannerSettings = useMemo(() => ({
+    ...settings,
+    rentGrowthRate: includeRentGrowth ? numberValue(settings.rentGrowthRate) : 0,
+  }), [settings, includeRentGrowth])
   const selectedAcquisition = savedAcquisitions.find((item) => item.id === selectedAcquisitionId) || null
   const usingSavedAcquisition = targetSource === 'saved' && Boolean(selectedAcquisition)
   const effectiveTargetPrice = usingSavedAcquisition ? Number(selectedAcquisition.purchasePrice || 0) : numberValue(targetPrice)
@@ -314,6 +319,7 @@ export default function TimeToNextBtl({
       scenarioIndex,
       preserveBuffer,
       includeExtraction,
+      includeRentGrowth,
       assumptions,
       releaseMode: effectiveReleaseMode,
       equityReleaseOptions,
@@ -326,6 +332,7 @@ export default function TimeToNextBtl({
     scenarioIndex,
     preserveBuffer,
     includeExtraction,
+    includeRentGrowth,
     assumptions,
     effectiveReleaseMode,
     equityReleaseOptions,
@@ -345,11 +352,11 @@ export default function TimeToNextBtl({
 
   const projectionPoints = useMemo(() => Array.isArray(suppliedProjectionPoints)
     ? suppliedProjectionPoints
-    : projectPortfolio(properties, settings, DEFAULT_NEXT_BTL_MAX_MONTHS, nowRef.current), [properties, settings, suppliedProjectionPoints])
+    : projectPortfolio(properties, plannerSettings, DEFAULT_NEXT_BTL_MAX_MONTHS, nowRef.current), [properties, plannerSettings, suppliedProjectionPoints])
 
   const result = useMemo(() => projectTimeToNextBtl({
     properties,
-    settings,
+    settings: plannerSettings,
     portfolio,
     projectionPoints,
     targetPriceToday: effectiveTargetPrice,
@@ -362,7 +369,7 @@ export default function TimeToNextBtl({
     equityReleaseMode: effectiveReleaseMode,
     maxMonths: DEFAULT_NEXT_BTL_MAX_MONTHS,
     now: nowRef.current,
-  }), [properties, settings, portfolio, projectionPoints, effectiveTargetPrice, appreciationPercent, effectiveAssumptions, scenarioIndex, preserveBuffer, includeExtraction, equityReleaseSelections, effectiveReleaseMode])
+  }), [properties, plannerSettings, portfolio, projectionPoints, effectiveTargetPrice, appreciationPercent, effectiveAssumptions, scenarioIndex, preserveBuffer, includeExtraction, equityReleaseSelections, effectiveReleaseMode])
 
   const openingAssumptions = () => {
     setAssumptionDraft({ ...assumptions })
@@ -429,6 +436,8 @@ export default function TimeToNextBtl({
         <label className="next-btl-switch-row"><span><b>Preserve 6-month buffer</b><small>Only cash above six months of current operating costs can fund the purchase.</small></span><input aria-label="Preserve 6-month buffer" type="checkbox" checked={preserveBuffer} onChange={(event) => setPreserveBuffer(event.target.checked)} /><i /></label>
 
         <label className={`next-btl-switch-row ${isCompany ? '' : 'disabled'}`}><span><b>Include extraction</b><small>{isCompany ? 'Assumes extracted cash remains or becomes available again for acquisition funding.' : 'Not applicable to a private-landlord portfolio.'}</small></span><input aria-label="Include extraction" type="checkbox" disabled={!isCompany} checked={isCompany && includeExtraction} onChange={(event) => setIncludeExtraction(event.target.checked)} /><i /></label>
+
+        <label className="next-btl-switch-row"><span><b>Apply rent growth</b><small>{includeRentGrowth ? `Existing portfolio rent compounds at ${(numberValue(settings.rentGrowthRate) * 100).toFixed(1)}% p.a. while cash builds.` : 'Flat-rent scenario: existing portfolio rent is held constant until purchase.'}</small></span><input aria-label="Apply rent growth to acquisition timing" type="checkbox" checked={includeRentGrowth} onChange={(event) => setIncludeRentGrowth(event.target.checked)} /><i /></label>
 
         <label className="next-btl-field"><span>BTL appreciation</span><div><input aria-label="BTL appreciation" type="number" min="-20" max="30" step="0.25" value={appreciationPercent} onChange={(event) => setAppreciationPercent(event.target.value === '' ? '' : Number(event.target.value))} /><em>% p.a.</em></div></label>
 

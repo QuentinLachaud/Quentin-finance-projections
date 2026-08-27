@@ -1,5 +1,6 @@
 export const assumptions = {
   appreciationRate: 0.03,
+  rentGrowthRate: 0.02,
   rateShock: 0.007,
   associatedCompanies: 0,
   accountingPeriodMonths: 12,

@@ -14,6 +14,7 @@ const testProperties = [
 
 const companySettings = {
   ...assumptions,
+  rentGrowthRate: 0,
   accountType: 'company',
   fullyManaged: false,
   companyCosts: [],

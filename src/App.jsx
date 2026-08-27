@@ -94,6 +94,7 @@ const overviewScenarioMeta = [
 
 const modelInputFields = [
   ['appreciationRate', 'Annual appreciation', '%', 'percent'],
+  ['rentGrowthRate', 'Annual rent growth', '%', 'percent', null, 'Compounds each property’s current monthly rent through forward projections. Current rent and current cash flow are unchanged.'],
   ['rateShock', 'Interest rate shock', '%', 'percent', null, 'Adds this many percentage points to every BTL mortgage rate throughout the model.'],
   ['associatedCompanies', 'Associated companies', 'companies', 'number', 'company', 'Other companies associated for Corporation Tax threshold purposes. Enter the number of other associated companies.'],
   ['accountingPeriodMonths', 'CT accounting period', 'months', 'number', 'company', 'Corporation Tax thresholds are reduced for accounting periods shorter than 12 months.'],
@@ -945,9 +946,14 @@ function ProjectionExplorer({ properties, settings, portfolio, onSettingChange }
   const [tableOpen, setTableOpen] = useState(false)
   const [mobileScenario, setMobileScenario] = useState(0)
   const [mobileSnapshotsOpen, setMobileSnapshotsOpen] = useState(false)
+  const [includeRentGrowth, setIncludeRentGrowth] = useState(true)
+  const projectionSettings = useMemo(() => ({
+    ...settings,
+    rentGrowthRate: includeRentGrowth ? Number(settings.rentGrowthRate || 0) : 0,
+  }), [settings, includeRentGrowth])
   const points = useMemo(
-    () => projectPortfolio(properties, settings, settings.projectionMonths),
-    [properties, settings],
+    () => projectPortfolio(properties, projectionSettings, settings.projectionMonths),
+    [properties, projectionSettings, settings.projectionMonths],
   )
   const tablePoints = points.filter((point) => point.month > 0 && point.month % 12 === 0)
   const isCompany = settings.accountType !== 'private'
@@ -964,6 +970,17 @@ function ProjectionExplorer({ properties, settings, portfolio, onSettingChange }
       <div>
         <h2>Scenario accumulation over time</h2>
         <p>Compare how cash and value build across the three operating scenarios.</p>
+      </div>
+      <div className="projection-duration projection-rent-growth-toggle">
+        <span>Rent growth</span>
+        <button
+          type="button"
+          aria-pressed={includeRentGrowth}
+          title="Compare forward projections with or without annual rent growth"
+          onClick={() => setIncludeRentGrowth((enabled) => !enabled)}
+        >
+          {includeRentGrowth ? `${percent(settings.rentGrowthRate, 1)} p.a.` : 'Off'}
+        </button>
       </div>
       <div className="projection-duration">
         <span>Horizon</span>
