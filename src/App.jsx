@@ -27,6 +27,8 @@ import { formatPropertyAddress, formatRateComposition, includedPortfolioProperti
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
+import MoneyPeriodInput from './MoneyPeriodInput.jsx'
+import { moneyEntryPeriodFor, normalizeMoneyEntryPreferences, setMoneyEntryPeriod } from './moneyPeriods.js'
 import { supportConfig } from './support.js'
 import { exportTabularReport } from './reportExports.js'
 import { bufferStrokeOffset, bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
@@ -1039,7 +1041,20 @@ const propertyCostFields = [
   ['applianceReserve', 'Appliance budget', 'variable'],
 ]
 
-function LineItemsEditor({ title, description, items, onChange, onAdd, onRemove, timed = false, tone, disabled = false }) {
+function LineItemsEditor({
+  title,
+  description,
+  items,
+  onChange,
+  onAdd,
+  onRemove,
+  timed = false,
+  tone,
+  disabled = false,
+  collectionKey,
+  entryPeriodPreferences,
+  onEntryPeriodChange,
+}) {
   const total = items.filter((item) => item.enabled !== false).reduce((sum, item) => sum + Number(item.amount || 0), 0)
   return <section className={`panel cashflow-editor ${tone} ${disabled ? 'not-applicable' : ''}`} title={disabled ? 'Not used for private landlords.' : undefined}>
     <header>
@@ -1048,28 +1063,68 @@ function LineItemsEditor({ title, description, items, onChange, onAdd, onRemove,
     </header>
     <div className="cashflow-lines">
       {items.length === 0 && <div className="empty-cashflow"><ReceiptText size={22} /><b>No line items yet</b><span>Add one when this account has a recurring cash flow.</span></div>}
-      {items.map((item) => <details className={`cashflow-line mobile-line-details ${item.enabled === false ? 'disabled' : ''}`} key={item.id}>
-        <summary className="mobile-line-summary">
-          <span><b>{item.name || 'Untitled line'}</b><small>{item.enabled === false ? 'Paused' : 'Active'}</small></span>
-          <strong>{currency(item.amount || 0)}</strong>
-          <ChevronDown className="mobile-detail-chevron" size={18} />
-        </summary>
-        <div className="cashflow-line-fields">
-          <label className="cashflow-enabled"><input disabled={disabled} type="checkbox" checked={item.enabled !== false} onChange={(event) => onChange(item.id, 'enabled', event.target.checked)} /><i><Check size={12} /></i></label>
-          <label className="cashflow-name"><span>Description</span><input disabled={disabled} value={item.name} onChange={(event) => onChange(item.id, 'name', event.target.value)} placeholder="New monthly item" /></label>
-          <label><span>Monthly amount</span><div className="money-input"><b>£</b><input disabled={disabled} type="number" min="0" step="0.01" value={moneyInputValue(item.amount)} onChange={(event) => onChange(item.id, 'amount', Number(event.target.value))} /></div></label>
-          <label className="cashflow-tax"><span>Tax treatment</span><select disabled={disabled} value={item.taxDeductible === true ? 'deductible' : 'non-deductible'} onChange={(event) => onChange(item.id, 'taxDeductible', event.target.value === 'deductible')}><option value="non-deductible">Non-deductible</option><option value="deductible">Deductible</option></select></label>
-          {timed && <label><span>Months remaining</span><input disabled={disabled} type="number" min="0" step="1" value={item.monthsRemaining || ''} onChange={(event) => onChange(item.id, 'monthsRemaining', Number(event.target.value))} placeholder="Ongoing" /></label>}
-          <button disabled={disabled} className="icon-button cashflow-delete" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.name || 'line item'}`}><Trash2 size={16} /></button>
-        </div>
-      </details>)}
+      {items.map((item) => {
+        const preferenceKey = `line:${collectionKey}:${item.id}:amount`
+        return <details className={`cashflow-line mobile-line-details ${item.enabled === false ? 'disabled' : ''}`} key={item.id}>
+          <summary className="mobile-line-summary">
+            <span><b>{item.name || 'Untitled line'}</b><small>{item.enabled === false ? 'Paused' : 'Active'}</small></span>
+            <strong>{currency(item.amount || 0)}</strong>
+            <ChevronDown className="mobile-detail-chevron" size={18} />
+          </summary>
+          <div className="cashflow-line-fields">
+            <label className="cashflow-enabled"><input disabled={disabled} type="checkbox" checked={item.enabled !== false} onChange={(event) => onChange(item.id, 'enabled', event.target.checked)} /><i><Check size={12} /></i></label>
+            <label className="cashflow-name"><span>Description</span><input disabled={disabled} value={item.name} onChange={(event) => onChange(item.id, 'name', event.target.value)} placeholder="New recurring item" /></label>
+            <label>
+              <span>Amount</span>
+              <MoneyPeriodInput
+                ariaLabel={`${item.name || title} amount`}
+                disabled={disabled}
+                monthlyValue={item.amount}
+                period={moneyEntryPeriodFor(entryPeriodPreferences, preferenceKey)}
+                onMonthlyChange={(value) => onChange(item.id, 'amount', value)}
+                onPeriodChange={(period) => onEntryPeriodChange(preferenceKey, period)}
+              />
+            </label>
+            <label className="cashflow-tax"><span>Tax treatment</span><select disabled={disabled} value={item.taxDeductible === true ? 'deductible' : 'non-deductible'} onChange={(event) => onChange(item.id, 'taxDeductible', event.target.value === 'deductible')}><option value="non-deductible">Non-deductible</option><option value="deductible">Deductible</option></select></label>
+            {timed && <label><span>Months remaining</span><input disabled={disabled} type="number" min="0" step="1" value={item.monthsRemaining || ''} onChange={(event) => onChange(item.id, 'monthsRemaining', Number(event.target.value))} placeholder="Ongoing" /></label>}
+            <button disabled={disabled} className="icon-button cashflow-delete" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.name || 'line item'}`}><Trash2 size={16} /></button>
+          </div>
+        </details>
+      })}
     </div>
   </section>
 }
 
-function CostsWorkspace({ properties, calculated, settings, portfolio, onPropertyChange, onLineItemChange, onLineItemAdd, onLineItemRemove }) {
+function CostsWorkspace({
+  properties,
+  calculated,
+  settings,
+  portfolio,
+  onPropertyChange,
+  onLineItemChange,
+  onLineItemAdd,
+  onLineItemRemove,
+  entryPeriodPreferences = {},
+  onEntryPeriodPreferencesChange,
+}) {
   const isPrivate = settings.accountType === 'private'
   const [reconciliationScenario, setReconciliationScenario] = useState(0)
+  const normalizedEntryPeriods = useMemo(() => normalizeMoneyEntryPreferences(entryPeriodPreferences), [entryPeriodPreferences])
+  const onEntryPeriodChange = (preferenceKey, period) =>
+    onEntryPeriodPreferencesChange?.(setMoneyEntryPeriod(normalizedEntryPeriods, preferenceKey, period))
+
+  const propertyMoneyInput = ({ property, fieldKey, monthlyValue, onMonthlyChange, step = '0.01' }) => {
+    const preferenceKey = `property:${property.id}:${fieldKey}`
+    return <MoneyPeriodInput
+      ariaLabel={`${property.name || 'BTL'} ${fieldKey}`}
+      monthlyValue={monthlyValue}
+      period={moneyEntryPeriodFor(normalizedEntryPeriods, preferenceKey)}
+      onMonthlyChange={onMonthlyChange}
+      onPeriodChange={(period) => onEntryPeriodChange(preferenceKey, period)}
+      step={step}
+    />
+  }
+
   return <div className="costs-workspace">
     <section className="metrics-grid">
       <MetricCard eyebrow="PROPERTY FIXED COSTS" value={currency(portfolio.propertyFixedCosts)} delta="Mortgages, factors & compliance" icon={Home} tone="dark" />
@@ -1090,17 +1145,86 @@ function CostsWorkspace({ properties, calculated, settings, portfolio, onPropert
             <ChevronDown className="mobile-detail-chevron" size={19} />
           </summary>
           <div className="property-cost-body">
-            <div className="cost-category income"><span>Monthly income</span><label><b>Rent</b><div className="money-input"><i>£</i><input type="number" min="0" step="1" value={moneyInputValue(source.rent)} onChange={(event) => onPropertyChange(property.id, 'rent', Number(event.target.value))} /></div></label></div>
-            <div className="cost-category"><span>Fixed property costs</span><label><b>Mortgage payment <small>calculated</small></b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.monthlyPayment)} readOnly /></div></label>{propertyCostFields.filter(([, , group]) => group === 'fixed').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key] ?? property[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div>
-            <div className="cost-category variable"><span>Variable property costs</span><label><b>Void allowance {voidsAutomatic && <small>1/12 rent</small>}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.voids)} onChange={(event) => onPropertyChange(property.id, 'voidsOverride', Number(event.target.value))} /></div></label>{propertyCostFields.filter(([, , group]) => group === 'variable').map(([key, label]) => <label key={key}><b>{label}</b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(source[key])} onChange={(event) => onPropertyChange(property.id, key, Number(event.target.value))} /></div></label>)}</div>
+            <div className="cost-category income">
+              <span>Monthly income</span>
+              <label>
+                <b>Rent</b>
+                {propertyMoneyInput({
+                  property,
+                  fieldKey: "rent",
+                  monthlyValue: source.rent,
+                  onMonthlyChange: (value) => onPropertyChange(property.id, 'rent', value),
+                  step: '1',
+                })}
+              </label>
+            </div>
+            <div className="cost-category">
+              <span>Fixed property costs</span>
+              <label><b>Mortgage payment <small>calculated</small></b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.monthlyPayment)} readOnly /></div></label>
+              {propertyCostFields.filter(([, , group]) => group === 'fixed').map(([key, label]) => <label key={key}>
+                <b>{label}</b>
+                {propertyMoneyInput({
+                  property,
+                  fieldKey: key,
+                  monthlyValue: source[key] ?? property[key],
+                  onMonthlyChange: (value) => onPropertyChange(property.id, key, value),
+                })}
+              </label>)}
+            </div>
+            <div className="cost-category variable">
+              <span>Variable property costs</span>
+              <label>
+                <b>Void allowance {voidsAutomatic && <small>1/12 rent</small>}</b>
+                {propertyMoneyInput({
+                  property,
+                  fieldKey: "voidsOverride",
+                  monthlyValue: property.voids,
+                  onMonthlyChange: (value) => onPropertyChange(property.id, 'voidsOverride', value),
+                })}
+              </label>
+              {propertyCostFields.filter(([, , group]) => group === 'variable').map(([key, label]) => <label key={key}>
+                <b>{label}</b>
+                {propertyMoneyInput({
+                  property,
+                  fieldKey: key,
+                  monthlyValue: source[key],
+                  onMonthlyChange: (value) => onPropertyChange(property.id, key, value),
+                })}
+              </label>)}
+            </div>
           </div>
         </details>
       })}{calculated.length === 0 && <div className="empty-cashflow"><Home size={24} /><b>No properties yet</b><span>Add a BTL to start entering its income and costs.</span></div>}</div>
     </section>
 
     <div className="cashflow-editor-grid">
-      <LineItemsEditor title="COMPANY COSTS" description="Account-level cash costs. Mark a line deductible only when it genuinely qualifies for Corporation Tax." items={settings.companyCosts} timed tone="company" disabled={isPrivate} onChange={(id, key, value) => onLineItemChange('companyCosts', id, key, value)} onAdd={() => onLineItemAdd('companyCosts', 'New company cost')} onRemove={(id) => onLineItemRemove('companyCosts', id)} />
-      <LineItemsEditor title="EXTRACTIONS" description="Cash paid to an owner or employee. Dividends, DLA repayments and loan principal are normally non-deductible; set each line explicitly. Personal tax/NIC on the recipient is not modelled." items={settings.extractions} tone="extraction" disabled={isPrivate} onChange={(id, key, value) => onLineItemChange('extractions', id, key, value)} onAdd={() => onLineItemAdd('extractions', 'New extraction')} onRemove={(id) => onLineItemRemove('extractions', id)} />
+      <LineItemsEditor
+        title="COMPANY COSTS"
+        description="Account-level cash costs. Mark a line deductible only when it genuinely qualifies for Corporation Tax."
+        items={settings.companyCosts}
+        timed
+        tone="company"
+        disabled={isPrivate}
+        collectionKey="companyCosts"
+        entryPeriodPreferences={normalizedEntryPeriods}
+        onEntryPeriodChange={onEntryPeriodChange}
+        onChange={(id, key, value) => onLineItemChange('companyCosts', id, key, value)}
+        onAdd={() => onLineItemAdd('companyCosts', 'New company cost')}
+        onRemove={(id) => onLineItemRemove('companyCosts', id)}
+      />
+      <LineItemsEditor
+        title="EXTRACTIONS"
+        description="Cash paid to an owner or employee. Dividends, DLA repayments and loan principal are normally non-deductible; set each line explicitly. Personal tax/NIC on the recipient is not modelled."
+        items={settings.extractions}
+        tone="extraction"
+        disabled={isPrivate}
+        collectionKey="extractions"
+        entryPeriodPreferences={normalizedEntryPeriods}
+        onEntryPeriodChange={onEntryPeriodChange}
+        onChange={(id, key, value) => onLineItemChange('extractions', id, key, value)}
+        onAdd={() => onLineItemAdd('extractions', 'New extraction')}
+        onRemove={(id) => onLineItemRemove('extractions', id)}
+      />
     </div>
 
     <section className="panel cashflow-reconciliation" data-mobile-scenario={reconciliationScenario}>
@@ -1410,6 +1534,7 @@ function PortfolioApp({ user }) {
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
         acquisitionScenarios: Array.isArray(portfolioState.acquisitionScenarios) ? portfolioState.acquisitionScenarios : [],
         nextBtlPreferences: normalizeNextBtlPreferences(portfolioState.nextBtlPreferences),
+        costsCashflowPreferences: normalizeMoneyEntryPreferences(portfolioState.costsCashflowPreferences),
         remortgageComparisons: Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : [],
         settings: {
           ...defaultSettings,
@@ -1524,6 +1649,7 @@ function PortfolioApp({ user }) {
   const updateCredentials = (credentials) => setState((current) => ({ ...current, credentials }))
   const updateAcquisitionScenarios = (acquisitionScenarios) => setState((current) => ({ ...current, acquisitionScenarios }))
   const updateNextBtlPreferences = (nextBtlPreferences) => setState((current) => ({ ...current, nextBtlPreferences: normalizeNextBtlPreferences(nextBtlPreferences) }))
+  const updateCostsCashflowPreferences = (costsCashflowPreferences) => setState((current) => ({ ...current, costsCashflowPreferences: normalizeMoneyEntryPreferences(costsCashflowPreferences) }))
   const updateRemortgageComparisons = (remortgageComparisons) => setState((current) => ({ ...current, remortgageComparisons }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
@@ -1843,7 +1969,7 @@ function PortfolioApp({ user }) {
             </div>
           </>}
 
-          {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} />}
+          {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
 
           {section === 'Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} accountType={state.settings.accountType} onChange={updateExpenses} />}
 
