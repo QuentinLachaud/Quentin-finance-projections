@@ -180,6 +180,8 @@ export default function AcquisitionSimulator({
   properties = [],
   settings = {},
   portfolio = null,
+  plannerPreferences = {},
+  onPlannerPreferencesChange = null,
 }) {
   const [expandedId, setExpandedId] = useState('')
   const [editor, setEditor] = useState(null)
@@ -322,6 +324,8 @@ export default function AcquisitionSimulator({
       settings={settings}
       portfolio={portfolio}
       acquisitions={acquisitions}
+      preferences={plannerPreferences}
+      onPreferencesChange={onPlannerPreferencesChange}
     />
 
     <section className="acq-library-section" aria-labelledby="acq-library-title">

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { currency, projectPortfolio } from './calculations.js'
 import { acquisitionJurisdictions, normalizeAcquisitionAssumptions } from './acquisition.js'
 import { DEFAULT_EQUITY_RELEASE_TARGET_LTV, potentialEquityReleaseForProperty } from './equityRelease.js'
+import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
 import {
   DEFAULT_NEXT_BTL_APPRECIATION,
   DEFAULT_NEXT_BTL_MAX_MONTHS,
@@ -170,6 +171,8 @@ export default function TimeToNextBtl({
   now: suppliedNow = null,
   initialTargetPrice = null,
   initialAssumptions = null,
+  preferences = {},
+  onPreferencesChange = null,
   className = '',
 }) {
   const savedAcquisitions = useMemo(
@@ -178,16 +181,36 @@ export default function TimeToNextBtl({
   )
   const firstSavedAcquisition = savedAcquisitions[0] || null
   const explicitManualSeed = initialTargetPrice != null || initialAssumptions != null
-  const [targetSource, setTargetSource] = useState(() => (!explicitManualSeed && firstSavedAcquisition ? 'saved' : 'manual'))
-  const [selectedAcquisitionId, setSelectedAcquisitionId] = useState(() => firstSavedAcquisition?.id || '')
-  const [targetPrice, setTargetPrice] = useState(() => Number(initialTargetPrice ?? firstSavedAcquisition?.purchasePrice ?? 180000))
-  const [appreciationPercent, setAppreciationPercent] = useState(DEFAULT_NEXT_BTL_APPRECIATION * 100)
-  const [scenarioIndex, setScenarioIndex] = useState(0)
-  const [preserveBuffer, setPreserveBuffer] = useState(true)
-  const [includeExtraction, setIncludeExtraction] = useState(false)
+  const initialPreferences = useRef(normalizeNextBtlPreferences(preferences)).current
+  const preferredSavedAcquisition = savedAcquisitions.find((item) => item.id === initialPreferences.selectedAcquisitionId) || firstSavedAcquisition
+  const initialTargetSource = explicitManualSeed
+    ? 'manual'
+    : initialPreferences.targetSource === 'manual'
+      ? 'manual'
+      : initialPreferences.targetSource === 'saved' && preferredSavedAcquisition
+        ? 'saved'
+        : firstSavedAcquisition ? 'saved' : 'manual'
+  const [targetSource, setTargetSource] = useState(initialTargetSource)
+  const [selectedAcquisitionId, setSelectedAcquisitionId] = useState(() => preferredSavedAcquisition?.id || '')
+  const [targetPrice, setTargetPrice] = useState(() => Number(initialTargetPrice ?? initialPreferences.targetPrice ?? preferredSavedAcquisition?.purchasePrice ?? 180000))
+  const [appreciationPercent, setAppreciationPercent] = useState(() => initialPreferences.appreciationPercent ?? DEFAULT_NEXT_BTL_APPRECIATION * 100)
+  const [scenarioIndex, setScenarioIndex] = useState(() => initialPreferences.scenarioIndex ?? 0)
+  const [preserveBuffer, setPreserveBuffer] = useState(() => initialPreferences.preserveBuffer ?? true)
+  const [includeExtraction, setIncludeExtraction] = useState(() => initialPreferences.includeExtraction ?? false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [equityReleaseOptions, setEquityReleaseOptions] = useState(() => defaultEquityReleaseOptions(properties))
-  const [assumptions, setAssumptions] = useState(() => normalizeAcquisitionAssumptions(initialAssumptions || firstSavedAcquisition || {
+  const [equityReleaseOptions, setEquityReleaseOptions] = useState(() => {
+    const defaults = defaultEquityReleaseOptions(properties)
+    for (const key of Object.keys(defaults)) {
+      const saved = initialPreferences.equityReleaseOptions?.[key]
+      if (!saved) continue
+      defaults[key] = {
+        enabled: saved.enabled === true,
+        targetLtv: equityTargetPercent(saved.targetLtv),
+      }
+    }
+    return defaults
+  })
+  const [assumptions, setAssumptions] = useState(() => normalizeAcquisitionAssumptions(initialAssumptions || initialPreferences.assumptions || preferredSavedAcquisition || {
     jurisdiction: jurisdictionFromSettings(settings),
     ltv: 75,
     adsRate: 8,
@@ -199,6 +222,8 @@ export default function TimeToNextBtl({
   const [assumptionDraft, setAssumptionDraft] = useState(assumptions)
   const [intro, setIntro] = useState(true)
   const nowRef = useRef(suppliedNow instanceof Date ? suppliedNow : new Date())
+  const onPreferencesChangeRef = useRef(onPreferencesChange)
+  useEffect(() => { onPreferencesChangeRef.current = onPreferencesChange }, [onPreferencesChange])
   const isCompany = settings.accountType !== 'private'
   const selectedAcquisition = savedAcquisitions.find((item) => item.id === selectedAcquisitionId) || null
   const usingSavedAcquisition = targetSource === 'saved' && Boolean(selectedAcquisition)
@@ -262,6 +287,31 @@ export default function TimeToNextBtl({
       return changed ? next : current
     })
   }, [properties])
+
+  useEffect(() => {
+    if (typeof onPreferencesChangeRef.current !== 'function') return
+    onPreferencesChangeRef.current(normalizeNextBtlPreferences({
+      targetSource,
+      selectedAcquisitionId,
+      targetPrice,
+      appreciationPercent,
+      scenarioIndex,
+      preserveBuffer,
+      includeExtraction,
+      assumptions,
+      equityReleaseOptions,
+    }))
+  }, [
+    targetSource,
+    selectedAcquisitionId,
+    targetPrice,
+    appreciationPercent,
+    scenarioIndex,
+    preserveBuffer,
+    includeExtraction,
+    assumptions,
+    equityReleaseOptions,
+  ])
 
   useEffect(() => {
     if (!sheetOpen) return undefined

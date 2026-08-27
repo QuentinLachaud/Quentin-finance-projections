@@ -26,6 +26,7 @@ import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
+import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
 import { supportConfig } from './support.js'
 import { exportTabularReport } from './reportExports.js'
 import { bufferStrokeOffset, bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
@@ -1408,6 +1409,7 @@ function PortfolioApp({ user }) {
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
         acquisitionScenarios: Array.isArray(portfolioState.acquisitionScenarios) ? portfolioState.acquisitionScenarios : [],
+        nextBtlPreferences: normalizeNextBtlPreferences(portfolioState.nextBtlPreferences),
         remortgageComparisons: Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : [],
         settings: {
           ...defaultSettings,
@@ -1521,6 +1523,7 @@ function PortfolioApp({ user }) {
   const updateExpenses = (expenses) => setState((current) => ({ ...current, expenses }))
   const updateCredentials = (credentials) => setState((current) => ({ ...current, credentials }))
   const updateAcquisitionScenarios = (acquisitionScenarios) => setState((current) => ({ ...current, acquisitionScenarios }))
+  const updateNextBtlPreferences = (nextBtlPreferences) => setState((current) => ({ ...current, nextBtlPreferences: normalizeNextBtlPreferences(nextBtlPreferences) }))
   const updateRemortgageComparisons = (remortgageComparisons) => setState((current) => ({ ...current, remortgageComparisons }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
@@ -1876,6 +1879,8 @@ function PortfolioApp({ user }) {
             properties={includedProperties}
             settings={state.settings}
             portfolio={portfolio}
+            plannerPreferences={state.nextBtlPreferences}
+            onPlannerPreferencesChange={updateNextBtlPreferences}
           />}
 
           {section === 'Remortgage Simulator' && <RemortgageSimulator
