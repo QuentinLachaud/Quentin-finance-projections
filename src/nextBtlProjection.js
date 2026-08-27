@@ -1,6 +1,7 @@
 import { calculatePortfolio, projectPortfolio } from './calculations.js'
 import { acquisitionCosts, maxAffordablePurchasePrice, normalizeAcquisitionAssumptions } from './acquisitionEngine.js'
 import { potentialEquityReleaseAtMonth } from './equityRelease.js'
+import { buildRealisticEquityReleaseEvents, cumulativeRealisticEquityReleaseByMonth, loanEventsFromRealisticReleases, positiveRealisticEquityReleaseEvents } from './realisticEquityRelease.js'
 
 const finite = (value, fallback = 0) => {
   const parsed = Number(value)
@@ -132,6 +133,7 @@ export const projectTimeToNextBtl = ({
   preserveBuffer = true,
   includeExtraction = false,
   equityReleaseSelections = {},
+  equityReleaseMode = 'smooth',
   bufferMonths = DEFAULT_NEXT_BTL_BUFFER_MONTHS,
   maxMonths = DEFAULT_NEXT_BTL_MAX_MONTHS,
   now = new Date(),
@@ -146,9 +148,27 @@ export const projectTimeToNextBtl = ({
     bufferMonths,
   })
   const isCompany = settings.accountType !== 'private'
-  const points = Array.isArray(projectionPoints)
+  const releaseMode = equityReleaseMode === 'realistic' ? 'realistic' : 'smooth'
+  const projectionHorizon = Math.max(0, Math.trunc(finite(maxMonths, DEFAULT_NEXT_BTL_MAX_MONTHS)))
+
+  const realisticSchedule = releaseMode === 'realistic'
+    ? buildRealisticEquityReleaseEvents({
+        properties,
+        selections: equityReleaseSelections,
+        annualAppreciationRate: finite(settings.appreciationRate),
+        rateShock: finite(settings.rateShock),
+        now,
+      })
+    : []
+  const realisticEvents = positiveRealisticEquityReleaseEvents(realisticSchedule)
+  const loanEvents = releaseMode === 'realistic' ? loanEventsFromRealisticReleases(realisticEvents) : []
+
+  // Smooth mode preserves supplied/current projection semantics exactly.
+  // Realistic mode must regenerate projection points with the enlarged-loan events so financing drag cannot be bypassed.
+  const points = releaseMode === 'smooth' && Array.isArray(projectionPoints)
     ? projectionPoints
-    : projectPortfolio(properties, settings, maxMonths, now)
+    : projectPortfolio(properties, settings, maxMonths, now, releaseMode === 'realistic' ? { loanEvents } : {})
+
   const cumulativeCashByMonth = points.map((point) => cumulativeProjectedCash({
     projectionPoint: point,
     scenarioIndex,
@@ -156,21 +176,24 @@ export const projectTimeToNextBtl = ({
     startingCashHeld: basePortfolio.cashHeld,
     isCompany,
   }))
+
   const equityReleaseNow = potentialEquityReleaseAtMonth({
     properties,
     selections: equityReleaseSelections,
     annualAppreciationRate: finite(settings.appreciationRate),
     month: 0,
   })
-  const projectionHorizon = Math.max(0, Math.trunc(finite(maxMonths, DEFAULT_NEXT_BTL_MAX_MONTHS)))
-  const potentialEquityReleaseByMonth = Array.from({ length: projectionHorizon + 1 }, (_, month) => potentialEquityReleaseAtMonth({
-    properties,
-    selections: equityReleaseSelections,
-    annualAppreciationRate: finite(settings.appreciationRate),
-    month,
-  }).total)
 
-  const projection = buildNextBtlProjection({
+  const potentialEquityReleaseByMonth = releaseMode === 'realistic'
+    ? cumulativeRealisticEquityReleaseByMonth(realisticEvents, projectionHorizon)
+    : Array.from({ length: projectionHorizon + 1 }, (_, month) => potentialEquityReleaseAtMonth({
+        properties,
+        selections: equityReleaseSelections,
+        annualAppreciationRate: finite(settings.appreciationRate),
+        month,
+      }).total)
+
+  const nextBtlProjection = buildNextBtlProjection({
     targetPriceToday,
     annualAppreciationRate,
     acquisitionAssumptions,
@@ -182,7 +205,7 @@ export const projectTimeToNextBtl = ({
   })
 
   return {
-    ...projection,
+    ...nextBtlProjection,
     scenario: NEXT_BTL_SCENARIOS[Math.min(2, Math.max(0, Math.trunc(finite(scenarioIndex))))],
     monthlyOperatingCosts,
     reserveCash,
@@ -191,6 +214,9 @@ export const projectTimeToNextBtl = ({
     includeExtraction: Boolean(includeExtraction && isCompany),
     equityReleaseNow: equityReleaseNow.total,
     equityReleaseSelectedCount: equityReleaseNow.selectedCount,
+    equityReleaseMode: releaseMode,
+    equityReleaseSchedule: realisticSchedule,
+    equityReleaseEvents: realisticEvents,
     isCompany,
   }
 }

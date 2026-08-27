@@ -138,6 +138,19 @@ function TimeToNextBtlChart({ result, intro }) {
       </g>
       <path className="next-btl-target-path" pathLength="1" d={targetPath} />
       <path className="next-btl-buying-path" pathLength="1" d={buyingPath} />
+      {result.equityReleaseMode === 'realistic' && (result.equityReleaseEvents || []).filter((event) => event.month <= horizon).map((event, index, events) => {
+        const point = points.find((candidate) => candidate.month === event.month)
+        if (!point) return null
+        const sameMonthIndex = events.slice(0, index).filter((candidate) => candidate.month === event.month).length
+        const markerX = x(event.month)
+        const markerY = y(point.buyingPower)
+        return <g className="next-btl-release-marker" key={`${event.propertyId}-${event.month}`}>
+          <title>{`${event.propertyName}: ${currency(event.release)} equity release at ${formatProjectionMonth(event.remortgageDate)} remortgage`}</title>
+          <line x1={markerX} x2={markerX} y1={markerY - 10} y2={markerY + 10} />
+          <circle cx={markerX} cy={markerY} r="3.5" />
+          <text x={markerX + 5} y={markerY - 12 - sameMonthIndex * 12}>{event.propertyName}</text>
+        </g>
+      })}
       {crossing && <>
         <line className="next-btl-cross-guide" pathLength="1" x1={x(crossing.month)} x2={x(crossing.month)} y1={y(crossing.buyingPower)} y2={MARGIN.top + PLOT_HEIGHT} />
         <circle className="next-btl-cross-ripple" cx={x(crossing.month)} cy={y(crossing.buyingPower)} r="7" />
@@ -173,6 +186,7 @@ export default function TimeToNextBtl({
   initialAssumptions = null,
   preferences = {},
   onPreferencesChange = null,
+  allowRealisticRelease = false,
   className = '',
 }) {
   const savedAcquisitions = useMemo(
@@ -197,6 +211,8 @@ export default function TimeToNextBtl({
   const [scenarioIndex, setScenarioIndex] = useState(() => initialPreferences.scenarioIndex ?? 0)
   const [preserveBuffer, setPreserveBuffer] = useState(() => initialPreferences.preserveBuffer ?? true)
   const [includeExtraction, setIncludeExtraction] = useState(() => initialPreferences.includeExtraction ?? false)
+  const [releaseMode, setReleaseMode] = useState(() => allowRealisticRelease && initialPreferences.releaseMode === 'realistic' ? 'realistic' : 'smooth')
+  const effectiveReleaseMode = allowRealisticRelease && releaseMode === 'realistic' ? 'realistic' : 'smooth'
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [equityReleaseOptions, setEquityReleaseOptions] = useState(() => {
     const defaults = defaultEquityReleaseOptions(properties)
@@ -299,6 +315,7 @@ export default function TimeToNextBtl({
       preserveBuffer,
       includeExtraction,
       assumptions,
+      releaseMode: effectiveReleaseMode,
       equityReleaseOptions,
     }))
   }, [
@@ -310,6 +327,7 @@ export default function TimeToNextBtl({
     preserveBuffer,
     includeExtraction,
     assumptions,
+    effectiveReleaseMode,
     equityReleaseOptions,
   ])
 
@@ -341,9 +359,10 @@ export default function TimeToNextBtl({
     preserveBuffer,
     includeExtraction,
     equityReleaseSelections,
+    equityReleaseMode: effectiveReleaseMode,
     maxMonths: DEFAULT_NEXT_BTL_MAX_MONTHS,
     now: nowRef.current,
-  }), [properties, settings, portfolio, projectionPoints, effectiveTargetPrice, appreciationPercent, effectiveAssumptions, scenarioIndex, preserveBuffer, includeExtraction, equityReleaseSelections])
+  }), [properties, settings, portfolio, projectionPoints, effectiveTargetPrice, appreciationPercent, effectiveAssumptions, scenarioIndex, preserveBuffer, includeExtraction, equityReleaseSelections, effectiveReleaseMode])
 
   const openingAssumptions = () => {
     setAssumptionDraft({ ...assumptions })
@@ -436,6 +455,21 @@ export default function TimeToNextBtl({
           </button>
           <div className="next-btl-advanced-body" hidden={!advancedOpen}>
             <p className="next-btl-advanced-note">At the modeled purchase month, selected BTLs are hypothetically refinanced back to their chosen target LTV. Existing-property appreciation follows Portfolio assumptions. This is gross potential capacity; lender eligibility, ERCs and refinance costs are not deducted.</p>
+              {allowRealisticRelease && <section className="next-btl-release-mode-owner" aria-label="Owner release timing model">
+                <div className="next-btl-release-mode-head">
+                  <span><b>Release timing</b><small>How selected BTL refinance capacity enters buying power</small></span>
+                  <em className="next-btl-release-owner-badge">Owner</em>
+                </div>
+                <div className="next-btl-release-mode-segmented" role="group" aria-label="Equity release timing">
+                  <button type="button" className={effectiveReleaseMode === 'smooth' ? 'active' : ''} aria-pressed={effectiveReleaseMode === 'smooth'} onClick={() => setReleaseMode('smooth')}>Smooth</button>
+                  <button type="button" className={effectiveReleaseMode === 'realistic' ? 'active' : ''} aria-pressed={effectiveReleaseMode === 'realistic'} onClick={() => setReleaseMode('realistic')}>Realistic</button>
+                </div>
+                <p className="next-btl-release-mode-copy">
+                  {effectiveReleaseMode === 'realistic'
+                    ? <>Selected BTLs release equity only at their next known remortgage month. The enlarged loan then reduces following cash flow using that property's modeled mortgage rate plus Rate shock. <strong>ERCs, refinance fees, lender ICR/affordability and eligibility are not deducted.</strong></>
+                    : <>Current model: selected BTL refinance capacity becomes available smoothly as property values appreciate.</>}
+                </p>
+              </section>}
             {equityReleaseRows.length
               ? <div className="next-btl-equity-list">{equityReleaseRows.map((row) => {
                   const name = row.property.name || 'BTL'

@@ -182,6 +182,7 @@ export default function AcquisitionSimulator({
   portfolio = null,
   plannerPreferences = {},
   onPlannerPreferencesChange = null,
+  allowRealisticRelease = false,
 }) {
   const [expandedId, setExpandedId] = useState('')
   const [editor, setEditor] = useState(null)
@@ -326,6 +327,7 @@ export default function AcquisitionSimulator({
       acquisitions={acquisitions}
       preferences={plannerPreferences}
       onPreferencesChange={onPlannerPreferencesChange}
+      allowRealisticRelease={allowRealisticRelease}
     />
 
     <section className="acq-library-section" aria-labelledby="acq-library-title">

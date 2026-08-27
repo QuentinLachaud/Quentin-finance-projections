@@ -2072,6 +2072,7 @@ function PortfolioApp({ user }) {
             portfolio={portfolio}
             plannerPreferences={state.nextBtlPreferences}
             onPlannerPreferencesChange={updateNextBtlPreferences}
+            allowRealisticRelease={effectiveEntitlement.isOwner}
           />}
 
           {section === 'Remortgage Simulator' && <RemortgageSimulator

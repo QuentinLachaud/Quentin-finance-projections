@@ -57,6 +57,7 @@ export const normalizeNextBtlPreferences = (value) => {
 
   if (typeof raw.preserveBuffer === 'boolean') next.preserveBuffer = raw.preserveBuffer
   if (typeof raw.includeExtraction === 'boolean') next.includeExtraction = raw.includeExtraction
+  if (raw.releaseMode === 'smooth' || raw.releaseMode === 'realistic') next.releaseMode = raw.releaseMode
 
   const assumptions = sanitizeAssumptions(raw.assumptions)
   if (assumptions) next.assumptions = assumptions

@@ -270,8 +270,28 @@ const activeCompanyCostsForMonth = (items, month) => (Array.isArray(items) ? ite
   return { ...item, enabled: false }
 })
 
-export function projectPortfolio(properties, settings, months = settings.projectionMonths || 60, now = new Date()) {
-  const basePortfolio = calculatePortfolio(properties, settings, now)
+
+export const propertiesWithProjectedLoanEvents = (properties = [], loanEvents = [], month = 0) => {
+  const currentMonth = Math.max(0, Math.trunc(finiteNumber(month)))
+  const deltas = new Map()
+  for (const event of Array.isArray(loanEvents) ? loanEvents : []) {
+    const eventMonth = Math.max(0, Math.trunc(finiteNumber(event?.month)))
+    if (eventMonth >= currentMonth) continue
+    const propertyId = String(event?.propertyId ?? '')
+    const loanDelta = Math.max(0, finiteNumber(event?.loanDelta))
+    if (!propertyId || !loanDelta) continue
+    deltas.set(propertyId, (deltas.get(propertyId) || 0) + loanDelta)
+  }
+  return (Array.isArray(properties) ? properties : []).map((property) => {
+    const delta = deltas.get(String(property?.id ?? '')) || 0
+    return delta ? { ...property, loanAmount: finiteNumber(property?.loanAmount) + delta } : property
+  })
+}
+
+export function projectPortfolio(properties, settings, months = settings.projectionMonths || 60, now = new Date(), options = {}) {
+  const loanEvents = Array.isArray(options?.loanEvents) ? options.loanEvents : []
+  const baseProperties = propertiesWithProjectedLoanEvents(properties, loanEvents, 0)
+  const basePortfolio = calculatePortfolio(baseProperties, settings, now)
   const duration = Math.max(12, Math.trunc(finiteNumber(months, 60)))
   const monthlyAppreciationRate = ((1 + finiteNumber(settings.appreciationRate)) ** (1 / 12)) - 1
   const accumulators = basePortfolio.scenarios.map(() => ({ cashPot: finiteNumber(settings.cashHeld), cashflow: 0, totalGain: 0, appreciation: 0 }))
@@ -298,7 +318,8 @@ export function projectPortfolio(properties, settings, months = settings.project
       companyCosts: activeCompanyCostsForMonth(settings.companyCosts, month),
       privateTaxStates,
     }
-    const monthlyPortfolio = month === 0 ? basePortfolio : calculatePortfolio(properties, projectedSettings, date)
+    const projectedProperties = propertiesWithProjectedLoanEvents(properties, loanEvents, month)
+    const monthlyPortfolio = month === 0 ? basePortfolio : calculatePortfolio(projectedProperties, projectedSettings, date)
 
     if (month > 0) {
       const appreciation = basePortfolio.totalValue * monthlyAppreciationRate * ((1 + monthlyAppreciationRate) ** (month - 1))
