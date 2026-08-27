@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { currency, projectPortfolio } from './calculations.js'
 import { acquisitionJurisdictions, normalizeAcquisitionAssumptions } from './acquisition.js'
+import { DEFAULT_EQUITY_RELEASE_TARGET_LTV, potentialEquityReleaseForProperty } from './equityRelease.js'
 import {
   DEFAULT_NEXT_BTL_APPRECIATION,
   DEFAULT_NEXT_BTL_MAX_MONTHS,
@@ -22,6 +23,15 @@ const numberValue = (value, fallback = 0) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
 }
+
+const equityOptionKey = (property, index = 0) => String(property?.id ?? `property-${index}`)
+const defaultEquityReleaseOptions = (properties = []) => Object.fromEntries(properties.map((property, index) => [
+  equityOptionKey(property, index),
+  { enabled: false, targetLtv: DEFAULT_EQUITY_RELEASE_TARGET_LTV * 100 },
+]))
+const equityTargetPercent = (value) => value === ''
+  ? DEFAULT_EQUITY_RELEASE_TARGET_LTV * 100
+  : clamp(numberValue(value, DEFAULT_EQUITY_RELEASE_TARGET_LTV * 100), 0, 100)
 
 const jurisdictionFromSettings = (settings = {}) => {
   if (settings.taxJurisdiction === 'scotland') return 'scotland'
@@ -88,6 +98,7 @@ function TimeToNextBtlChart({ result, intro }) {
   const [hoverPoint, setHoverPoint] = useState(null)
   const crossingMonth = result.crossing?.month
   const fullPoints = result.points || []
+  const hasEquityRelease = Number(result.equityReleaseSelectedCount || 0) > 0
   const horizon = result.crossing
     ? Math.min(result.maxMonths, Math.max(24, crossingMonth + 12))
     : result.maxMonths
@@ -137,12 +148,13 @@ function TimeToNextBtlChart({ result, intro }) {
         <g transform="translate(126 0)"><line className="target" x1={MARGIN.left} x2={MARGIN.left + 24} y1="14" y2="14" /><text x={MARGIN.left + 31} y="18">Target BTL price</text></g>
       </g>
       {hoverPoint && <g className="next-btl-tooltip" transform={`translate(${CHART_WIDTH - 226} 36)`}>
-        <rect width="204" height="118" rx="12" />
+        <rect width="204" height={hasEquityRelease ? 137 : 118} rx="12" />
         <text className="title" x="14" y="21">{hoverPoint.month === 0 ? 'Now' : formatProjectionMonth(hoverPoint.date)}</text>
         <text x="14" y="43">Buying power <tspan x="190" textAnchor="end">{currency(hoverPoint.buyingPower)}</tspan></text>
         <text x="14" y="62">Target price <tspan x="190" textAnchor="end">{currency(hoverPoint.targetPrice)}</tspan></text>
         <text x="14" y="81">Available cash <tspan x="190" textAnchor="end">{currency(hoverPoint.availableCash)}</tspan></text>
         <text x="14" y="100">Cash required <tspan x="190" textAnchor="end">{currency(hoverPoint.cashRequired)}</tspan></text>
+        {hasEquityRelease && <text x="14" y="119">Equity release <tspan x="190" textAnchor="end">{currency(hoverPoint.potentialEquityRelease)}</tspan></text>}
       </g>}
     </svg>
     <figcaption>{summary}</figcaption>
@@ -173,6 +185,8 @@ export default function TimeToNextBtl({
   const [scenarioIndex, setScenarioIndex] = useState(0)
   const [preserveBuffer, setPreserveBuffer] = useState(true)
   const [includeExtraction, setIncludeExtraction] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [equityReleaseOptions, setEquityReleaseOptions] = useState(() => defaultEquityReleaseOptions(properties))
   const [assumptions, setAssumptions] = useState(() => normalizeAcquisitionAssumptions(initialAssumptions || firstSavedAcquisition || {
     jurisdiction: jurisdictionFromSettings(settings),
     ltv: 75,
@@ -193,6 +207,27 @@ export default function TimeToNextBtl({
     () => usingSavedAcquisition ? normalizeAcquisitionAssumptions(selectedAcquisition) : assumptions,
     [usingSavedAcquisition, selectedAcquisition, assumptions],
   )
+  const equityReleaseRows = useMemo(() => properties.map((property, index) => {
+    const key = equityOptionKey(property, index)
+    const option = equityReleaseOptions[key] || { enabled: false, targetLtv: DEFAULT_EQUITY_RELEASE_TARGET_LTV * 100 }
+    const targetLtv = equityTargetPercent(option.targetLtv) / 100
+    return {
+      key,
+      property,
+      option,
+      detail: potentialEquityReleaseForProperty({
+        property,
+        targetLtv,
+        annualAppreciationRate: numberValue(settings.appreciationRate),
+        month: 0,
+      }),
+    }
+  }), [properties, equityReleaseOptions, settings.appreciationRate])
+  const selectedEquityReleaseCount = equityReleaseRows.filter((row) => row.option.enabled === true).length
+  const equityReleaseSelections = useMemo(() => Object.fromEntries(equityReleaseRows.map((row) => [
+    row.key,
+    { enabled: row.option.enabled === true, targetLtv: equityTargetPercent(row.option.targetLtv) / 100 },
+  ])), [equityReleaseRows])
   const targetContext = usingSavedAcquisition
     ? `${selectedAcquisition.name || 'Saved acquisition'} · ${currency(effectiveTargetPrice)}`
     : `Manual target · ${currency(effectiveTargetPrice)}`
@@ -211,6 +246,22 @@ export default function TimeToNextBtl({
     }
     setTargetSource('manual')
   }, [targetSource, selectedAcquisition, firstSavedAcquisition])
+
+  useEffect(() => {
+    setEquityReleaseOptions((current) => {
+      const next = {}
+      let changed = Object.keys(current).length !== properties.length
+      properties.forEach((property, index) => {
+        const key = equityOptionKey(property, index)
+        if (current[key]) next[key] = current[key]
+        else {
+          changed = true
+          next[key] = { enabled: false, targetLtv: DEFAULT_EQUITY_RELEASE_TARGET_LTV * 100 }
+        }
+      })
+      return changed ? next : current
+    })
+  }, [properties])
 
   useEffect(() => {
     if (!sheetOpen) return undefined
@@ -239,9 +290,10 @@ export default function TimeToNextBtl({
     scenarioIndex,
     preserveBuffer,
     includeExtraction,
+    equityReleaseSelections,
     maxMonths: DEFAULT_NEXT_BTL_MAX_MONTHS,
     now: nowRef.current,
-  }), [properties, settings, portfolio, projectionPoints, effectiveTargetPrice, appreciationPercent, effectiveAssumptions, scenarioIndex, preserveBuffer, includeExtraction])
+  }), [properties, settings, portfolio, projectionPoints, effectiveTargetPrice, appreciationPercent, effectiveAssumptions, scenarioIndex, preserveBuffer, includeExtraction, equityReleaseSelections])
 
   const openingAssumptions = () => {
     setAssumptionDraft({ ...assumptions })
@@ -252,6 +304,11 @@ export default function TimeToNextBtl({
     setAssumptions(normalizeAcquisitionAssumptions(assumptionDraft))
     setSheetOpen(false)
   }
+
+  const updateEquityReleaseOption = (key, patch) => setEquityReleaseOptions((current) => ({
+    ...current,
+    [key]: { ...(current[key] || { enabled: false, targetLtv: DEFAULT_EQUITY_RELEASE_TARGET_LTV * 100 }), ...patch },
+  }))
 
   const crossing = result.crossing
   const resultPrimary = result.status === 'ready'
@@ -320,6 +377,33 @@ export default function TimeToNextBtl({
           : <button type="button" className="next-btl-assumptions-button" onClick={openingAssumptions} aria-haspopup="dialog">
               <span><b>Purchase assumptions</b><small>{assumptionSummary(assumptions)}</small></span><ChevronRight size={18} />
             </button>}
+
+        <section className={`next-btl-advanced ${advancedOpen ? 'open' : ''}`}>
+          <button type="button" className="next-btl-advanced-toggle" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((open) => !open)}>
+            <span><span className="advanced-kicker">ADVANCED</span><b>Potential equity release</b><small>{selectedEquityReleaseCount ? `${selectedEquityReleaseCount} BTL${selectedEquityReleaseCount === 1 ? '' : 's'} selected` : 'Optional · no BTLs selected'}</small></span>
+            <span className="next-btl-advanced-value">{selectedEquityReleaseCount ? currency(result.equityReleaseNow) : 'Off'}</span>
+            <ChevronDown size={16} aria-hidden="true" />
+          </button>
+          <div className="next-btl-advanced-body" hidden={!advancedOpen}>
+            <p className="next-btl-advanced-note">At the modeled purchase month, selected BTLs are hypothetically refinanced back to their chosen target LTV. Existing-property appreciation follows Portfolio assumptions. This is gross potential capacity; lender eligibility, ERCs and refinance costs are not deducted.</p>
+            {equityReleaseRows.length
+              ? <div className="next-btl-equity-list">{equityReleaseRows.map((row) => {
+                  const name = row.property.name || 'BTL'
+                  const targetPercent = row.option.targetLtv === '' ? '' : equityTargetPercent(row.option.targetLtv)
+                  return <div className={`next-btl-equity-property ${row.option.enabled ? 'included' : ''}`} key={row.key}>
+                    <div className="next-btl-equity-property-head">
+                      <label className="next-btl-equity-switch" title={`Include ${name} potential equity release`}>
+                        <input aria-label={`Include ${name} potential equity release`} type="checkbox" checked={row.option.enabled === true} onChange={(event) => updateEquityReleaseOption(row.key, { enabled: event.target.checked })} /><i />
+                      </label>
+                      <span className="next-btl-equity-name"><b>{name}</b><small>{currency(row.detail.currentValue)} value · {(row.detail.currentLtv * 100).toFixed(1)}% current LTV</small></span>
+                      <span className="next-btl-equity-now"><span>Potential now</span><b>{currency(row.detail.release)}</b></span>
+                    </div>
+                    <label className="next-btl-equity-ltv"><span>Refinance to</span><div><input aria-label={`${name} target equity release LTV`} type="number" min="0" max="100" step="1" inputMode="decimal" value={targetPercent} onChange={(event) => updateEquityReleaseOption(row.key, { targetLtv: event.target.value === '' ? '' : Number(event.target.value) })} onBlur={() => row.option.targetLtv === '' && updateEquityReleaseOption(row.key, { targetLtv: DEFAULT_EQUITY_RELEASE_TARGET_LTV * 100 })} /><em>% LTV</em></div></label>
+                  </div>
+                })}</div>
+              : <p className="next-btl-advanced-note">No included BTLs are available for hypothetical equity release.</p>}
+          </div>
+        </section>
       </aside>
 
       <div className="next-btl-visual">
@@ -331,6 +415,7 @@ export default function TimeToNextBtl({
           {referencePoint && result.status !== 'invalid' && <div className="next-btl-result-metrics">
             <div><span>{crossing ? 'Future target BTL' : 'Target BTL today'}</span><b>{currency(referencePoint.targetPrice)}</b></div>
             <div><span>Cash required</span><b>{currency(referencePoint.cashRequired)}</b></div>
+            {result.equityReleaseSelectedCount > 0 && <div><span>Potential equity release</span><b>{currency(referencePoint.potentialEquityRelease)}</b></div>}
           </div>}
         </div>
         {result.points.length > 0 && <TimeToNextBtlChart result={result} intro={intro} />}

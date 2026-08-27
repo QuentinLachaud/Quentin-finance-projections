@@ -1,5 +1,6 @@
 import { calculatePortfolio, projectPortfolio } from './calculations.js'
 import { acquisitionCosts, maxAffordablePurchasePrice, normalizeAcquisitionAssumptions } from './acquisitionEngine.js'
+import { potentialEquityReleaseAtMonth } from './equityRelease.js'
 
 const finite = (value, fallback = 0) => {
   const parsed = Number(value)
@@ -74,6 +75,7 @@ export const buildNextBtlProjection = ({
   acquisitionAssumptions = {},
   startingSurplus = 0,
   cumulativeCashByMonth = [],
+  potentialEquityReleaseByMonth = [],
   startDate = new Date(),
   maxMonths = DEFAULT_NEXT_BTL_MAX_MONTHS,
 }) => {
@@ -89,7 +91,8 @@ export const buildNextBtlProjection = ({
   let crossing = null
   const points = Array.from({ length: horizon + 1 }, (_, month) => {
     const cumulative = finite(cumulativeCashByMonth[month], cumulativeCashByMonth.length ? cumulativeCashByMonth[cumulativeCashByMonth.length - 1] : 0)
-    const availableCash = Math.max(0, surplus + cumulative)
+    const potentialEquityRelease = Math.max(0, finite(potentialEquityReleaseByMonth[month], potentialEquityReleaseByMonth.length ? potentialEquityReleaseByMonth[potentialEquityReleaseByMonth.length - 1] : 0))
+    const availableCash = Math.max(0, surplus + cumulative + potentialEquityRelease)
     const targetPrice = targetPriceAtMonth(priceToday, annualAppreciationRate, month)
     const costs = acquisitionCosts({ ...assumptions, purchasePrice: targetPrice })
     const buyingPower = maxAffordablePurchasePrice(availableCash, assumptions, { precision: 0.01 })
@@ -98,6 +101,7 @@ export const buildNextBtlProjection = ({
       month,
       date: projectionDateAtMonth(startDate, month),
       availableCash,
+      potentialEquityRelease,
       targetPrice,
       cashRequired: costs.cashRequired,
       buyingPower,
@@ -127,6 +131,7 @@ export const projectTimeToNextBtl = ({
   scenarioIndex = 0,
   preserveBuffer = true,
   includeExtraction = false,
+  equityReleaseSelections = {},
   bufferMonths = DEFAULT_NEXT_BTL_BUFFER_MONTHS,
   maxMonths = DEFAULT_NEXT_BTL_MAX_MONTHS,
   now = new Date(),
@@ -151,6 +156,19 @@ export const projectTimeToNextBtl = ({
     startingCashHeld: basePortfolio.cashHeld,
     isCompany,
   }))
+  const equityReleaseNow = potentialEquityReleaseAtMonth({
+    properties,
+    selections: equityReleaseSelections,
+    annualAppreciationRate: finite(settings.appreciationRate),
+    month: 0,
+  })
+  const projectionHorizon = Math.max(0, Math.trunc(finite(maxMonths, DEFAULT_NEXT_BTL_MAX_MONTHS)))
+  const potentialEquityReleaseByMonth = Array.from({ length: projectionHorizon + 1 }, (_, month) => potentialEquityReleaseAtMonth({
+    properties,
+    selections: equityReleaseSelections,
+    annualAppreciationRate: finite(settings.appreciationRate),
+    month,
+  }).total)
 
   const projection = buildNextBtlProjection({
     targetPriceToday,
@@ -158,6 +176,7 @@ export const projectTimeToNextBtl = ({
     acquisitionAssumptions,
     startingSurplus,
     cumulativeCashByMonth,
+    potentialEquityReleaseByMonth,
     startDate: now,
     maxMonths,
   })
@@ -170,6 +189,8 @@ export const projectTimeToNextBtl = ({
     startingSurplus,
     preserveBuffer,
     includeExtraction: Boolean(includeExtraction && isCompany),
+    equityReleaseNow: equityReleaseNow.total,
+    equityReleaseSelectedCount: equityReleaseNow.selectedCount,
     isCompany,
   }
 }

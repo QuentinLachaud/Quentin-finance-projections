@@ -63,7 +63,7 @@ describe('Acquisition card default expansion', () => {
       existingPropertyCount={2}
     />)
     expect(html).not.toContain('aria-expanded="true"')
-    expect((html.match(/aria-expanded="false"/g) || []).length).toBe(2)
+    expect((html.match(/<button class="acq-card-main"[^>]*aria-expanded="false"/g) || []).length).toBe(2)
   })
 
   it('keeps cash needed as the emphasized summary metric', () => {
