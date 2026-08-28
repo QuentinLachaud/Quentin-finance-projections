@@ -22,7 +22,7 @@ import AcquisitionSimulator from './AcquisitionSimulator.jsx'
 import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
 import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
-import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
+import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, propertyOperatingCashflow, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
@@ -42,29 +42,41 @@ const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: f
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 const propertyGroups = [
-  { title: 'Property basics', description: 'Identity, location and physical details', tone: 'blue', rows: [
-    ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address), 'text'], ['Postcode', (p) => p.postcode, 'text'],
-    ['Bedrooms', (p) => p.bedrooms, 'integer'], ['Area', (p) => `${p.areaSqm} m²`, 'integer', true],
-    ['EPC rating', (p) => p.epc, 'text', true], ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true],
-  ]},
-  { title: 'Value & leverage', description: 'Acquisition, debt and current equity position', tone: 'ink', rows: [
-    ['Purchase price', (p) => currency(p.purchasePrice), 'money', true], ['Home report at purchase', (p) => currency(p.homeReportPurchase), 'money', true],
-    ['Latest valuation', (p) => currency(p.latestValuation), 'money'], ['Expected value at remortgage', (p) => currency(p.expectedRemortgageValue), 'money', true],
-    ['Loan amount', (p) => currency(p.loanAmount), 'money-negative'], ['Equity', (p) => currency(p.equity), 'money-positive'],
-    ['Current LTV', (p) => percent(p.currentLtv), 'percent'], ['Expected LTV at remortgage', (p) => percent(p.expectedRemortgageLtv), 'percent', true],
+  { title: 'Finance & performance', description: 'Value, leverage, income and financing health', tone: 'green', rows: [
+    ['Current value', (p) => currency(p.latestValuation), 'money'],
+    ['Loan balance', (p) => currency(p.loanAmount), 'money-negative'],
+    ['Equity', (p) => currency(p.equity), 'money-positive'],
+    ['Current LTV', (p) => percent(p.currentLtv), 'percent'],
+    ['Monthly rent', (p) => currency(p.rent), 'money-positive'],
+    ['Operating cash flow / month', (p) => currency(p.operatingCashflow), 'money'],
+    ['Net yield', (p) => percent(p.netYield, 2), 'percent'],
+    ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent'],
+    ['Current lender', (p) => p.lender || 'Not set', 'text'],
+    ['Next remortgage', (p) => shortDate(p.nextRemortgage), 'date'],
+    ['Purchase price', (p) => currency(p.purchasePrice), 'money', true],
+    ['Home report at purchase', (p) => currency(p.homeReportPurchase), 'money', true],
+    ['Expected value at remortgage', (p) => currency(p.expectedRemortgageValue), 'money', true],
+    ['Expected LTV at remortgage', (p) => percent(p.expectedRemortgageLtv), 'percent', true],
     ['Releasable equity at 75% LTV', (p) => currency(p.releasableEquity), 'money-positive', true],
-  ]},
-  { title: 'Income & performance', description: 'Rent, finance costs and return metrics', tone: 'green', rows: [
-    ['Monthly rent', (p) => currency(p.rent), 'money-positive'], ['Monthly mortgage', (p) => currency(p.monthlyPayment, 0), 'money-negative'],
-    ['Gross yield', (p) => percent(p.grossYield, 2), 'percent', true], ['Net yield', (p) => percent(p.netYield, 2), 'percent', true],
-    ['Interest coverage ratio', (p) => percent(p.icr, 0), 'percent', true], ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive', true],
+    ['Gross yield', (p) => percent(p.grossYield, 2), 'percent', true],
+    ['Interest coverage ratio', (p) => percent(p.icr, 0), 'percent', true],
+    ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive', true],
     ['Voids since ownership', (p) => p.ownedDays ? `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})` : 'Purchase date required', 'text', true],
-    ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent', true], ['Current lender', (p) => p.lender, 'text', true],
   ]},
-  { title: 'Key dates', description: 'Remortgage and compliance milestones', tone: 'amber', rows: [
-    ['Next remortgage', (p) => shortDate(p.nextRemortgage), 'date'], ['Call broker', (p) => shortDate(p.brokerDate), 'date'],
-    ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date', true], ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date', true],
-    ['PAT testing expiry', (p) => shortDate(p.patExpiry), 'date', true], ['EPC expiry', (p) => shortDate(p.epcExpiry), 'date', true],
+  { title: 'Property details', description: 'Identity, location and physical characteristics', tone: 'blue', rows: [
+    ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address) || 'Not set', 'text'],
+    ['Postcode', (p) => p.postcode || 'Not set', 'text'],
+    ['Bedrooms', (p) => p.bedrooms, 'integer'],
+    ['EPC rating', (p) => p.epc || 'Not set', 'text'],
+    ['Area', (p) => `${p.areaSqm} m²`, 'integer', true],
+    ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true],
+  ]},
+  { title: 'Compliance & timing', description: 'Broker and property compliance milestones', tone: 'amber', rows: [
+    ['Call broker', (p) => shortDate(p.brokerDate), 'date'],
+    ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date', true],
+    ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date', true],
+    ['PAT testing expiry', (p) => shortDate(p.patExpiry), 'date', true],
+    ['EPC expiry', (p) => shortDate(p.epcExpiry), 'date', true],
   ]},
 ]
 
@@ -1646,7 +1658,14 @@ function PortfolioApp({ user }) {
   if (!state) return <div className="app-status-screen"><span className="loading-mark"><Building2 /></span><h1>Loading your private portfolio…</h1></div>
 
   const portfolio = calculatePortfolio(state.properties, state.settings)
-  const calculated = state.properties.map((p) => ({ ...calculateProperty(p, state.settings), ...propertyVoidHistory(p, state.tenants) }))
+  const calculated = state.properties.map((property) => {
+    const calculatedProperty = calculateProperty(property, state.settings)
+    return {
+      ...calculatedProperty,
+      operatingCashflow: propertyOperatingCashflow(calculatedProperty, state.settings),
+      ...propertyVoidHistory(property, state.tenants),
+    }
+  })
   const includedProperties = includedPortfolioProperties(state.properties)
   const includedCalculated = includedPortfolioProperties(calculated)
   const includedTenants = tenantsForIncludedProperties(state.tenants, state.properties)
@@ -1969,7 +1988,7 @@ function PortfolioApp({ user }) {
               <div className="properties-toolbar-copy">
                 <span className="kicker">PROPERTY COMPARISON</span>
                 <h2>Compare properties</h2>
-                <p>Review key BTL details side by side. Use Advanced for projected and specialist metrics.</p>
+                <p>Compare the financial health of each BTL first, then reveal specialist and projected details when needed.</p>
               </div>
               <div className="table-tools properties-tools">
                 <div className="property-view-mode" role="group" aria-label="Property detail level">
@@ -1979,7 +1998,7 @@ function PortfolioApp({ user }) {
                     aria-pressed={!advancedPropertyView}
                     onClick={() => setAdvancedPropertyView(false)}
                   >
-                    Basic
+                    Essentials
                   </button>
                   <button
                     type="button"
@@ -1987,7 +2006,7 @@ function PortfolioApp({ user }) {
                     aria-pressed={advancedPropertyView}
                     onClick={() => setAdvancedPropertyView(true)}
                   >
-                    Advanced
+                    Full details
                   </button>
                 </div>
                 <label className="properties-search"><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
@@ -1995,58 +2014,113 @@ function PortfolioApp({ user }) {
               </div>
             </section>
 
-            <section className="mobile-property-switcher" aria-label="Choose property">
+            <div className="mobile-property-tabs-sticky" aria-label="Choose property">
               <div className="mobile-property-segments" role="tablist" aria-label="BTLs">
                 {calculated.map((property) => <button type="button" role="tab" aria-selected={mobileProperty?.id === property.id} className={mobileProperty?.id === property.id ? 'active' : ''} key={property.id} onClick={() => { setMobilePropertyId(property.id); setSearch('') }}>{property.name}</button>)}
               </div>
-              {mobileProperty && <div className="mobile-property-context">
-                <div><b>{mobileProperty.name}</b><span>{formatPropertyAddress(mobileProperty.flatNumber, mobileProperty.address) || 'Address not set'}{mobileProperty.postcode ? ` · ${mobileProperty.postcode}` : ''}</span></div>
-                <button type="button" className="mobile-property-edit" onClick={() => setEditingId(mobileProperty.id)}><Pencil size={15} /> Edit</button>
-              </div>}
+            </div>
+
+            <section className="mobile-property-switcher" aria-label="Selected property summary">
+              {mobileProperty ? <div className="mobile-property-snapshot">
+                <div className="mobile-property-snapshot-head">
+                  <div><b>{mobileProperty.name}</b><span>{formatPropertyAddress(mobileProperty.flatNumber, mobileProperty.address) || 'Address not set'}{mobileProperty.postcode ? ` · ${mobileProperty.postcode}` : ''}</span></div>
+                  <button type="button" className="mobile-property-edit" onClick={() => setEditingId(mobileProperty.id)}><Pencil size={15} /> Edit</button>
+                </div>
+                <div className="mobile-property-snapshot-primary">
+                  <span><small>Current value</small><strong>{currency(mobileProperty.latestValuation)}</strong></span>
+                  <span><small>Equity</small><strong>{currency(mobileProperty.equity)}</strong></span>
+                </div>
+                <div className="mobile-property-snapshot-ltv">
+                  <span><small>Loan to value</small><b>{percent(mobileProperty.currentLtv, 1)}</b></span>
+                  <OverviewLtvBar property={mobileProperty} />
+                </div>
+                <div className="mobile-property-snapshot-kpis">
+                  <span><small>Rent / mo</small><b>{currency(mobileProperty.rent)}</b></span>
+                  <span className={mobileProperty.operatingCashflow >= 0 ? 'positive' : 'negative'}><small>Cash flow / mo</small><b>{currency(mobileProperty.operatingCashflow)}</b></span>
+                  <span><small>Net yield</small><b>{percent(mobileProperty.netYield, 1)}</b></span>
+                </div>
+                <div className="mobile-property-snapshot-finance">
+                  <span><small>Mortgage</small><b>{percent(mobileProperty.currentRate, 2)}{mobileProperty.lender ? ` · ${mobileProperty.lender}` : ''}</b></span>
+                  <span><small>Next remortgage</small><b>{shortDate(mobileProperty.nextRemortgage)}</b></span>
+                </div>
+                <button
+                  type="button"
+                  className="mobile-property-detail-toggle"
+                  aria-pressed={advancedPropertyView}
+                  onClick={() => setAdvancedPropertyView((current) => !current)}
+                >
+                  {advancedPropertyView ? 'Show essentials only' : 'Show full details'}
+                  {advancedPropertyView ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
+                </button>
+              </div> : <div className="mobile-property-empty">No BTL selected</div>}
             </section>
 
-            <div className="property-group-stack">
+            {filtered.length > 0 ? <section className="panel data-panel property-comparison-surface">
+              <div className="data-table-wrap property-comparison-wrap">
+                <table
+                  className="data-table property-comparison-table"
+                  style={{ '--property-count': Math.max(filtered.length, 1) }}
+                >
+                  <colgroup>
+                    <col className="property-metric-column" />
+                    {filtered.map((property) => <col className="property-value-column" key={`col-${property.id}`} />)}
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="property-comparison-metric-head">Metric</th>
+                      {filtered.map((property) => <th key={property.id}>
+                        <button className="property-comparison-header-button" onClick={() => setEditingId(property.id)}>
+                          <span className="property-comparison-header-title"><b>{property.name}</b><small>{property.postcode || 'Postcode not set'}</small></span>
+                          <span className="property-comparison-header-value"><b>{currency(property.latestValuation)}</b><small>{percent(property.currentLtv, 1)} LTV</small></span>
+                          <OverviewLtvBar property={property} compact />
+                        </button>
+                      </th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {propertyGroups.map((group) => {
+                      const rows = visiblePropertyRows(group.rows, advancedPropertyView)
+                      return <React.Fragment key={group.title}>
+                        <tr className={`property-section-row ${group.tone}`}>
+                          <th colSpan={filtered.length + 1}>
+                            <span className="group-marker" />
+                            <span><b>{group.title}</b><small>{group.description}</small></span>
+                          </th>
+                        </tr>
+                        {rows.map(([label, getter, kind, advanced]) => <tr data-metric={label} data-kind={kind} key={`${group.title}-${label}`}>
+                          <th className={advanced ? 'advanced-metric-label' : undefined}>{label}</th>
+                          {filtered.map((property) => <td className={`${kind} ${label === 'Operating cash flow / month' ? (property.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`} key={property.id}>{getter(property)}</td>)}
+                        </tr>)}
+                      </React.Fragment>
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section> : <section className="panel properties-empty-search"><Search size={19} /><b>No matching BTLs</b><span>Clear the search to show your properties again.</span></section>}
+
+            <div className="mobile-property-details">
               {propertyGroups.map((group) => {
                 const collapsed = collapsedPropertyGroups.has(group.title)
                 const rows = visiblePropertyRows(group.rows, advancedPropertyView)
-                return (
-                  <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}>
-                    <header className={collapsed ? 'collapsed' : ''}>
-                      <button
-                        type="button"
-                        className="property-group-toggle"
-                        aria-expanded={!collapsed}
-                        onClick={() => togglePropertyGroup(group.title)}
-                      >
-                        <div>
-                          <span className="group-marker" />
-                          <div><h2>{group.title}</h2><p>{group.description}</p></div>
-                        </div>
-                        <span className="property-group-chevron" aria-hidden="true">
-                          {collapsed ? <ChevronDown size={19} /> : <ChevronUp size={19} />}
-                        </span>
-                      </button>
-                    </header>
-                    {!collapsed && <>
-                      <div className="mobile-property-group-list">
-                        {mobileProperty ? rows.map(([label, getter, kind, advanced]) => <div className={`mobile-property-row ${advanced ? 'advanced' : ''}`} key={label}><span>{label}</span><strong className={kind}>{getter(mobileProperty)}</strong></div>) : <div className="mobile-property-empty">No BTL selected</div>}
+                return <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}>
+                  <header className={collapsed ? 'collapsed' : ''}>
+                    <button
+                      type="button"
+                      className="property-group-toggle"
+                      aria-expanded={!collapsed}
+                      onClick={() => togglePropertyGroup(group.title)}
+                    >
+                      <div>
+                        <span className="group-marker" />
+                        <div><h2>{group.title}</h2><p>{group.description}</p></div>
                       </div>
-                      <div className="data-table-wrap">
-                        <table
-                          className="data-table property-comparison-table"
-                          style={{ '--property-count': Math.max(filtered.length, 1) }}
-                        >
-                          <colgroup>
-                            <col className="property-metric-column" />
-                            {filtered.map((p) => <col className="property-value-column" key={`col-${p.id}`} />)}
-                          </colgroup>
-                          <thead><tr><th>Metric</th>{filtered.map((p) => <th key={p.id}><button onClick={() => setEditingId(p.id)}>{p.name}<small>{p.postcode}</small></button></th>)}</tr></thead>
-                          <tbody>{rows.map(([label, getter, kind, advanced]) => <tr data-metric={label} data-kind={kind} key={label}><th className={advanced ? 'advanced-metric-label' : undefined}>{label}</th>{filtered.map((p) => <td className={kind} key={p.id}>{getter(p)}</td>)}</tr>)}</tbody>
-                        </table>
-                      </div>
-                    </>}
-                  </section>
-                )
+                      <span className="property-group-chevron" aria-hidden="true">{collapsed ? <ChevronDown size={19} /> : <ChevronUp size={19} />}</span>
+                    </button>
+                  </header>
+                  {!collapsed && <div className="mobile-property-group-list">
+                    {mobileProperty ? rows.map(([label, getter, kind, advanced]) => <div className={`mobile-property-row ${advanced ? 'advanced' : ''}`} key={label}><span>{label}</span><strong className={`${kind} ${label === 'Operating cash flow / month' ? (mobileProperty.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`}>{getter(mobileProperty)}</strong></div>) : <div className="mobile-property-empty">No BTL selected</div>}
+                  </div>}
+                </section>
               })}
             </div>
           </>}

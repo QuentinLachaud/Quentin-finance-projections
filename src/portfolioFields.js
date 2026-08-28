@@ -17,6 +17,14 @@ export const formatRateComposition = (baseRate, effectiveRate) => {
   return `${rate(base)} ${shock > 0 ? '+' : '−'} ${rate(Math.abs(shock))} = ${rate(effective)}`
 }
 
+export const propertyOperatingCashflow = (property = {}, settings = {}) => {
+  const rent = Number(property.rent || 0)
+  const fixedCosts = Number(property.fixedCosts || 0)
+  const variableCosts = Number(property.variableCosts || 0)
+  const management = settings.fullyManaged ? rent * Number(settings.managementRate || 0) : 0
+  return rent - fixedCosts - variableCosts - management
+}
+
 export const visiblePropertyRows = (rows, advanced = false) =>
   rows.filter((row) => advanced || row[3] !== true)
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
+import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, propertyOperatingCashflow, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
 
 describe('portfolio field behaviour', () => {
   it('formats addresses without leading or empty separators', () => {
@@ -36,6 +36,16 @@ describe('portfolio field behaviour', () => {
     ])
   })
 
+
+  it('derives property operating cash flow from existing monthly model values', () => {
+    const property = { rent: 1650, fixedCosts: 920, variableCosts: 130 }
+    expect(propertyOperatingCashflow(property, { fullyManaged: false, managementRate: 0.12 })).toBe(600)
+  })
+
+  it('includes the property management charge only for fully-managed portfolios', () => {
+    const property = { rent: 1650, fixedCosts: 920, variableCosts: 130 }
+    expect(propertyOperatingCashflow(property, { fullyManaged: true, managementRate: 0.12 })).toBe(402)
+  })
 
   it('uses the property active flag as the master portfolio inclusion switch', () => {
     const properties = [
