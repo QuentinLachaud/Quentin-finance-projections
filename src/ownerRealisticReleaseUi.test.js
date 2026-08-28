@@ -44,4 +44,33 @@ describe('owner-only realistic equity release UI', () => {
     expect(styles).toContain('.next-btl-release-marker')
     expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.next-btl-release-mode-segmented/)
   })
+
+  it('makes the selected release timing mode explicit while retaining aria-pressed semantics', () => {
+    expect(planner).toContain("aria-pressed={effectiveReleaseMode === 'smooth'}")
+    expect(planner).toContain("aria-pressed={effectiveReleaseMode === 'realistic'}")
+    const marker = '/* Brain Drain 2026-08-28 13:58 BST — compact equity release controls recovery */'
+    const compactStart = styles.indexOf(marker)
+    expect(compactStart).toBeGreaterThan(-1)
+    const compactStyles = styles.slice(compactStart)
+    const selectedModeRule = compactStyles.match(/\.next-btl-release-mode-segmented button\[aria-pressed='true'\]\s*\{[\s\S]*?\}/)?.[0] || ''
+    expect(selectedModeRule).toContain('color: #fff;')
+    expect(selectedModeRule).toContain('background: var(--accent);')
+    expect(compactStyles).toMatch(/\.next-btl-release-mode-segmented button\[aria-pressed='true'\]::before\s*\{[\s\S]*?content:\s*'✓'/)
+    expect(compactStyles).toMatch(/\.next-btl-release-mode-segmented button:focus-visible\s*\{[\s\S]*?outline:\s*2px solid var\(--accent\)/)
+  })
+
+  it('uses compact desktop timing controls and responsive equity-release mini-cards', () => {
+    const marker = '/* Brain Drain 2026-08-28 13:58 BST — compact equity release controls recovery */'
+    const compactStart = styles.indexOf(marker)
+    expect(compactStart).toBeGreaterThan(-1)
+    const compactStyles = styles.slice(compactStart)
+    const desktop = compactStyles.match(/@media \(min-width: 761px\)\s*\{[\s\S]*?(?=\n@media \(max-width: 760px\))/)?.[0] || ''
+    expect(desktop).toContain("'release-heading release-mode'")
+    expect(desktop).toContain("'release-copy release-copy'")
+    expect(desktop).toContain('grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));')
+    expect(desktop).toContain("'equity-switch equity-name'")
+    expect(desktop).toContain("'equity-switch equity-now'")
+    expect(desktop).toMatch(/\.next-btl-equity-ltv\s*\{[\s\S]*?margin:\s*0;[\s\S]*?padding-top:\s*7px;/)
+    expect(compactStyles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.next-btl-release-mode-owner/)
+  })
 })
