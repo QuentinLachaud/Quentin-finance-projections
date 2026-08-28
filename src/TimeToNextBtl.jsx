@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { currency, projectPortfolio } from './calculations.js'
 import { acquisitionJurisdictions, normalizeAcquisitionAssumptions } from './acquisition.js'
@@ -97,6 +97,7 @@ export function PurchaseAssumptionsSheet({ draft, onChange, onCancel, onSave }) 
 
 function TimeToNextBtlChart({ result, intro }) {
   const [hoverPoint, setHoverPoint] = useState(null)
+  const revealClipId = `next-btl-reveal-${useId().replace(/:/g, '')}`
   const crossingMonth = result.crossing?.month
   const fullPoints = result.points || []
   const hasEquityRelease = Number(result.equityReleaseSelectedCount || 0) > 0
@@ -132,12 +133,19 @@ function TimeToNextBtlChart({ result, intro }) {
 
   return <figure className={`next-btl-chart ${intro ? 'intro' : 'settled'}`}>
     <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} role="img" aria-label="BTL buying power compared with target BTL price over time" onPointerMove={inspect} onPointerDown={inspect} onPointerLeave={() => setHoverPoint(null)}>
+      <defs>
+        <clipPath id={revealClipId} clipPathUnits="userSpaceOnUse">
+          <rect className="next-btl-path-reveal" x={MARGIN.left} y="0" width={PLOT_WIDTH} height={CHART_HEIGHT} />
+        </clipPath>
+      </defs>
       <g className="next-btl-grid" aria-hidden="true">
         {yTicks.map((tick) => <g key={tick}><line x1={MARGIN.left} x2={CHART_WIDTH - MARGIN.right} y1={y(tick)} y2={y(tick)} /><text x={MARGIN.left - 12} y={y(tick) + 4} textAnchor="end">{compactMoney(tick)}</text></g>)}
         {xTicks.map((tick) => <g key={tick}><line x1={x(tick)} x2={x(tick)} y1={MARGIN.top} y2={MARGIN.top + PLOT_HEIGHT} /><text x={x(tick)} y={CHART_HEIGHT - 20} textAnchor="middle">{tick === 0 ? 'Now' : `${tick}m`}</text></g>)}
       </g>
-      <path className="next-btl-target-path" pathLength="1" d={targetPath} />
-      <path className="next-btl-buying-path" pathLength="1" d={buyingPath} />
+      <g className="next-btl-paths" clipPath={`url(#${revealClipId})`}>
+        <path className="next-btl-target-path" d={targetPath} />
+        <path className="next-btl-buying-path" d={buyingPath} />
+      </g>
       {result.equityReleaseMode === 'realistic' && (result.equityReleaseEvents || []).filter((event) => event.month <= horizon).map((event, index, events) => {
         const point = points.find((candidate) => candidate.month === event.month)
         if (!point) return null
