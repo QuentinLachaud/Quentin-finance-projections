@@ -14422,3 +14422,12 @@ textarea {
   .mobile-property-details .mobile-property-row { min-height: 44px; }
 }
 
+/* Brain Drain 2026-08-28 16:15 BST — prevent desktop Properties comparison clipping */
+@media (min-width: 721px) {
+  .property-comparison-wrap {
+    /* The generic data-table wrapper is viewport-capped. This comparison must grow
+       with all Essentials/Full-details rows and use the page for vertical scrolling. */
+    max-height: none;
+  }
+}
+

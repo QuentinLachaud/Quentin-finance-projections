@@ -65,4 +65,17 @@ describe('responsive Properties decision workspace', () => {
     expect(block).toContain('.properties-search { display: none; }')
     expect(block).toContain('.mobile-property-tabs-sticky')
   })
+
+  it('prevents the desktop comparison from inheriting the generic viewport height cap', () => {
+    const fixMarker = '/* Brain Drain 2026-08-28 16:15 BST — prevent desktop Properties comparison clipping */'
+    const fixStart = styles.indexOf(fixMarker)
+    const fixBlock = fixStart >= 0 ? styles.slice(fixStart) : ''
+
+    expect(fixStart).toBeGreaterThanOrEqual(0)
+    expect(styles).toContain('.data-table-wrap { overflow: auto; max-height: calc(100vh - 230px);')
+    expect(fixBlock).toMatch(/@media \(min-width: 721px\)[\s\S]*?\.property-comparison-wrap\s*\{[\s\S]*?max-height:\s*none;/)
+    expect(app).toContain('const rows = visiblePropertyRows(group.rows, advancedPropertyView)')
+    expect(app).toContain('property-comparison-wrap')
+  })
+
 })
