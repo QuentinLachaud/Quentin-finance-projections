@@ -44,18 +44,19 @@ const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 const propertyGroups = [
   { title: 'Finance & performance', description: 'Value, leverage, income and financing health', tone: 'green', rows: [
-    ['Current value', (p) => currency(p.latestValuation), 'money'],
-    ['Loan balance', (p) => currency(p.loanAmount), 'money-negative'],
+    ['Current value', (p) => currency(p.latestValuation), 'money', false, 'latestValuation'],
+    ['Loan balance', (p) => currency(p.loanAmount), 'money-negative', false, 'loanAmount'],
     ['Equity', (p) => currency(p.equity), 'money-positive'],
     ['Current LTV', (p) => percent(p.currentLtv), 'percent'],
-    ['Monthly rent', (p) => currency(p.rent), 'money-positive'],
+    ['Monthly rent', (p) => currency(p.rent), 'money-positive', false, 'rent'],
+    ['Mortgage payment / month', (p) => currency(p.monthlyPayment), 'money-negative', false, 'baseRate', 'Calculated from loan balance × the current effective model interest rate ÷ 12. The current BTL model is interest-only.'],
     ['Operating cash flow / month', (p) => currency(p.operatingCashflow), 'money'],
     ['Net yield', (p) => percent(p.netYield, 2), 'percent'],
-    ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent'],
-    ['Current lender', (p) => p.lender || 'Not set', 'text'],
-    ['Next remortgage', (p) => shortDate(p.nextRemortgage), 'date'],
-    ['Purchase price', (p) => currency(p.purchasePrice), 'money', true],
-    ['Home report at purchase', (p) => currency(p.homeReportPurchase), 'money', true],
+    ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent', false, 'baseRate'],
+    ['Current lender', (p) => p.lender || 'Not set', 'text', false, 'lender'],
+    ['Next remortgage', (p) => shortDate(p.nextRemortgage), 'date', false, 'latestRemortgage'],
+    ['Purchase price', (p) => currency(p.purchasePrice), 'money', true, 'purchasePrice'],
+    ['Home report at purchase', (p) => currency(p.homeReportPurchase), 'money', true, 'homeReportPurchase'],
     ['Expected value at remortgage', (p) => currency(p.expectedRemortgageValue), 'money', true],
     ['Expected LTV at remortgage', (p) => percent(p.expectedRemortgageLtv), 'percent', true],
     ['Releasable equity at 75% LTV', (p) => currency(p.releasableEquity), 'money-positive', true],
@@ -65,19 +66,19 @@ const propertyGroups = [
     ['Voids since ownership', (p) => p.ownedDays ? `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})` : 'Purchase date required', 'text', true],
   ]},
   { title: 'Property details', description: 'Identity, location and physical characteristics', tone: 'blue', rows: [
-    ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address) || 'Not set', 'text'],
-    ['Postcode', (p) => p.postcode || 'Not set', 'text'],
-    ['Bedrooms', (p) => p.bedrooms, 'integer'],
-    ['EPC rating', (p) => p.epc || 'Not set', 'text'],
-    ['Area', (p) => `${p.areaSqm} m²`, 'integer', true],
-    ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true],
+    ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address) || 'Not set', 'text', false, 'address'],
+    ['Postcode', (p) => p.postcode || 'Not set', 'text', false, 'postcode'],
+    ['Bedrooms', (p) => p.bedrooms, 'integer', false, 'bedrooms'],
+    ['EPC rating', (p) => p.epc || 'Not set', 'text', false, 'epc'],
+    ['Area', (p) => `${p.areaSqm} m²`, 'integer', true, 'areaSqm'],
+    ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true, 'purchaseDate'],
   ]},
   { title: 'Compliance & timing', description: 'Broker and property compliance milestones', tone: 'amber', rows: [
     ['Call broker', (p) => shortDate(p.brokerDate), 'date'],
-    ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date', true],
-    ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date', true],
-    ['PAT testing expiry', (p) => shortDate(p.patExpiry), 'date', true],
-    ['EPC expiry', (p) => shortDate(p.epcExpiry), 'date', true],
+    ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date', true, 'gasExpiry'],
+    ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date', true, 'eicrExpiry'],
+    ['PAT testing expiry', (p) => shortDate(p.patExpiry), 'date', true, 'patExpiry'],
+    ['EPC expiry', (p) => shortDate(p.epcExpiry), 'date', true, 'epcExpiry'],
   ]},
 ]
 
@@ -203,6 +204,18 @@ const sectionMeta = {
   },
 }
 
+
+
+function PropertyMetricHelp({ label, help }) {
+  if (!help) return null
+  return <button type="button" className="property-metric-help" aria-label={`${label}: ${help}`} data-tooltip={help}><CircleHelp size={13} /></button>
+}
+
+function PropertyMetricEditButton({ property, label, editField, onEdit }) {
+  if (!editField) return null
+  const actionLabel = label === 'Mortgage payment / month' ? 'Edit mortgage inputs' : `Edit ${label}`
+  return <button type="button" className="property-metric-edit" aria-label={`${actionLabel} for ${property.name}`} onClick={() => onEdit(property.id, editField)}><Pencil size={13} /></button>
+}
 
 function AnimatedNumber({ value, duration = 1000, decimals = 1 }) {
   const numericValue = Number(value || 0)
@@ -1397,9 +1410,22 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
   </div>
 }
 
-function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
+function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '' }) {
   const [draft, setDraft] = useState(property)
+  const drawerRef = useRef(null)
   useEffect(() => setDraft(property), [property])
+  useEffect(() => {
+    if (!focusField || !drawerRef.current) return undefined
+    const focusTarget = () => {
+      const input = drawerRef.current?.querySelector(`[data-property-field="${focusField}"]`)
+      if (!input) return
+      input.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      input.focus({ preventScroll: true })
+    }
+    if (typeof requestAnimationFrame !== 'function') { focusTarget(); return undefined }
+    const frame = requestAnimationFrame(focusTarget)
+    return () => cancelAnimationFrame(frame)
+  }, [focusField, property?.id])
   const update = (key, value, type) => setDraft((current) => ({
     ...current,
     [key]: type === 'percent' ? Number(value) / 100 : type === 'number' ? Number(value) : type === 'optional-number' ? (value === '' ? '' : Number(value)) : value,
@@ -1407,7 +1433,7 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
 
   return (
     <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <aside className="drawer" aria-label="Edit BTL">
+      <aside ref={drawerRef} className="drawer" aria-label="Edit BTL">
         <header><div><span className="kicker">Portfolio property</span><h2>{isNew ? 'Add a BTL' : `Edit ${draft.name}`}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><X /></button></header>
         <div className="drawer-body">
           {editableSections.map((section) => (
@@ -1419,6 +1445,7 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
                     <span>{label}{optional && <small>Optional</small>}</span>
                     <div className={type === 'percent' ? 'input-suffix' : ''}>
                       <input
+                        data-property-field={key}
                         type={type === 'percent' || type === 'optional-number' ? 'number' : type}
                         step={type === 'percent' ? '0.1' : ['number', 'optional-number'].includes(type) ? 'any' : undefined}
                         value={type === 'percent' ? percentInputValue(draft[key]) : type === 'date' ? dateInputValue(draft[key]) : draft[key] ?? ''}
@@ -1507,6 +1534,7 @@ function PortfolioApp({ user }) {
   const [search, setSearch] = useState('')
   const [advancedPropertyView, setAdvancedPropertyView] = useState(false)
   const [mobilePropertyId, setMobilePropertyId] = useState('')
+  const [editingField, setEditingField] = useState('')
   const [collapsedPropertyGroups, setCollapsedPropertyGroups] = useState(
     () => new Set(propertyGroups.map(({ title }) => title)),
   )
@@ -1679,7 +1707,8 @@ function PortfolioApp({ user }) {
     setUpgradeOpen(true)
     return false
   }
-  const closeEditor = () => { setEditingId(null); setPendingProperty(null) }
+  const openPropertyEditor = (id, field = '') => { setEditingField(field); setEditingId(id); setPendingProperty(null) }
+  const closeEditor = () => { setEditingField(''); setEditingId(null); setPendingProperty(null) }
   const saveProperty = (draft) => {
     if (!state.properties.some((property) => property.id === draft.id) && !requestPropertySlot()) return
     setState((current) => {
@@ -1692,12 +1721,14 @@ function PortfolioApp({ user }) {
     if (!requestPropertySlot()) return
     const source = state.properties.find((p) => p.id === id)
     const clone = { ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', tenantMoveOut: '', depositHeld: '', mortgageNumber: '' }
+    setEditingField('')
     setPendingProperty(clone)
     setEditingId(null)
   }
   const addProperty = () => {
     if (!requestPropertySlot()) return
     const next = createBlankProperty(`BTL${state.properties.length + 1}`)
+    setEditingField('')
     setPendingProperty(next)
     setEditingId(null)
   }
@@ -2026,7 +2057,7 @@ function PortfolioApp({ user }) {
               {mobileProperty ? <div className="mobile-property-snapshot">
                 <div className="mobile-property-snapshot-head">
                   <div><b>{mobileProperty.name}</b><span>{formatPropertyAddress(mobileProperty.flatNumber, mobileProperty.address) || 'Address not set'}{mobileProperty.postcode ? ` · ${mobileProperty.postcode}` : ''}</span></div>
-                  <button type="button" className="mobile-property-edit" onClick={() => setEditingId(mobileProperty.id)}><Pencil size={15} /> Edit</button>
+                  <button type="button" className="mobile-property-edit" onClick={() => openPropertyEditor(mobileProperty.id)}><Pencil size={15} /> Edit</button>
                 </div>
                 <div className="mobile-property-snapshot-primary">
                   <span><small>Current value</small><strong>{currency(mobileProperty.latestValuation)}</strong></span>
@@ -2042,7 +2073,8 @@ function PortfolioApp({ user }) {
                   <span><small>Net yield</small><b>{percent(mobileProperty.netYield, 1)}</b></span>
                 </div>
                 <div className="mobile-property-snapshot-finance">
-                  <span><small>Mortgage</small><b>{percent(mobileProperty.currentRate, 2)}{mobileProperty.lender ? ` · ${mobileProperty.lender}` : ''}</b></span>
+                  <span><small>Mortgage / mo</small><b>{currency(mobileProperty.monthlyPayment)}</b></span>
+                  <span><small>Rate / lender</small><b>{percent(mobileProperty.currentRate, 2)}{mobileProperty.lender ? ` · ${mobileProperty.lender}` : ''}</b></span>
                   <span><small>Next remortgage</small><b>{shortDate(mobileProperty.nextRemortgage)}</b></span>
                 </div>
                 <button
@@ -2071,7 +2103,7 @@ function PortfolioApp({ user }) {
                     <tr>
                       <th className="property-comparison-metric-head">Metric</th>
                       {filtered.map((property) => <th key={property.id}>
-                        <button className="property-comparison-header-button" onClick={() => setEditingId(property.id)}>
+                        <button className="property-comparison-header-button" onClick={() => openPropertyEditor(property.id)}>
                           <span className="property-comparison-header-title"><b>{property.name}</b><small>{property.postcode || 'Postcode not set'}</small></span>
                           <span className="property-comparison-header-value"><b>{currency(property.latestValuation)}</b><small>{percent(property.currentLtv, 1)} LTV</small></span>
                           <OverviewLtvBar property={property} compact />
@@ -2089,9 +2121,9 @@ function PortfolioApp({ user }) {
                             <span><b>{group.title}</b><small>{group.description}</small></span>
                           </th>
                         </tr>
-                        {rows.map(([label, getter, kind, advanced]) => <tr data-metric={label} data-kind={kind} key={`${group.title}-${label}`}>
-                          <th className={advanced ? 'advanced-metric-label' : undefined}>{label}</th>
-                          {filtered.map((property) => <td className={`${kind} ${label === 'Operating cash flow / month' ? (property.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`} key={property.id}>{getter(property)}</td>)}
+                        {rows.map(([label, getter, kind, advanced, editField, help]) => <tr data-metric={label} data-kind={kind} key={`${group.title}-${label}`}>
+                          <th className={advanced ? 'advanced-metric-label' : undefined}><span className="property-metric-label">{label}<PropertyMetricHelp label={label} help={help} /></span></th>
+                          {filtered.map((property) => <td className={`${kind} ${label === 'Operating cash flow / month' ? (property.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`} key={property.id}><span className="property-metric-value">{getter(property)}<PropertyMetricEditButton property={property} label={label} editField={editField} onEdit={openPropertyEditor} /></span></td>)}
                         </tr>)}
                       </React.Fragment>
                     })}
@@ -2120,7 +2152,7 @@ function PortfolioApp({ user }) {
                     </button>
                   </header>
                   {!collapsed && <div className="mobile-property-group-list">
-                    {mobileProperty ? rows.map(([label, getter, kind, advanced]) => <div className={`mobile-property-row ${advanced ? 'advanced' : ''}`} key={label}><span>{label}</span><strong className={`${kind} ${label === 'Operating cash flow / month' ? (mobileProperty.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`}>{getter(mobileProperty)}</strong></div>) : <div className="mobile-property-empty">No BTL selected</div>}
+                    {mobileProperty ? rows.map(([label, getter, kind, advanced, editField, help]) => <div className={`mobile-property-row ${advanced ? 'advanced' : ''}`} key={label}><span className="property-metric-label">{label}<PropertyMetricHelp label={label} help={help} /></span><span className="mobile-property-row-value"><strong className={`${kind} ${label === 'Operating cash flow / month' ? (mobileProperty.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`}>{getter(mobileProperty)}</strong><PropertyMetricEditButton property={mobileProperty} label={label} editField={editField} onEdit={openPropertyEditor} /></span></div>) : <div className="mobile-property-empty">No BTL selected</div>}
                   </div>}
                 </section>
               })}
@@ -2187,7 +2219,7 @@ function PortfolioApp({ user }) {
         <button className={visibleWorkspaceNavigation.slice(4).some(([label]) => label === section) ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
       </nav>
 
-        {editing && <EditDrawer property={editing} isNew={!state.properties.some((p) => p.id === editing.id)} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
+        {editing && <EditDrawer property={editing} isNew={!state.properties.some((p) => p.id === editing.id)} focusField={editingField} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
         {upgradeOpen && <BillingWorkspace entitlement={effectiveEntitlement} modal onClose={() => setUpgradeOpen(false)} />}
       {!state.settings.onboardingComplete && <AccountSetupModal onComplete={completeAccountSetup} />}
     </div>

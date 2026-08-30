@@ -14431,3 +14431,97 @@ textarea {
   }
 }
 
+/* Brain Drain 2026-08-30 12:03 BST — property metric direct edit + mortgage verification */
+.property-metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.property-metric-help,
+.property-metric-edit {
+  border: 0;
+  background: transparent;
+  color: var(--ui-muted, var(--muted));
+}
+.property-metric-help {
+  width: 20px;
+  height: 20px;
+  position: relative;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+}
+.property-metric-help::after {
+  content: attr(data-tooltip);
+  width: min(260px, 70vw);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 7px);
+  z-index: 40;
+  padding: 8px 9px;
+  border: 1px solid var(--ui-line, var(--line));
+  border-radius: 7px;
+  color: var(--ui-text, var(--ink));
+  background: var(--ui-surface, var(--white));
+  box-shadow: 0 7px 20px rgba(0, 0, 0, .14);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  transform: translateX(-50%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.property-metric-help:hover::after,
+.property-metric-help:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+.property-metric-value {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+.property-metric-edit {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 7px;
+  opacity: .62;
+}
+.property-metric-edit:hover,
+.property-metric-edit:focus-visible,
+.property-metric-help:hover,
+.property-metric-help:focus-visible {
+  color: var(--ui-accent, var(--green));
+  background: color-mix(in srgb, var(--ui-accent, var(--green)) 9%, transparent);
+  opacity: 1;
+  outline: none;
+}
+.property-metric-edit:focus-visible,
+.property-metric-help:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-accent, var(--green)) 30%, transparent);
+}
+.mobile-property-row-value {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.mobile-property-row-value strong {
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .property-metric-edit { width: 32px; height: 32px; flex-basis: 32px; opacity: .78; }
+  .mobile-property-snapshot-finance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mobile-property-snapshot-finance > span:first-child { grid-column: 1 / -1; }
+}
+

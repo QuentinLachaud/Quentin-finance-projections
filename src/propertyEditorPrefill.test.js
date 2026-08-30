@@ -9,7 +9,7 @@ describe('desktop property editor prefilled values', () => {
     expect(app).toContain(
       "const editing = pendingProperty || state.properties.find((p) => p.id === editingId)"
     )
-    expect(app).toContain('function EditDrawer({ property, onSave, onClose, onDelete, isNew })')
+    expect(app).toContain("function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '' })")
     expect(app).toContain('const [draft, setDraft] = useState(property)')
     expect(app).toContain('useEffect(() => setDraft(property), [property])')
   })
