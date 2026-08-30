@@ -1,4 +1,6 @@
 import { calculateCorporationTax, calculatePrivateLandlordTax, taxYearForDate } from './tax.js'
+import { calendarDate } from './dateUtils.js'
+export { shortDate } from './dateUtils.js'
 
 const MS_YEAR = 365.2425 * 24 * 60 * 60 * 1000
 const finiteNumber = (value, fallback = 0) => {
@@ -7,8 +9,8 @@ const finiteNumber = (value, fallback = 0) => {
 }
 
 export const addMonths = (dateString, months) => {
-  const source = new Date(`${dateString}T12:00:00`)
-  if (Number.isNaN(source.getTime())) return null
+  const source = calendarDate(dateString)
+  if (!source) return null
 
   const target = new Date(source)
   const originalDay = source.getDate()
@@ -89,8 +91,8 @@ export function calculateProperty(property, settings, now = new Date()) {
     ? Number(property.rent) / 12
     : Number(property.voidsOverride)
   const variableCosts = voids + problemBudget
-  const purchaseDate = property.purchaseDate ? new Date(`${property.purchaseDate}T12:00:00`) : null
-  const yearsOwned = purchaseDate && !Number.isNaN(purchaseDate.getTime())
+  const purchaseDate = calendarDate(property.purchaseDate)
+  const yearsOwned = purchaseDate
     ? Math.max(0, Math.floor((now - purchaseDate) / MS_YEAR))
     : 0
 
@@ -360,7 +362,3 @@ export const currency = (value, digits = 0) => new Intl.NumberFormat('en-GB', {
 
 export const percent = (value, digits = 1) => `${(Number(value || 0) * 100).toFixed(digits)}%`
 
-export const shortDate = (value) => {
-  const date = value instanceof Date ? value : new Date(`${value}T12:00:00`)
-  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
-}

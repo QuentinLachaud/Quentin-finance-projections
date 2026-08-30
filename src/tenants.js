@@ -1,3 +1,5 @@
+import { calendarDate } from './dateUtils.js'
+
 const tenantPropertyFields = {
   name: 'tenantName',
   email: 'tenantEmail',
@@ -87,7 +89,7 @@ export const applyTenantToProperty = (tenant, property) => {
   }), { ...property, tenantId: tenant.id })
 }
 
-const dateAtNoon = (value) => value ? new Date(`${value}T12:00:00`) : null
+const dateAtNoon = calendarDate
 
 export const tenantTenure = (tenant, now = new Date()) => {
   const start = dateAtNoon(tenant.moveIn)

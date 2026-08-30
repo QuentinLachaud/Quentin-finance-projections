@@ -80,7 +80,7 @@ export const editableSections = [
       ['purchasePrice', 'Purchase price', 'number'], ['homeReportPurchase', 'Home report at purchase', 'number'],
       ['latestValuation', 'Latest valuation', 'number'], ['loanAmount', 'Loan amount', 'number'],
       ['areaSqm', 'Area (m²)', 'number'], ['bedrooms', 'Bedrooms', 'number'],
-      ['epc', 'EPC', 'text'], ['rent', 'Monthly rent', 'number'], ['purchaseDate', 'First purchased', 'date'],
+      ['epc', 'EPC', 'text'], ['rent', 'Monthly rent', 'number'], ['purchaseDate', 'First purchased', 'date', true],
     ],
   },
   {
@@ -90,14 +90,14 @@ export const editableSections = [
       ['baseRate', 'Base interest rate', 'percent'], ['fixedRateMonths', 'Fixed period (months)', 'number'],
       ['qualifyingFinanceBalance', 'Private-tax qualifying finance balance (blank = full loan)', 'optional-number'],
       ['factorsFees', 'Factors fees / month', 'number'], ['repairs', 'Repairs budget / month', 'number'],
-      ['latestRemortgage', 'Latest remortgage', 'date'],
+      ['latestRemortgage', 'Latest remortgage', 'date', true],
     ],
   },
   {
     title: 'Compliance dates',
     fields: [
-      ['gasExpiry', 'Gas certificate expiry', 'date'], ['eicrExpiry', 'EICR expiry', 'date'],
-      ['epcExpiry', 'EPC expiry', 'date'], ['patExpiry', 'PAT expiry', 'date'],
+      ['gasExpiry', 'Gas certificate expiry', 'date', true], ['eicrExpiry', 'EICR expiry', 'date', true],
+      ['epcExpiry', 'EPC expiry', 'date', true], ['patExpiry', 'PAT expiry', 'date', true],
     ],
   },
   {
@@ -105,7 +105,7 @@ export const editableSections = [
     fields: [
       ['tenantName', 'Name', 'text'], ['tenantEmail', 'Email', 'email'],
       ['tenantPhone', 'Phone', 'tel'], ['tenantOccupation', 'Occupation', 'text'],
-      ['tenantMoveIn', 'Move-in date', 'date'], ['tenantMoveOut', 'Move-out date (optional)', 'date'],
+      ['tenantMoveIn', 'Move-in date', 'date', true], ['tenantMoveOut', 'Move-out date', 'date', true],
       ['depositHeld', 'Deposit held', 'text'],
     ],
   },

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
+import { calendarDate, dateInputValue } from './dateUtils.js'
 import {
   activeOfficers, activePsc, companyDeadlines, formatCompanyAddress,
   identityVerificationSummary, officialCompanyUrl, outstandingCharges,
@@ -1413,17 +1414,18 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew }) {
             <section className="form-section" key={section.title}>
               <h3>{section.title}</h3>
               <div className="form-grid">
-                {section.fields.map(([key, label, type]) => (
+                {section.fields.map(([key, label, type, optional = false]) => (
                   <label key={key} className={type === 'text' && ['address', 'depositHeld', 'tenantOccupation'].includes(key) ? 'wide' : ''}>
-                    <span>{label}</span>
+                    <span>{label}{optional && <small>Optional</small>}</span>
                     <div className={type === 'percent' ? 'input-suffix' : ''}>
                       <input
                         type={type === 'percent' || type === 'optional-number' ? 'number' : type}
                         step={type === 'percent' ? '0.1' : ['number', 'optional-number'].includes(type) ? 'any' : undefined}
-                        value={type === 'percent' ? percentInputValue(draft[key]) : draft[key] ?? ''}
+                        value={type === 'percent' ? percentInputValue(draft[key]) : type === 'date' ? dateInputValue(draft[key]) : draft[key] ?? ''}
                         onChange={(event) => update(key, event.target.value, type)}
                       />
                       {type === 'percent' && <small>%</small>}
+                      {type === 'date' && optional && dateInputValue(draft[key]) && <button type="button" className="text-button" aria-label={`Clear ${label}`} onClick={(event) => { event.preventDefault(); update(key, '', type) }}>Clear</button>}
                     </div>
                   </label>
                 ))}
@@ -2174,7 +2176,7 @@ function PortfolioApp({ user }) {
             onUpgrade={() => setUpgradeOpen(true)}
           />}
 
-          {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{includedCalculated.flatMap((p) => [['Call broker',p.brokerDate],['Gas certificate',p.gasExpiry],['EICR',p.eicrExpiry],['PAT testing',p.patExpiry],['EPC',p.epcExpiry]].map(([label,date]) => ({ property:p.name,label,date:new Date(date instanceof Date ? date : `${date}T12:00:00`) }))).filter((item) => !Number.isNaN(item.date.getTime())).sort((a,b) => a.date-b.date).map((item, index) => <div key={`${item.property}-${item.label}`}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.property}</small></p><time>{shortDate(item.date)}</time></div>)}</div></section>}
+          {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{includedCalculated.flatMap((p) => [['Call broker',p.brokerDate],['Gas certificate',p.gasExpiry],['EICR',p.eicrExpiry],['PAT testing',p.patExpiry],['EPC',p.epcExpiry]].map(([label,date]) => ({ property:p.name,label,date:calendarDate(date) }))).filter((item) => item.date).sort((a,b) => a.date-b.date).map((item, index) => <div key={`${item.property}-${item.label}`}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.property}</small></p><time>{shortDate(item.date)}</time></div>)}</div></section>}
 
           {section === 'Companies House' && state.settings.accountType !== 'private' && <CompaniesHouseWorkspace settings={state.settings} onSettingChange={updateSetting} />}
         </div>
