@@ -20,7 +20,9 @@ describe('screenshot-driven UI polish', () => {
 
   it('uses account-aware Income & DLA terminology without changing sign-based transaction typing', () => {
     expect(app).toContain('accountType={state.settings.accountType}')
-    expect(expenses).toContain("export default function ExpensesWorkspace({ expenses = [], properties = [], accountType = 'company', onChange })")
+    expect(expenses).toContain("export default function ExpensesWorkspace({")
+    expect(expenses).toContain("accountType = 'company'")
+    expect(expenses).toContain('onChange')
     expect(expenses).toContain("const incomeLabel = accountType === 'company' ? 'Income & DLA' : 'Income'")
     expect(expenses).toContain("Positive amounts are income or DLA funding; negative amounts are expenses.")
     expect(expenses).toContain('<span>{incomeLabel}</span>')

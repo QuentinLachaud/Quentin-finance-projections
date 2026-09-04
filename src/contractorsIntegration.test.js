@@ -21,13 +21,16 @@ describe('Contractors workspace integration', () => {
     expect(app).toContain("section === 'Contractors'")
   })
 
-  it('keeps the future Documents feature compartmentalised behind one contractor slot', () => {
+  it('keeps contractor documents behind the shared Documents & Expenses model', () => {
     expect(workspace).toContain("import ContractorDocumentsSlot from './ContractorDocumentsSlot.jsx'")
-    expect(workspace).toContain('<ContractorDocumentsSlot contractorId={draft.id} propertyIds={draft.propertyIds} />')
-    expect(slot).not.toMatch(/type=["']file["']/)
-    expect(slot).not.toContain("from './supabase.js'")
+    expect(workspace).toContain('documents={documents}')
+    expect(workspace).toContain('onOpenDocuments={onOpenDocuments}')
+    expect(slot).toContain('documentsForContractor')
+    expect(slot).toContain('Associated documents')
+    expect(slot).toContain('Add document')
+    expect(slot).not.toMatch(/type=[\"']file[\"']/)
+    expect(slot).not.toContain('supabase')
     expect(domain).not.toContain('document')
-    expect(app).not.toContain('contractorDocuments')
   })
 
   it('uses native selects for trade and month/year and responsive contractor card styling', () => {
@@ -36,6 +39,5 @@ describe('Contractors workspace integration', () => {
     expect(workspace).toContain('<select value={draft.lastJobYear')
     expect(styles).toContain('Brain Drain 2026-09-04 16:15 BST — Contractors workspace')
     expect(styles).toContain('.contractor-card-grid')
-    expect(styles).toContain('.contractor-document-photo')
   })
 })

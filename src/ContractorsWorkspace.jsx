@@ -121,7 +121,7 @@ function ContractorEditor({ contractor, properties, tags, onTagsChange, onSave, 
       <label className="contractor-editor-span"><span>Notes <small>personal</small></span><textarea rows="4" value={draft.notes} onChange={(event) => update({ notes: event.target.value })} placeholder="Reliability, preferred contact method, availability, pricing notes…" /></label>
 
       <div className="contractor-editor-span">
-        <ContractorDocumentsSlot contractorId={draft.id} propertyIds={draft.propertyIds} />
+        <ContractorDocumentsSlot contractorId={draft.id} propertyIds={draft.propertyIds} documents={documents} onOpenDocuments={onOpenDocuments} />
       </div>
     </div>
     <div className="contractor-editor-actions">
@@ -170,7 +170,7 @@ function ContractorCard({ contractor, propertiesById, tagsById, onEdit, onDelete
   </article>
 }
 
-export default function ContractorsWorkspace({ contractors = [], contractorTags = [], properties = [], onSave, onDelete, onTagsChange }) {
+export default function ContractorsWorkspace({ contractors = [], contractorTags = [], properties = [], documents = [], onSave, onDelete, onTagsChange, onOpenDocuments }) {
   const tags = useMemo(() => normalizeContractorTags(contractorTags), [contractorTags])
   const [editor, setEditor] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)

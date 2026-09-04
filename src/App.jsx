@@ -136,7 +136,7 @@ const workspaceNavigation = [
   ['Tenants', 'Tenants', Users, 'PORTFOLIO'],
   ['Contractors', 'Contractors', Wrench, 'PORTFOLIO'],
   ['Costs & Cash Flows', 'Costs', ReceiptText, 'PORTFOLIO'],
-  ['Expenses', 'Expenses', FileText, 'PORTFOLIO'],
+  ['Documents & Expenses', 'Documents', FileText, 'PORTFOLIO'],
   ['Banking', 'Banking', WalletCards, 'PORTFOLIO'],
   ['Projections', 'Projections', TrendingUp, 'PLANNING'],
   ['Acquisition Simulator', 'Acquisition', MapPin, 'PLANNING'],
@@ -180,10 +180,10 @@ const sectionMeta = {
     title: 'Costs & Cash Flows',
     description: 'Review the income and recurring costs that drive your portfolio cash flow.',
   },
-  Expenses: {
-    eyebrow: 'HISTORICAL LEDGER',
-    title: 'Expenses',
-    description: 'Record actual income and spending, then filter the ledger when you need it.',
+  'Documents & Expenses': {
+    eyebrow: 'DOCUMENTS & LEDGER',
+    title: 'Documents & Expenses',
+    description: 'Keep invoices, receipts and property documents together with the financial ledger they support.',
   },
   Banking: {
     eyebrow: 'CONNECTED ACCOUNTS',
@@ -1579,6 +1579,7 @@ function PortfolioApp({ user }) {
     if (overviewPropertyViewOptions.some(([id]) => id === savedView)) return savedView
     return 'rows'
   })
+  const [documentCaptureRequest, setDocumentCaptureRequest] = useState(null)
   const [section, setSection] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     if (BANKING_ENABLED && params.get('bank_callback') === '1') return 'Banking'
@@ -2331,7 +2332,7 @@ function PortfolioApp({ user }) {
 
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
 
-          {section === 'Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} accountType={state.settings.accountType} onChange={updateExpenses} />}
+          {section === 'Documents & Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} contractors={state.contractors || []} contractorTags={state.contractorTags || []} accountType={state.settings.accountType} companyName={state.settings.companyName} captureRequest={documentCaptureRequest} onCaptureRequestConsumed={() => setDocumentCaptureRequest(null)} onChange={updateExpenses} />}
 
           {section === 'IDs & Credentials' && <CredentialsWorkspace credentials={state.credentials || []} onChange={updateCredentials} />}
 
@@ -2339,7 +2340,7 @@ function PortfolioApp({ user }) {
 
           {section === 'Tenants' && <TenantsWorkspace tenants={includedTenants} properties={includedProperties} onSave={saveTenant} onRemove={removeTenant} />}
 
-          {section === 'Contractors' && <ContractorsWorkspace contractors={state.contractors || []} contractorTags={state.contractorTags || []} properties={state.properties || []} onSave={saveContractor} onDelete={removeContractor} onTagsChange={updateContractorTags} />}
+          {section === 'Contractors' && <ContractorsWorkspace contractors={state.contractors || []} contractorTags={state.contractorTags || []} properties={state.properties || []} documents={state.expenses || []} onSave={saveContractor} onDelete={removeContractor} onTagsChange={updateContractorTags} onOpenDocuments={(request) => { setDocumentCaptureRequest({ ...request, nonce: Date.now() }); setSection('Documents & Expenses') }} />}
 
           {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
 

@@ -20,7 +20,7 @@ describe('interface information architecture', () => {
       'Properties',
       'Tenants',
       'Costs & Cash Flows',
-      'Expenses',
+      'Documents & Expenses',
       'Projections',
       'Remortgage Simulator',
       'Compliance',

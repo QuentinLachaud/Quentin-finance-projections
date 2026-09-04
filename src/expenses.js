@@ -116,7 +116,7 @@ export const parseExpenseImport = (text) => {
 }
 
 const fingerprint = (item) => [
-  item.date, item.property, item.category, item.amount, item.description, item.recurrence, item.notes, item.receiptLink,
+  item.date, item.property, item.category, item.amount, item.description, item.recurrence, item.notes, item.receiptLink, item.document?.title, item.document?.type, item.document?.contractorId, ...(item.document?.tagIds || []),
 ].map((value) => clean(value).toLowerCase()).join('|')
 
 export const mergeExpenseImports = (existing, incoming) => {
@@ -153,7 +153,7 @@ export const filterExpenses = (expenses, filters = {}) => {
     if (from && (!item.date || item.date < from)) return false
     if (to && (!item.date || item.date > to)) return false
     if (query) {
-      const haystack = [item.date, item.property, item.category, item.description, item.recurrence, item.notes, item.receiptLink, itemType]
+      const haystack = [item.date, item.property, item.category, item.description, item.recurrence, item.notes, item.receiptLink, itemType, item.document?.title, item.document?.type, item.document?.association?.label, item.document?.contractorId, ...(item.document?.tagIds || [])]
         .map((value) => clean(value).toLowerCase()).join(' ')
       if (!haystack.includes(query)) return false
     }

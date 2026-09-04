@@ -1,31 +1,17 @@
-import React, { useState } from 'react'
-import { Camera, FileUp, Plus } from 'lucide-react'
+import React from 'react'
+import { FileText, Plus } from 'lucide-react'
+import { documentsForContractor, normalizeDocumentMeta } from './documents.js'
 
-/**
- * Presentation-only seam for the future shared Documents feature.
- *
- * Intentionally owns no file inputs, camera APIs, storage, Supabase calls,
- * document metadata, categorisation or persistence. When Documents is built,
- * this component is the single contractor integration point to replace/compose.
- */
-export default function ContractorDocumentsSlot({ contractorId, propertyIds = [] }) {
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const contextReady = Boolean(contractorId && propertyIds.length)
-
+export default function ContractorDocumentsSlot({ contractorId, propertyIds = [], documents = [], onOpenDocuments }) {
+  const associated = documentsForContractor(documents, contractorId)
   return <section className="contractor-documents-slot" data-contractor-id={contractorId || ''}>
     <div className="contractor-documents-slot-head">
-      <div>
-        <strong>Documents</strong>
-        <small>{contextReady ? 'Will link through the shared Documents feature.' : 'Link a BTL before adding property documents.'}</small>
-      </div>
-      <button type="button" className="secondary-button contractor-document-add" onClick={() => setPreviewOpen((open) => !open)}>
-        <Plus size={14} /> Add document
-      </button>
+      <div><strong>Associated documents</strong><small>{associated.length ? `${associated.length} linked document${associated.length === 1 ? '' : 's'}` : 'Invoices, receipts and certificates linked to this contractor.'}</small></div>
+      <button type="button" className="secondary-button contractor-document-add" onClick={() => onOpenDocuments?.({ contractorId, propertyId: propertyIds[0] || '' })}><Plus size={14} /> Add document</button>
     </div>
-    {previewOpen && <div className="contractor-document-placeholder" role="status">
-      <button type="button" disabled><FileUp size={15} /> Upload from files</button>
-      <button type="button" disabled className="contractor-document-photo"><Camera size={15} /> Take photo</button>
-      <small>Document handling is intentionally not enabled yet. These controls will use the shared Documents module.</small>
-    </div>}
+    {associated.length > 0 && <div className="contractor-associated-documents">{associated.slice(0, 4).map((entry) => {
+      const meta = normalizeDocumentMeta(entry.document)
+      return <button type="button" key={entry.id} onClick={() => onOpenDocuments?.({ contractorId, focusEntryId: entry.id })}><FileText size={14} /><span><b>{meta?.title || entry.description || 'Document'}</b><small>{[meta?.type, entry.date].filter(Boolean).join(' · ')}</small></span></button>
+    })}</div>}
   </section>
 }
