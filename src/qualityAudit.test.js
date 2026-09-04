@@ -10,7 +10,8 @@ describe('application architecture regression contracts', () => {
     expect(app).toContain(".from('portfolio_states').select('portfolio').eq('user_id', user.id).maybeSingle()")
     expect(app).toContain("expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : []")
     expect(app).toContain("credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : []")
-    expect(app).toContain("remortgageComparisons: Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : []")
+    expect(app).toContain("const migratedRemortgageComparisons = Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : []")
+    expect(app).toContain("remortgageComparisons: mortgageMigration.comparisons")
     expect(app).toContain("upsert({ user_id: user.id, portfolio: state }, { onConflict: 'user_id' })")
   })
 

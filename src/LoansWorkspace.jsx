@@ -47,8 +47,9 @@ function LoanEditor({ loan, properties, onSave, onDelete }) {
     </label>
 
     <label className="loan-editor-field">
-      <span>Loan size</span>
-      <div className="loan-input-affix"><b>£</b><input type="number" min="0" step="100" value={loan.loanAmount || 0} onChange={(event) => update({ loanAmount: Number(event.target.value) })} /></div>
+      <span>Loan amount before fee</span>
+      <div className="loan-input-affix"><b>£</b><input type="number" min="0" step="100" value={loan.principalAmount || 0} onChange={(event) => update({ principalAmount: Number(event.target.value) })} /></div>
+      <small className="loan-derived-balance">Mortgage balance: {currency(costs.effectiveBalance)}{loan.addFeeToLoan && costs.productFee > 0 ? ` incl. ${currency(costs.productFee)} financed fee` : ''}</small>
     </label>
 
     <label className="loan-editor-field">
@@ -91,13 +92,13 @@ function LoanEditor({ loan, properties, onSave, onDelete }) {
 
     <label className="loan-capitalised-toggle">
       <input type="checkbox" checked={Boolean(loan.addFeeToLoan)} onChange={(event) => update({ addFeeToLoan: event.target.checked })} />
-      <span><b>Fee added to loan</b><small>Records whether the product fee was capitalised rather than paid upfront.</small></span>
+      <span><b>Fee added to loan</b><small>When enabled, the product fee increases the mortgage balance and monthly interest cost.</small></span>
     </label>
 
     <section className="loan-cost-summary" aria-label="Loan cost summary">
       <header><strong>Cost over fixed period</strong><small>Interest-only · principal excluded</small></header>
       <div className="loan-cost-grid">
-        <div className="loan-cost-metric"><small>Monthly cost</small><strong>{currency(costs.monthlyCost)}</strong><span>Current balance × rate ÷ 12</span></div>
+        <div className="loan-cost-metric"><small>Monthly cost</small><strong>{currency(costs.monthlyCost)}</strong><span>Effective balance × rate ÷ 12</span></div>
         <div className="loan-cost-metric"><small>Total cost over fixed period</small><strong>{costs.months ? currency(costs.totalCost) : 'Set fixed period'}</strong><span>{costs.months ? `Interest + ${currency(costs.productFee)} product fee` : 'A fixed period is required for a total.'}</span></div>
         <div className="loan-cost-metric"><small>Interest cost excl. principal</small><strong>{costs.months ? currency(costs.totalInterestCost) : 'Set fixed period'}</strong><span>{costs.months ? `${costs.months} months of interest` : 'Principal is never counted as a cost.'}</span></div>
       </div>
@@ -135,7 +136,7 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
 
       {loans.length > 0 && <div className="loans-list">
         <div className="loan-list-head" aria-hidden="true">
-          <span>Loan / BTL</span><span>Loan size</span><span>Rate</span><span>Fixed period</span><span>Monthly cost</span><span>LTV band</span><span />
+          <span>Loan / BTL</span><span>Loan balance</span><span>Rate</span><span>Fixed period</span><span>Monthly cost</span><span>LTV band</span><span />
         </div>
 
         {loans.map((loan) => {
@@ -153,7 +154,7 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
               onClick={() => setExpandedId(expanded ? '' : loan.id)}
             >
               <span className="loan-primary"><strong>{loan.lender || 'Lender not set'}</strong><small>{property ? property.name : 'Manual / unlinked loan'}</small></span>
-              <span className="loan-cell"><small>Loan size</small><strong>{currency(loan.loanAmount)}</strong></span>
+              <span className="loan-cell"><small>Loan balance</small><strong>{currency(loan.loanAmount)}</strong></span>
               <span className="loan-cell"><small>Rate</small><strong>{rateLabel(loan.rate)}</strong></span>
               <span className="loan-cell"><small>Fixed period</small><strong>{fixed.main}</strong>{fixed.detail && <small>{fixed.detail}</small>}</span>
               <span className="loan-cell"><small>Monthly cost</small><strong>{currency(costs.monthlyCost)}</strong></span>

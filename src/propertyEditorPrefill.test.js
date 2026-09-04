@@ -16,7 +16,7 @@ describe('desktop property editor prefilled values', () => {
 
   it('binds each desktop editor field to the current draft value', () => {
     expect(app).toContain(
-      "value={type === 'percent' ? percentInputValue(draft[key]) : type === 'date' ? dateInputValue(draft[key]) : draft[key] ?? ''}"
+      "value={key === 'loanAmount' ? (draft.mortgagePrincipalAmount ?? draft.loanAmount ?? '') : type === 'percent' ? percentInputValue(draft[key]) : type === 'date' ? dateInputValue(draft[key]) : draft[key] ?? ''}"
     )
   })
 

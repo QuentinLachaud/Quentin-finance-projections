@@ -29,7 +29,7 @@ import { PROPERTY_EDITOR_CORE_KEYS, PROPERTY_EDITOR_OPTIONAL_SECTIONS, propertyF
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
-import { applyLoanToPortfolio, normalizeLoans, syncPropertyMortgage } from './loans.js'
+import { applyLoanToPortfolio, normalizeLoans, reconcileLoanPortfolio, syncPropertyMortgage, updatePropertyMortgageInput } from './loans.js'
 import MoneyPeriodInput from './MoneyPeriodInput.jsx'
 import { moneyEntryPeriodFor, normalizeMoneyEntryPreferences, setMoneyEntryPeriod } from './moneyPeriods.js'
 import { confirmPrivateIncome, privateIncomeIsKnown } from './accountMode.js'
@@ -1450,10 +1450,11 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '
     const frame = requestAnimationFrame(focusTarget)
     return () => cancelAnimationFrame(frame)
   }, [focusField, property?.id])
-  const update = (key, value, type) => setDraft((current) => ({
-    ...current,
-    [key]: type === 'percent' ? Number(value) / 100 : type === 'number' ? Number(value) : type === 'optional-number' ? (value === '' ? '' : Number(value)) : value,
-  }))
+  const update = (key, value, type) => setDraft((current) => {
+    const parsed = type === 'percent' ? Number(value) / 100 : type === 'number' ? Number(value) : type === 'optional-number' ? (value === '' ? '' : Number(value)) : value
+    if (key === 'loanAmount') return updatePropertyMortgageInput(current, parsed)
+    return { ...current, [key]: parsed }
+  })
   const renderField = ([key, label, type, optional = false]) => <label key={key} className={type === 'text' && ['address', 'depositHeld', 'tenantOccupation'].includes(key) ? 'wide' : ''}>
     <span>{label}{optional && <small>Optional</small>}</span>
     <div className={type === 'percent' ? 'input-suffix' : ''}>
@@ -1461,7 +1462,7 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '
         data-property-field={key}
         type={type === 'percent' || type === 'optional-number' ? 'number' : type}
         step={type === 'percent' ? '0.1' : ['number', 'optional-number'].includes(type) ? 'any' : undefined}
-        value={type === 'percent' ? percentInputValue(draft[key]) : type === 'date' ? dateInputValue(draft[key]) : draft[key] ?? ''}
+        value={key === 'loanAmount' ? (draft.mortgagePrincipalAmount ?? draft.loanAmount ?? '') : type === 'percent' ? percentInputValue(draft[key]) : type === 'date' ? dateInputValue(draft[key]) : draft[key] ?? ''}
         onChange={(event) => update(key, event.target.value, type)}
       />
       {type === 'percent' && <small>%</small>}
@@ -1655,17 +1656,23 @@ function PortfolioApp({ user }) {
         }))
       const migratedTenants = importPropertyTenants(migratedProperties, portfolioState.tenants)
       const migratedLoans = normalizeLoans(portfolioState.loans, migratedProperties)
-      loaded.current = true
-      setState({
+      const migratedRemortgageComparisons = Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : []
+      const mortgageMigration = reconcileLoanPortfolio({
         properties: migratedProperties,
         loans: migratedLoans,
+        comparisons: migratedRemortgageComparisons,
+      })
+      loaded.current = true
+      setState({
+        properties: mortgageMigration.properties,
+        loans: mortgageMigration.loans,
         tenants: migratedTenants,
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
         acquisitionScenarios: Array.isArray(portfolioState.acquisitionScenarios) ? portfolioState.acquisitionScenarios : [],
         nextBtlPreferences: normalizeNextBtlPreferences(portfolioState.nextBtlPreferences),
         costsCashflowPreferences: normalizeMoneyEntryPreferences(portfolioState.costsCashflowPreferences),
-        remortgageComparisons: Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : [],
+        remortgageComparisons: mortgageMigration.comparisons,
         settings: {
           ...defaultSettings,
           ...existingAccountDefaults,
@@ -1754,10 +1761,11 @@ function PortfolioApp({ user }) {
         loans: current.loans || [],
         comparisons: current.remortgageComparisons || [],
       })
+      const effectiveProperty = mortgageSync.property || synced.property
       return {
         ...current,
         tenants: synced.tenants,
-        properties,
+        properties: properties.map((property) => property.id === draft.id ? effectiveProperty : property),
         loans: mortgageSync.loans,
         remortgageComparisons: mortgageSync.comparisons,
       }

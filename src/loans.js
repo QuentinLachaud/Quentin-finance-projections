@@ -9,6 +9,23 @@ const finite = (value, fallback = 0) => {
 const nonNegative = (value) => Math.max(0, finite(value))
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key)
 const propertyById = (properties, propertyId) => (properties || []).find((property) => property.id === propertyId) || null
+const closeEnough = (left, right) => Math.abs(nonNegative(left) - nonNegative(right)) < 0.005
+
+const feeModeFrom = (value, fallback = 'percent') => value === 'amount'
+  ? 'amount'
+  : value === 'percent'
+    ? 'percent'
+    : fallback
+
+const principalFromLoan = (loan) => hasOwn(loan, 'principalAmount')
+  ? nonNegative(loan?.principalAmount)
+  : nonNegative(loan?.loanAmount)
+
+const productFeeFrom = (principalAmount, feeMode, feeValue) => {
+  const principal = nonNegative(principalAmount)
+  const value = nonNegative(feeValue)
+  return feeModeFrom(feeMode) === 'amount' ? value : principal * value / 100
+}
 
 export const hasMortgageData = (property) => Boolean(
   nonNegative(property?.loanAmount)
@@ -26,20 +43,27 @@ export const inferLtvBand = (loanAmount, propertyValue) => {
   return Math.min(100, Math.max(5, Math.ceil(actual / 5) * 5))
 }
 
-export const loanProductFeeAmount = (loan) => {
-  const balance = nonNegative(loan?.loanAmount)
-  const value = nonNegative(loan?.feeValue)
-  return loan?.feeMode === 'amount' ? value : balance * value / 100
+export const loanProductFeeAmount = (loan) => productFeeFrom(
+  principalFromLoan(loan),
+  loan?.feeMode,
+  loan?.feeValue,
+)
+
+export const effectiveLoanAmount = (loan) => {
+  const principalAmount = principalFromLoan(loan)
+  return principalAmount + (loan?.addFeeToLoan ? productFeeFrom(principalAmount, loan?.feeMode, loan?.feeValue) : 0)
 }
 
 export const loanCostSummary = (loan) => {
-  const balance = nonNegative(loan?.loanAmount)
+  const balance = effectiveLoanAmount(loan)
   const rate = nonNegative(loan?.rate)
   const months = Math.max(0, Math.round(finite(loan?.fixedRateMonths)))
   const monthlyCost = balance * rate / 12
   const totalInterestCost = monthlyCost * months
   const productFee = loanProductFeeAmount(loan)
   return {
+    principalAmount: principalFromLoan(loan),
+    effectiveBalance: balance,
     monthlyCost,
     totalInterestCost,
     productFee,
@@ -48,10 +72,34 @@ export const loanCostSummary = (loan) => {
   }
 }
 
+export const normalizePropertyMortgage = (property = {}) => {
+  const principalAmount = hasOwn(property, 'mortgagePrincipalAmount')
+    ? nonNegative(property.mortgagePrincipalAmount)
+    : nonNegative(property.loanAmount)
+  const feeMode = feeModeFrom(property.mortgageFeeMode)
+  const feeValue = nonNegative(property.mortgageFeeValue)
+  const addFeeToLoan = Boolean(property.mortgageFeeAddedToLoan)
+  const loanAmount = principalAmount + (addFeeToLoan ? productFeeFrom(principalAmount, feeMode, feeValue) : 0)
+  return {
+    ...property,
+    mortgagePrincipalAmount: principalAmount,
+    loanAmount,
+    mortgageFeeMode: feeMode,
+    mortgageFeeValue: feeValue,
+    mortgageFeeAddedToLoan: addFeeToLoan,
+  }
+}
+
+export const updatePropertyMortgageInput = (property, principalAmount) => normalizePropertyMortgage({
+  ...property,
+  mortgagePrincipalAmount: nonNegative(principalAmount),
+})
+
 export const createBlankLoan = () => ({
   id: makeId(),
   propertyId: '',
   lender: '',
+  principalAmount: 0,
   loanAmount: 0,
   rate: 0,
   fixedRateMonths: 0,
@@ -62,60 +110,71 @@ export const createBlankLoan = () => ({
   ltvBand: 0,
 })
 
-const feeModeFrom = (value, fallback = 'percent') => value === 'amount'
-  ? 'amount'
-  : value === 'percent'
-    ? 'percent'
-    : fallback
+export const normalizeLoan = (loan, properties = []) => {
+  const source = loan || {}
+  const property = propertyById(properties, source.propertyId)
+  const principalAmount = principalFromLoan(source)
+  const feeMode = feeModeFrom(source.feeMode)
+  const feeValue = nonNegative(source.feeValue)
+  const addFeeToLoan = Boolean(source.addFeeToLoan)
+  const loanAmount = principalAmount + (addFeeToLoan ? productFeeFrom(principalAmount, feeMode, feeValue) : 0)
+  const fallbackBand = property ? inferLtvBand(loanAmount, property.latestValuation) : 0
+  return {
+    id: String(source.id || makeId()),
+    propertyId: property ? property.id : '',
+    lender: String(source.lender || ''),
+    principalAmount,
+    loanAmount,
+    rate: nonNegative(source.rate),
+    fixedRateMonths: Math.max(0, Math.round(finite(source.fixedRateMonths))),
+    fixedStartDate: String(source.fixedStartDate || ''),
+    feeMode,
+    feeValue,
+    addFeeToLoan,
+    ltvBand: nonNegative(source.ltvBand) || fallbackBand,
+  }
+}
 
 export const createLoanFromProperty = (property, existingLoan = null) => {
-  const existing = existingLoan || {}
+  const existing = existingLoan ? normalizeLoan(existingLoan, [property]) : null
   const propertyValue = nonNegative(property?.latestValuation)
-  const loanAmount = nonNegative(property?.loanAmount)
-  const feeMode = hasOwn(property, 'mortgageFeeMode')
-    ? feeModeFrom(property.mortgageFeeMode)
-    : feeModeFrom(existing.feeMode)
-  const feeValue = hasOwn(property, 'mortgageFeeValue')
-    ? nonNegative(property.mortgageFeeValue)
-    : nonNegative(existing.feeValue)
-  const addFeeToLoan = hasOwn(property, 'mortgageFeeAddedToLoan')
-    ? Boolean(property.mortgageFeeAddedToLoan)
-    : Boolean(existing.addFeeToLoan)
-  const storedBand = hasOwn(property, 'mortgageLtvBand')
-    ? nonNegative(property.mortgageLtvBand)
-    : nonNegative(existing.ltvBand)
+  const feeMode = existing ? existing.feeMode : feeModeFrom(property?.mortgageFeeMode)
+  const feeValue = existing ? existing.feeValue : nonNegative(property?.mortgageFeeValue)
+  const addFeeToLoan = existing ? existing.addFeeToLoan : Boolean(property?.mortgageFeeAddedToLoan)
+  const propertyBalance = nonNegative(property?.loanAmount)
+  const propertyHasPrincipal = hasOwn(property, 'mortgagePrincipalAmount')
+  const propertyPrincipal = propertyHasPrincipal
+    ? nonNegative(property?.mortgagePrincipalAmount)
+    : propertyBalance
 
-  return {
-    id: existing.id || `loan-${property.id}`,
+  let principalAmount = propertyPrincipal
+  if (existing) {
+    const principalWasEdited = propertyHasPrincipal && !closeEnough(propertyPrincipal, existing.principalAmount)
+    const effectiveBalanceWasEdited = !closeEnough(propertyBalance, existing.loanAmount)
+    principalAmount = principalWasEdited
+      ? propertyPrincipal
+      : effectiveBalanceWasEdited
+        ? propertyBalance
+        : existing.principalAmount
+  }
+
+  const raw = {
+    id: existing?.id || `loan-${property.id}`,
     propertyId: property.id,
     lender: String(property?.lender || ''),
-    loanAmount,
+    principalAmount,
     rate: nonNegative(property?.baseRate),
     fixedRateMonths: Math.max(0, Math.round(finite(property?.fixedRateMonths))),
     fixedStartDate: String(property?.latestRemortgage || ''),
     feeMode,
     feeValue,
     addFeeToLoan,
-    ltvBand: storedBand || inferLtvBand(loanAmount, propertyValue),
+    ltvBand: existing?.ltvBand || nonNegative(property?.mortgageLtvBand),
   }
-}
-
-export const normalizeLoan = (loan, properties = []) => {
-  const source = loan || {}
-  const property = propertyById(properties, source.propertyId)
-  const fallbackBand = property ? inferLtvBand(source.loanAmount, property.latestValuation) : 0
+  const normalized = normalizeLoan(raw, [property])
   return {
-    id: String(source.id || makeId()),
-    propertyId: property ? property.id : '',
-    lender: String(source.lender || ''),
-    loanAmount: nonNegative(source.loanAmount),
-    rate: nonNegative(source.rate),
-    fixedRateMonths: Math.max(0, Math.round(finite(source.fixedRateMonths))),
-    fixedStartDate: String(source.fixedStartDate || ''),
-    feeMode: feeModeFrom(source.feeMode),
-    feeValue: nonNegative(source.feeValue),
-    addFeeToLoan: Boolean(source.addFeeToLoan),
-    ltvBand: nonNegative(source.ltvBand) || fallbackBand,
+    ...normalized,
+    ltvBand: normalized.ltvBand || inferLtvBand(normalized.loanAmount, propertyValue),
   }
 }
 
@@ -127,6 +186,7 @@ export const normalizeLoans = (loans, properties = []) => {
 export const applyLoanToProperty = (loan, property) => ({
   ...property,
   lender: loan.lender,
+  mortgagePrincipalAmount: loan.principalAmount,
   loanAmount: loan.loanAmount,
   baseRate: loan.rate,
   fixedRateMonths: loan.fixedRateMonths,
@@ -154,6 +214,22 @@ export const syncLoanToRemortgageComparisons = (loan, property, comparisons = []
   if (!property || comparison.sourcePropertyId !== property.id) return comparison
   return { ...comparison, left: currentScenarioFromLoan(comparison, loan, property) }
 })
+
+export const reconcileLoanPortfolio = ({ properties = [], loans, comparisons = [] }) => {
+  let nextProperties = (Array.isArray(properties) ? properties : []).map((property) => normalizePropertyMortgage(property))
+  const normalizedLoans = normalizeLoans(loans, nextProperties)
+  let nextComparisons = Array.isArray(comparisons) ? comparisons : []
+
+  for (const loan of normalizedLoans) {
+    const linkedProperty = propertyById(nextProperties, loan.propertyId)
+    if (!linkedProperty) continue
+    const nextProperty = applyLoanToProperty(loan, linkedProperty)
+    nextProperties = nextProperties.map((property) => property.id === nextProperty.id ? nextProperty : property)
+    nextComparisons = syncLoanToRemortgageComparisons(loan, nextProperty, nextComparisons)
+  }
+
+  return { properties: nextProperties, loans: normalizedLoans, comparisons: nextComparisons }
+}
 
 export const applyLoanToPortfolio = (state, rawLoan) => {
   const properties = Array.isArray(state?.properties) ? state.properties : []
@@ -184,14 +260,16 @@ export const applyLoanToPortfolio = (state, rawLoan) => {
 
 export const syncPropertyMortgage = ({ property, loans = [], comparisons = [] }) => {
   const existingLoan = loans.find((loan) => loan.propertyId === property.id) || null
-  if (!existingLoan && !hasMortgageData(property)) return { loans, comparisons }
+  if (!existingLoan && !hasMortgageData(property)) return { loans, comparisons, property }
 
   const loan = createLoanFromProperty(property, existingLoan)
+  const nextProperty = applyLoanToProperty(loan, property)
   const nextLoans = existingLoan
     ? loans.map((candidate) => candidate.id === existingLoan.id ? loan : candidate)
     : [...loans, loan]
   return {
+    property: nextProperty,
     loans: nextLoans,
-    comparisons: syncLoanToRemortgageComparisons(loan, property, comparisons),
+    comparisons: syncLoanToRemortgageComparisons(loan, nextProperty, comparisons),
   }
 }
