@@ -15052,3 +15052,106 @@ textarea {
   }
   .notification-bell { width: 32px; height: 32px; }
 }
+
+/* Brain Drain 2026-09-04 16:15 BST — Contractors workspace */
+.contractors-workspace { display: grid; gap: 16px; }
+.contractors-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 14px; }
+.contractors-filter-row { display: flex; align-items: end; flex-wrap: wrap; gap: 9px; }
+.contractors-filter-row label { display: grid; gap: 5px; min-width: 142px; }
+.contractors-filter-row label > span { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.contractors-filter-row select { min-height: 38px; padding: 0 34px 0 10px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-surface); color: var(--ui-text); font: inherit; font-size: 13px; }
+.contractor-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 310px), 1fr)); gap: 12px; align-items: start; }
+.contractor-card { min-width: 0; padding: 15px; border: 1px solid var(--ui-line); border-radius: 16px; background: var(--ui-surface); box-shadow: var(--ui-shadow-subtle, none); display: grid; gap: 11px; }
+.contractor-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.contractor-card-identity { min-width: 0; display: grid; gap: 2px; }
+.contractor-card-identity strong { overflow: hidden; color: var(--ui-text); font-size: 16px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.contractor-card-identity small { overflow: hidden; color: var(--ui-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.contractor-card-actions { display: flex; gap: 3px; }
+.contractor-card-actions button { width: 30px; height: 30px; display: inline-grid; place-items: center; border: 0; border-radius: 9px; background: transparent; color: var(--ui-muted); cursor: pointer; }
+.contractor-card-actions button:hover { background: var(--ui-surface-soft); color: var(--ui-text); }
+.contractor-card-trade { width: fit-content; max-width: 100%; padding: 5px 8px; border-radius: 999px; background: var(--ui-surface-soft); color: var(--ui-text); font-size: 12px; font-weight: 700; }
+.contractor-card-tags, .contractor-tag-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.contractor-tag-chip { display: inline-flex; align-items: center; gap: 5px; min-height: 27px; padding: 4px 8px; border: 1px solid var(--ui-line); border-radius: 999px; background: var(--ui-surface); color: var(--ui-muted); font: inherit; font-size: 11.5px; font-weight: 700; }
+button.contractor-tag-chip { cursor: pointer; }
+.contractor-tag-chip.is-selected { border-color: var(--ui-line-strong); background: var(--ui-surface-soft); color: var(--ui-text); box-shadow: inset 0 0 0 1px var(--ui-line-strong); }
+.contractor-card-contact { display: grid; gap: 5px; min-width: 0; }
+.contractor-card-contact a { min-width: 0; display: flex; align-items: center; gap: 7px; color: var(--ui-text); font-size: 12.5px; text-decoration: none; }
+.contractor-card-contact a svg { flex: 0 0 auto; color: var(--ui-muted); }
+.contractor-card-contact a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contractor-card-contact a:hover span { text-decoration: underline; }
+.contractor-card-meta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(105px, .72fr); gap: 10px; padding-top: 10px; border-top: 1px solid var(--ui-line); }
+.contractor-card-meta > div { min-width: 0; display: grid; gap: 2px; }
+.contractor-card-meta small { color: var(--ui-muted); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.contractor-card-meta strong { overflow: hidden; color: var(--ui-text); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.contractor-card-expand { justify-self: start; display: inline-flex; align-items: center; gap: 5px; padding: 2px 0; border: 0; background: transparent; color: var(--ui-muted); font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.contractor-card-details { padding-top: 1px; color: var(--ui-muted); font-size: 12px; line-height: 1.45; }
+.contractor-card-details p { margin: 0; white-space: pre-wrap; }
+.contractors-empty { min-height: 220px; display: grid; place-items: center; align-content: center; gap: 8px; padding: 30px; border: 1px dashed var(--ui-line); border-radius: 16px; color: var(--ui-muted); text-align: center; }
+.contractors-empty strong { color: var(--ui-text); }
+.contractors-empty p { max-width: 420px; margin: 0 0 5px; font-size: 13px; }
+.contractors-empty.is-filtered { min-height: 150px; }
+.contractor-editor { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--ui-line-strong); border-radius: 16px; background: var(--ui-surface); }
+.contractor-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.contractor-editor-grid > label, .contractor-company-field label, .contractor-last-job-row label { display: grid; gap: 6px; min-width: 0; }
+.contractor-editor-grid label > span, .contractor-fieldset legend { color: var(--ui-muted); font-size: 11px; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
+.contractor-editor-grid label > span small { text-transform: none; font-weight: 500; letter-spacing: 0; }
+.contractor-editor-grid input, .contractor-editor-grid select, .contractor-editor-grid textarea { width: 100%; min-width: 0; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-surface); color: var(--ui-text); font: inherit; font-size: 13px; }
+.contractor-editor-grid input, .contractor-editor-grid select { min-height: 40px; padding: 0 10px; }
+.contractor-editor-grid textarea { padding: 10px; resize: vertical; }
+.contractor-editor-grid input:focus, .contractor-editor-grid select:focus, .contractor-editor-grid textarea:focus { outline: none; border-color: var(--ui-line-strong); box-shadow: 0 0 0 3px var(--ui-focus); }
+.contractor-editor-span { grid-column: 1 / -1; }
+.contractor-inline-link { display: inline-flex; align-items: center; gap: 6px; width: fit-content; padding: 4px 0; border: 0; background: transparent; color: var(--ui-muted); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.contractor-inline-link small { font-weight: 500; }
+.contractor-company-input { display: flex; gap: 8px; }
+.contractor-company-input input { flex: 1; }
+.contractor-company-input button { border: 0; background: transparent; color: var(--ui-muted); font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.contractor-fieldset { min-width: 0; margin: 0; padding: 11px; border: 1px solid var(--ui-line); border-radius: 12px; }
+.contractor-fieldset legend { padding: 0 5px; }
+.contractor-custom-tag-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, .7fr) auto; gap: 7px; margin-top: 9px; }
+.contractor-property-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 7px; }
+.contractor-property-choice { display: flex !important; align-items: center; min-width: 0; padding: 9px 10px; border: 1px solid var(--ui-line); border-radius: 10px; cursor: pointer; }
+.contractor-property-choice.is-selected { border-color: var(--ui-line-strong); background: var(--ui-surface-soft); }
+.contractor-property-choice input { width: 16px; min-height: 16px; flex: 0 0 auto; margin: 0 8px 0 0; }
+.contractor-property-choice > span { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 6px; align-items: center; }
+.contractor-property-choice svg { grid-row: 1 / 3; color: var(--ui-muted); }
+.contractor-property-choice b, .contractor-property-choice small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contractor-property-choice b { color: var(--ui-text); font-size: 12px; }
+.contractor-property-choice small { color: var(--ui-muted); font-size: 10.5px; }
+.contractor-last-job-row { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(110px, .7fr); gap: 8px; max-width: 390px; }
+.contractor-editor-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 2px; }
+.contractor-documents-slot { display: grid; gap: 9px; padding: 11px; border: 1px dashed var(--ui-line); border-radius: 12px; background: var(--ui-surface-soft); }
+.contractor-documents-slot-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.contractor-documents-slot-head > div { display: grid; gap: 2px; }
+.contractor-documents-slot-head strong { color: var(--ui-text); font-size: 12.5px; }
+.contractor-documents-slot-head small { color: var(--ui-muted); font-size: 11px; }
+.contractor-document-placeholder { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding-top: 8px; border-top: 1px solid var(--ui-line); }
+.contractor-document-placeholder button { min-height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid var(--ui-line); border-radius: 9px; background: var(--ui-surface); color: var(--ui-muted); font: inherit; font-size: 11.5px; }
+.contractor-document-placeholder > small { flex-basis: 100%; color: var(--ui-muted); font-size: 10.5px; }
+.contractor-document-photo { display: none !important; }
+
+@media (hover: none) and (pointer: coarse) {
+  .contractor-document-photo { display: inline-flex !important; }
+}
+
+@media (max-width: 760px) {
+  .contractors-toolbar { align-items: stretch; flex-direction: column-reverse; }
+  .contractors-toolbar > .primary-button { align-self: flex-start; }
+  .contractors-filter-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .contractors-filter-row label { min-width: 0; }
+  .contractor-editor-grid { grid-template-columns: 1fr; }
+  .contractor-editor-span { grid-column: auto; }
+  .contractor-custom-tag-row { grid-template-columns: 1fr 1fr; }
+  .contractor-custom-tag-row .secondary-button { grid-column: 1 / -1; justify-self: start; }
+}
+
+@media (max-width: 520px) {
+  .contractors-filter-row { grid-template-columns: 1fr; }
+  .contractor-card-grid { grid-template-columns: 1fr; }
+  .contractor-card { border-radius: 14px; padding: 13px; }
+  .contractor-card-meta { grid-template-columns: 1fr 1fr; }
+  .contractor-editor { padding: 13px; }
+  .contractor-property-picker { grid-template-columns: 1fr; }
+  .contractor-last-job-row { grid-template-columns: 1fr 1fr; max-width: none; }
+  .contractor-documents-slot-head { align-items: flex-start; flex-direction: column; }
+}
+

@@ -3,7 +3,7 @@ import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown, CircleHelp,
   ChevronUp, PoundSterling, Copy, ExternalLink, Gauge, Home, Landmark, MapPin, Menu,
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp, Moon, Sun,
-  WalletCards, X, LogOut, Settings, Cloud, CloudOff, ReceiptText, FileText, Users, UserRound, RefreshCw, AlertTriangle, Coffee, KeyRound,
+  WalletCards, X, LogOut, Settings, Cloud, CloudOff, ReceiptText, FileText, Users, UserRound, RefreshCw, AlertTriangle, Coffee, KeyRound, Wrench,
 } from 'lucide-react'
 import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
@@ -19,6 +19,7 @@ import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import CredentialsWorkspace from './CredentialsWorkspace.jsx'
 import LoansWorkspace from './LoansWorkspace.jsx'
+import ContractorsWorkspace from './ContractorsWorkspace.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 import AcquisitionSimulator from './AcquisitionSimulator.jsx'
 import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
@@ -30,6 +31,7 @@ import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoi
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
 import { applyLoanToPortfolio, normalizeLoans, reconcileLoanPortfolio, syncPropertyMortgage, updatePropertyMortgageInput } from './loans.js'
+import { normalizeContractor, normalizeContractors, normalizeContractorTags } from './contractors.js'
 import MoneyPeriodInput from './MoneyPeriodInput.jsx'
 import { moneyEntryPeriodFor, normalizeMoneyEntryPreferences, setMoneyEntryPeriod } from './moneyPeriods.js'
 import { confirmPrivateIncome, privateIncomeIsKnown } from './accountMode.js'
@@ -132,6 +134,7 @@ const workspaceNavigation = [
   ['Properties', 'Properties', Home, 'PORTFOLIO'],
   ['Loans', 'Loans', PoundSterling, 'PORTFOLIO'],
   ['Tenants', 'Tenants', Users, 'PORTFOLIO'],
+  ['Contractors', 'Contractors', Wrench, 'PORTFOLIO'],
   ['Costs & Cash Flows', 'Costs', ReceiptText, 'PORTFOLIO'],
   ['Expenses', 'Expenses', FileText, 'PORTFOLIO'],
   ['Banking', 'Banking', WalletCards, 'PORTFOLIO'],
@@ -166,6 +169,11 @@ const sectionMeta = {
     eyebrow: 'TENANCIES',
     title: 'Tenants',
     description: 'Keep current and historic tenancy details linked to the right property.',
+  },
+  Contractors: {
+    eyebrow: 'PROPERTY CONTACTS',
+    title: 'Contractors',
+    description: 'Keep trusted trades and property contacts organised, tagged and linked to the BTLs they know.',
   },
   'Costs & Cash Flows': {
     eyebrow: 'MONTHLY MODEL',
@@ -1673,6 +1681,8 @@ function PortfolioApp({ user }) {
         }))
       const migratedTenants = importPropertyTenants(migratedProperties, portfolioState.tenants)
       const migratedLoans = normalizeLoans(portfolioState.loans, migratedProperties)
+      const migratedContractorTags = normalizeContractorTags(portfolioState.contractorTags)
+      const migratedContractors = normalizeContractors(portfolioState.contractors, migratedProperties, migratedContractorTags)
       const migratedRemortgageComparisons = Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : []
       const mortgageMigration = reconcileLoanPortfolio({
         properties: migratedProperties,
@@ -1684,6 +1694,8 @@ function PortfolioApp({ user }) {
         properties: mortgageMigration.properties,
         loans: mortgageMigration.loans,
         tenants: migratedTenants,
+        contractors: migratedContractors,
+        contractorTags: migratedContractorTags,
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
         acquisitionScenarios: Array.isArray(portfolioState.acquisitionScenarios) ? portfolioState.acquisitionScenarios : [],
@@ -1869,6 +1881,18 @@ function PortfolioApp({ user }) {
   const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
   const updateExpenses = (expenses) => setState((current) => ({ ...current, expenses }))
   const updateCredentials = (credentials) => setState((current) => ({ ...current, credentials }))
+  const saveContractor = (contractor) => setState((current) => {
+    const normalized = normalizeContractor(contractor, current.properties || [], current.contractorTags || [])
+    const contractors = Array.isArray(current.contractors) ? current.contractors : []
+    return {
+      ...current,
+      contractors: contractors.some((candidate) => candidate.id === normalized.id)
+        ? contractors.map((candidate) => candidate.id === normalized.id ? normalized : candidate)
+        : [...contractors, normalized],
+    }
+  })
+  const removeContractor = (id) => setState((current) => ({ ...current, contractors: (current.contractors || []).filter((contractor) => contractor.id !== id) }))
+  const updateContractorTags = (contractorTags) => setState((current) => ({ ...current, contractorTags: normalizeContractorTags(contractorTags) }))
   const updateAcquisitionScenarios = (acquisitionScenarios) => setState((current) => ({ ...current, acquisitionScenarios }))
   const updateNextBtlPreferences = (nextBtlPreferences) => setState((current) => ({ ...current, nextBtlPreferences: normalizeNextBtlPreferences(nextBtlPreferences) }))
   const updateCostsCashflowPreferences = (costsCashflowPreferences) => setState((current) => ({ ...current, costsCashflowPreferences: normalizeMoneyEntryPreferences(costsCashflowPreferences) }))
@@ -2314,6 +2338,8 @@ function PortfolioApp({ user }) {
           {section === 'Loans' && <LoansWorkspace loans={state.loans || []} properties={calculated} onSave={saveLoan} onDelete={removeLoan} />}
 
           {section === 'Tenants' && <TenantsWorkspace tenants={includedTenants} properties={includedProperties} onSave={saveTenant} onRemove={removeTenant} />}
+
+          {section === 'Contractors' && <ContractorsWorkspace contractors={state.contractors || []} contractorTags={state.contractorTags || []} properties={state.properties || []} onSave={saveContractor} onDelete={removeContractor} onTagsChange={updateContractorTags} />}
 
           {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
 
