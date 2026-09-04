@@ -91,7 +91,7 @@ export default function DocumentCaptureSheet({ file, sourceMode = 'file', proper
       <div className="document-secondary-grid">
         <label><span>Date</span><input required type="date" value={draft.date} onChange={(event) => update('date', event.target.value)} /></label>
         <label><span>Association</span><select value={draft.association} onChange={(event) => update('association', event.target.value)}><option value="unassigned">Unassigned</option><option value="company">{companyName || 'Company'}</option>{properties.map((property) => <option key={property.id} value={`property:${property.id}`}>{property.name || 'BTL'}</option>)}</select></label>
-        <label><span>Contractor</span><select value={draft.contractorId} onChange={(event) => update('contractorId', event.target.value)}><option value="">No contractor</option>{contractors.map((contractor) => <option key={contractor.id} value={contractor.id}>{[contractor.firstName, contractor.lastName].filter(Boolean).join(' ') || contractor.companyName || 'Contractor'}</option>)}</select></label>
+        <label><span>Contractor</span><select value={draft.contractorId} onChange={(event) => update('contractorId', event.target.value)}><option value="">No contractor</option>{contractors.map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name || [contractor.firstName, contractor.lastName].filter(Boolean).join(' ') || contractor.companyName || 'Contractor'}</option>)}</select></label>
         <label><span>Category</span><input value={draft.category} onChange={(event) => update('category', event.target.value)} placeholder="Repairs, compliance…" /></label>
       </div>
 

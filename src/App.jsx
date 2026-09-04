@@ -1892,7 +1892,13 @@ function PortfolioApp({ user }) {
         : [...contractors, normalized],
     }
   })
-  const removeContractor = (id) => setState((current) => ({ ...current, contractors: (current.contractors || []).filter((contractor) => contractor.id !== id) }))
+  const removeContractor = (id) => setState((current) => ({
+    ...current,
+    contractors: (current.contractors || []).filter((contractor) => contractor.id !== id),
+    expenses: (current.expenses || []).map((item) => item.document?.contractorId === id
+      ? { ...item, document: { ...item.document, contractorId: '' } }
+      : item),
+  }))
   const updateContractorTags = (contractorTags) => setState((current) => ({ ...current, contractorTags: normalizeContractorTags(contractorTags) }))
   const updateAcquisitionScenarios = (acquisitionScenarios) => setState((current) => ({ ...current, acquisitionScenarios }))
   const updateNextBtlPreferences = (nextBtlPreferences) => setState((current) => ({ ...current, nextBtlPreferences: normalizeNextBtlPreferences(nextBtlPreferences) }))

@@ -15169,3 +15169,64 @@ button.contractor-tag-chip { cursor: pointer; }
 .expense-document-cell{display:flex;align-items:center;gap:8px;min-width:170px}.expense-document-cell button{border:0;background:none;color:var(--accent);padding:3px;cursor:pointer}.expense-document-cell div{min-width:0}.expense-document-cell b,.expense-document-cell small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.expense-document-cell small{color:var(--text-muted);font-size:11px}.expense-document-empty{color:var(--text-muted);font-size:12px}
 .contractor-associated-documents{display:grid;gap:6px;margin-top:10px}.contractor-associated-documents>button{border:1px solid var(--border);background:var(--surface-soft);border-radius:12px;padding:9px 10px;display:flex;gap:8px;align-items:center;text-align:left;color:var(--text)}.contractor-associated-documents span{min-width:0}.contractor-associated-documents b,.contractor-associated-documents small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.contractor-associated-documents small{font-size:11px;color:var(--text-muted);margin-top:2px}
 @media(max-width:720px){.document-add-menu-layer,.document-capture-layer{padding:0;align-items:flex-end}.document-add-menu,.document-capture-sheet{border-radius:26px 26px 0 0;max-height:94dvh;border-bottom:0}.document-add-options{grid-template-columns:1fr 1fr}.document-add-options .document-camera-option{display:flex}.document-capture-sheet{padding:18px 16px 22px}.document-primary-fields,.document-secondary-grid,.document-money-row,.document-notes-row{grid-template-columns:1fr}.document-primary-fields{gap:10px}.document-capture-sheet footer{position:sticky;bottom:-22px;background:linear-gradient(transparent,var(--surface) 22%);padding-top:22px;padding-bottom:4px}.document-capture-sheet footer button{min-height:46px;flex:1}}
+
+
+/* Brain Drain 2026-09-04 19:27 BST — Contractor editor hotfix */
+.contractor-tag-chip.is-selected {
+  border-color: #1c6b50;
+  background: #dff1e8;
+  color: #14513e;
+  box-shadow: inset 0 0 0 1px #1c6b50;
+}
+.contractor-tag-selected-mark {
+  width: 17px;
+  height: 17px;
+  margin-left: 2px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  color: #fff;
+  background: #1c6b50;
+}
+.contractor-property-select { position: relative; }
+.contractor-property-select > summary {
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--ui-line);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  cursor: pointer;
+  list-style: none;
+}
+.contractor-property-select > summary::-webkit-details-marker { display: none; }
+.contractor-property-select[open] > summary svg { transform: rotate(180deg); }
+.contractor-property-select-menu {
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid var(--ui-line);
+  border-radius: 10px;
+  display: grid;
+  gap: 3px;
+  background: var(--ui-surface);
+  box-shadow: 0 10px 26px rgba(22, 34, 29, .1);
+}
+.contractor-property-select-menu label {
+  padding: 8px 9px;
+  border-radius: 8px;
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.contractor-property-select-menu label.is-selected { background: var(--ui-surface-soft); }
+.contractor-property-select-menu input { width: 16px; min-height: 16px; margin: 0; flex: 0 0 auto; }
+.contractor-property-select-menu label > span { min-width: 0; display: flex; flex-direction: column; }
+.contractor-property-select-menu small { color: var(--ui-muted); }
+.expense-contractor-label { font-size: 12px; font-weight: 700; color: var(--ui-text); }
+.expense-contractor-mobile { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.expense-contractor-mobile span { color: var(--ui-muted); font-size: 11px; }

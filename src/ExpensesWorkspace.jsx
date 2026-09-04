@@ -41,6 +41,8 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
   ])].sort((a, b) => a.localeCompare(b)), [expenses, properties])
   const categories = useMemo(() => uniqueValues(expenses, 'category'), [expenses])
   const recurrences = useMemo(() => uniqueValues(expenses, 'recurrence'), [expenses])
+  const contractorNameById = useMemo(() => new Map(contractors.map((contractor) => [String(contractor.id), contractor.name || [contractor.firstName, contractor.lastName].filter(Boolean).join(' ') || contractor.companyName || 'Contractor'])), [contractors])
+  const contractorLabelFor = (item) => item.document?.contractorId ? (contractorNameById.get(String(item.document.contractorId)) || 'Former contractor') : '—'
   const incomeLabel = accountType === 'company' ? 'Income & DLA' : 'Income'
   const ledgerSignHelp = accountType === 'company'
     ? 'Positive amounts are income or DLA funding; negative amounts are expenses.'
@@ -211,7 +213,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
     <section className="panel expenses-table-panel">
       <div className="expenses-table-wrap">
         <table className="expenses-table">
-          <thead><tr><th>Date</th><th>Property</th><th>Type</th><th>Category</th><th>Amount (£)</th><th>Description</th><th>Document</th><th>Recurrence</th><th>Notes</th><th>Receipt Link</th><th /></tr></thead>
+          <thead><tr><th>Date</th><th>Property</th><th>Type</th><th>Category</th><th>Amount (£)</th><th>Description</th><th>Document</th><th>Contractor</th><th>Recurrence</th><th>Notes</th><th>Receipt Link</th><th /></tr></thead>
           <tbody>
             {filtered.map((item) => <tr key={item.id}>
               <td><input type="date" value={item.date || ''} onChange={(event) => update(item.id, 'date', event.target.value)} /></td>
@@ -221,6 +223,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
               <td className="expense-amount-cell"><input type="number" step="0.01" value={item.amount ?? ''} onChange={(event) => update(item.id, 'amount', event.target.value === '' ? '' : Number(event.target.value))} /></td>
               <td><input value={item.description || ''} onChange={(event) => update(item.id, 'description', event.target.value)} /></td>
               <td>{item.document ? <div className="expense-document-cell"><button type="button" onClick={() => openDocument(item)} aria-label={`Open ${item.document.title || 'document'}`}><FileText size={15} /></button><div><b>{normalizeDocumentMeta(item.document)?.title || 'Document'}</b><small>{normalizeDocumentMeta(item.document)?.type}</small></div></div> : <span className="expense-document-empty">—</span>}</td>
+              <td><span className="expense-contractor-label">{contractorLabelFor(item)}</span></td>
               <td><input value={item.recurrence || ''} onChange={(event) => update(item.id, 'recurrence', event.target.value)} /></td>
               <td><input value={item.notes || ''} onChange={(event) => update(item.id, 'notes', event.target.value)} /></td>
               <td><div className="expense-receipt-field"><input value={item.receiptLink || ''} onChange={(event) => update(item.id, 'receiptLink', event.target.value)} />{isReceiptUrl(item.receiptLink) && <a href={item.receiptLink} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink size={14} /></a>}</div></td>
@@ -251,6 +254,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
             <label><span>Category</span><input value={item.category || ''} onChange={(event) => update(item.id, 'category', event.target.value)} /></label>
             <label><span>Recurrence</span><input value={item.recurrence || ''} onChange={(event) => update(item.id, 'recurrence', event.target.value)} /></label>
             {item.document && <div className="expense-mobile-wide expense-document-cell"><button type="button" onClick={() => openDocument(item)}><FileText size={15} /></button><div><b>{item.document.title}</b><small>{item.document.type} · {item.document.association?.label || 'Unassigned'}</small></div></div>}
+            {item.document?.contractorId && <div className="expense-mobile-wide expense-contractor-mobile"><span>Contractor</span><b>{contractorLabelFor(item)}</b></div>}
             <label className="expense-mobile-wide"><span>Receipt link</span><div className="expense-receipt-field"><input value={item.receiptLink || ''} onChange={(event) => update(item.id, 'receiptLink', event.target.value)} />{isReceiptUrl(item.receiptLink) && <a href={item.receiptLink} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink size={14} /></a>}</div></label>
             <label className="expense-mobile-wide"><span>Notes</span><input value={item.notes || ''} onChange={(event) => update(item.id, 'notes', event.target.value)} /></label>
             <button className="danger-button expense-mobile-delete" onClick={() => remove(item.id)}><Trash2 size={15} /> Delete entry</button>

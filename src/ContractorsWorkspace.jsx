@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import {
-  Building2, ChevronDown, ChevronUp, Droplets, Flame, Hammer, HardHat, KeyRound,
+  Check, ChevronDown, ChevronUp, Droplets, Flame, Hammer, HardHat, KeyRound,
   Mail, Paintbrush, Pencil, Phone, Plug, Plus, ShieldCheck, Trash2, Wrench, Zap,
 } from 'lucide-react'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
 import ContractorDocumentsSlot from './ContractorDocumentsSlot.jsx'
 import {
-  COMMON_TRADES, CONTRACTOR_TAG_ICON_OPTIONS, createBlankContractor, createCustomContractorTag,
-  contractorDisplayName, filterContractors, normalizeContractor, normalizeContractorTags,
+  COMMON_TRADES, createBlankContractor, contractorDisplayName, filterContractors,
+  normalizeContractor, normalizeContractorTags,
 } from './contractors.js'
 
 const MONTHS = [
@@ -39,23 +39,15 @@ function TagChip({ tag, selected = false, onClick = null }) {
   const Icon = ICONS[tag.iconKey] || Wrench
   const className = `contractor-tag-chip${selected ? ' is-selected' : ''}${onClick ? ' is-clickable' : ''}`
   if (!onClick) return <span className={className}><Icon size={13} />{tag.label}</span>
-  return <button type="button" className={className} aria-pressed={selected} onClick={onClick}><Icon size={13} />{tag.label}</button>
+  return <button type="button" className={className} aria-pressed={selected} onClick={onClick}><Icon size={13} />{tag.label}{selected && <span className="contractor-tag-selected-mark" aria-hidden="true"><Check size={10} /></span>}</button>
 }
 
-function PropertyChoice({ property, selected, onToggle }) {
-  return <label className={`contractor-property-choice${selected ? ' is-selected' : ''}`}>
-    <input type="checkbox" checked={selected} onChange={onToggle} />
-    <span><Building2 size={14} /><b>{property.name || 'BTL'}</b><small>{property.postcode || property.address || 'Property'}</small></span>
-  </label>
-}
-
-function ContractorEditor({ contractor, properties, tags, onTagsChange, onSave, onCancel }) {
+export function ContractorEditor({ contractor, properties, tags, documents = [], onOpenDocuments = null, onSave, onCancel }) {
   const [draft, setDraft] = useState(() => normalizeContractor(contractor, properties, tags))
-  const [companyOpen, setCompanyOpen] = useState(Boolean(contractor.companyName))
-  const [customLabel, setCustomLabel] = useState('')
-  const [customIcon, setCustomIcon] = useState('wrench')
   const update = (patch) => setDraft((current) => ({ ...current, ...patch }))
-  const saveDisabled = !draft.firstName.trim() || !draft.lastName.trim() || !draft.phone.trim()
+  const saveDisabled = !draft.name.trim() || !draft.phone.trim()
+  const selectedPropertyNames = properties.filter((property) => draft.propertyIds.includes(String(property.id))).map((property) => property.name || 'BTL')
+  const propertySummary = selectedPropertyNames.length === 0 ? 'Select properties' : selectedPropertyNames.length <= 2 ? selectedPropertyNames.join(' · ') : `${selectedPropertyNames.length} properties selected`
 
   const toggleProperty = (propertyId) => {
     const selected = draft.propertyIds.includes(propertyId)
@@ -67,26 +59,10 @@ function ContractorEditor({ contractor, properties, tags, onTagsChange, onSave, 
     update({ tagIds: selected ? draft.tagIds.filter((id) => id !== tagId) : [...draft.tagIds, tagId] })
   }
 
-  const addCustomTag = () => {
-    if (!customLabel.trim()) return
-    const tag = createCustomContractorTag(customLabel, customIcon)
-    const nextTags = normalizeContractorTags([...tags, tag])
-    onTagsChange(nextTags)
-    update({ tagIds: [...draft.tagIds, tag.id] })
-    setCustomLabel('')
-    setCustomIcon('wrench')
-  }
-
   return <div className="contractor-editor">
     <div className="contractor-editor-grid">
-      <label><span>First name</span><input value={draft.firstName} onChange={(event) => update({ firstName: event.target.value })} autoComplete="given-name" /></label>
-      <label><span>Last name</span><input value={draft.lastName} onChange={(event) => update({ lastName: event.target.value })} autoComplete="family-name" /></label>
-
-      <div className="contractor-company-field contractor-editor-span">
-        {!companyOpen
-          ? <button type="button" className="contractor-inline-link" onClick={() => setCompanyOpen(true)}><Plus size={13} /> Add company <small>optional</small></button>
-          : <label><span>Company <small>optional</small></span><div className="contractor-company-input"><input value={draft.companyName} onChange={(event) => update({ companyName: event.target.value })} autoComplete="organization" /><button type="button" onClick={() => { update({ companyName: '' }); setCompanyOpen(false) }}>Remove</button></div></label>}
-      </div>
+      <label><span>Name</span><input value={draft.name} onChange={(event) => update({ name: event.target.value })} autoComplete="name" placeholder="e.g. Sam Smith" /></label>
+      <label><span>Company <small>optional</small></span><input value={draft.companyName} onChange={(event) => update({ companyName: event.target.value })} autoComplete="organization" placeholder="e.g. Smith Gas Ltd" /></label>
 
       <label><span>Phone number</span><input type="tel" value={draft.phone} onChange={(event) => update({ phone: event.target.value })} autoComplete="tel" /></label>
       <label><span>Email <small>optional</small></span><input type="email" value={draft.email} onChange={(event) => update({ email: event.target.value })} autoComplete="email" /></label>
@@ -96,18 +72,21 @@ function ContractorEditor({ contractor, properties, tags, onTagsChange, onSave, 
       <fieldset className="contractor-fieldset contractor-editor-span">
         <legend>Tags</legend>
         <div className="contractor-tag-picker">{tags.map((tag) => <TagChip key={tag.id} tag={tag} selected={draft.tagIds.includes(tag.id)} onClick={() => toggleTag(tag.id)} />)}</div>
-        <div className="contractor-custom-tag-row">
-          <input aria-label="Custom tag name" placeholder="New custom tag" value={customLabel} onChange={(event) => setCustomLabel(event.target.value)} />
-          <select aria-label="Custom tag icon" value={customIcon} onChange={(event) => setCustomIcon(event.target.value)}>{CONTRACTOR_TAG_ICON_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>
-          <button type="button" className="secondary-button" disabled={!customLabel.trim()} onClick={addCustomTag}><Plus size={14} /> Add tag</button>
-        </div>
       </fieldset>
 
       <fieldset className="contractor-fieldset contractor-editor-span">
         <legend>Used for properties</legend>
-        <div className="contractor-property-picker">{properties.length
-          ? properties.map((property) => <PropertyChoice key={property.id} property={property} selected={draft.propertyIds.includes(property.id)} onToggle={() => toggleProperty(property.id)} />)
-          : <small>No BTLs available yet.</small>}</div>
+        {properties.length ? <details className="contractor-property-select">
+          <summary><span>{propertySummary}</span><ChevronDown size={15} aria-hidden="true" /></summary>
+          <div className="contractor-property-select-menu">{properties.map((property) => {
+            const propertyId = String(property.id)
+            const selected = draft.propertyIds.includes(propertyId)
+            return <label key={propertyId} className={selected ? 'is-selected' : ''}>
+              <input type="checkbox" checked={selected} onChange={() => toggleProperty(propertyId)} />
+              <span><b>{property.name || 'BTL'}</b><small>{property.postcode || property.address || 'Property'}</small></span>
+            </label>
+          })}</div>
+        </details> : <small>No BTLs available yet.</small>}
       </fieldset>
 
       <fieldset className="contractor-fieldset contractor-editor-span">
@@ -197,7 +176,7 @@ export default function ContractorsWorkspace({ contractors = [], contractorTags 
       <button type="button" className="primary-button" onClick={() => setEditor(createBlankContractor())}><Plus size={15} /> Add contractor</button>
     </div>
 
-    {editor && <ContractorEditor key={editor.id} contractor={editor} properties={properties} tags={tags} onTagsChange={onTagsChange} onSave={save} onCancel={() => setEditor(null)} />}
+    {editor && <ContractorEditor key={editor.id} contractor={editor} properties={properties} tags={tags} documents={documents} onOpenDocuments={onOpenDocuments} onSave={save} onCancel={() => setEditor(null)} />}
 
     {!contractors.length && !editor && <div className="contractors-empty"><Wrench size={22} /><strong>No contractors yet</strong><p>Add people you use for maintenance, compliance and property work.</p><button type="button" className="primary-button" onClick={() => setEditor(createBlankContractor())}><Plus size={15} /> Add contractor</button></div>}
 

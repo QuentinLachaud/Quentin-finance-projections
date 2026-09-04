@@ -83,6 +83,7 @@ export const createCustomContractorTag = (label, iconKey = 'wrench') => ({
 
 export const createBlankContractor = () => ({
   id: makeId(),
+  name: '',
   firstName: '',
   lastName: '',
   companyName: '',
@@ -102,11 +103,16 @@ export const normalizeContractor = (contractor, properties = [], tags = DEFAULT_
   const validTagIds = new Set(normalizeContractorTags(tags).map((tag) => tag.id))
   const month = Math.min(12, Math.max(0, finiteInt(source.lastJobMonth)))
   const year = Math.max(0, finiteInt(source.lastJobYear))
+  const legacyFirstName = cleanText(source.firstName)
+  const legacyLastName = cleanText(source.lastName)
+  const suppliedName = cleanText(source.name)
+  const name = suppliedName || [legacyFirstName, legacyLastName].filter(Boolean).join(' ')
 
   return {
     id: cleanText(source.id) || makeId(),
-    firstName: cleanText(source.firstName),
-    lastName: cleanText(source.lastName),
+    name,
+    firstName: suppliedName ? name : legacyFirstName,
+    lastName: suppliedName ? '' : legacyLastName,
     companyName: cleanText(source.companyName),
     phone: cleanText(source.phone),
     email: cleanText(source.email),
@@ -124,7 +130,7 @@ export const normalizeContractors = (contractors, properties = [], tags = DEFAUL
 )
 
 export const contractorDisplayName = (contractor) => (
-  [contractor?.firstName, contractor?.lastName].map(cleanText).filter(Boolean).join(' ') || 'Unnamed contractor'
+  cleanText(contractor?.name) || [contractor?.firstName, contractor?.lastName].map(cleanText).filter(Boolean).join(' ') || 'Unnamed contractor'
 )
 
 export const contractorLastJobKey = (contractor) => {
