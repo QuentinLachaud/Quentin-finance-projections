@@ -7,7 +7,7 @@ import {
 import { exportTabularReport } from './reportExports.js'
 import DocumentCaptureSheet from './DocumentCaptureSheet.jsx'
 import { normalizeDocumentMeta } from './documents.js'
-import { openStoredDocument, removeStoredDocument } from './documentStorage.js'
+import { DOCUMENT_FILE_ACCEPT, DOCUMENT_IMAGE_ACCEPT, openStoredDocument, removeStoredDocument } from './documentStorage.js'
 
 const money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' })
 const blankFilters = { query: '', from: '', to: '', property: '__all__', type: '__all__', category: '__all__', recurrence: '__all__' }
@@ -175,8 +175,8 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
           <button type="button" onClick={() => exportExpenseReport('pdf')}>PDF</button>
         </div>
         <input ref={importRef} type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain" hidden onChange={importFile} />
-        <input ref={documentFileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*" hidden onChange={selectDocument('file')} />
-        <input ref={imageFileRef} type="file" accept="image/*" hidden onChange={selectDocument('image')} />
+        <input ref={documentFileRef} type="file" accept={DOCUMENT_FILE_ACCEPT} hidden onChange={selectDocument('file')} />
+        <input ref={imageFileRef} type="file" accept={DOCUMENT_IMAGE_ACCEPT} hidden onChange={selectDocument('image')} />
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={selectDocument('photo')} />
         <button className="secondary-button small desktop-expense-transfer" onClick={() => importRef.current?.click()}><Upload size={15} /> Import CSV / TSV</button>
         <button className="secondary-button small mobile-expense-transfer-button" onClick={() => setMobileTransferOpen(true)}><Download size={15} /> Import / Export</button>
