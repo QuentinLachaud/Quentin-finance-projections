@@ -3,6 +3,8 @@ import {
   applyLoanToPortfolio,
   createLoanFromProperty,
   inferLtvBand,
+  loanCostSummary,
+  loanProductFeeAmount,
   normalizeLoans,
   syncPropertyMortgage,
 } from './loans.js'
@@ -40,6 +42,17 @@ describe('loan and mortgage synchronization', () => {
     expect(inferLtvBand(172500, 250000)).toBe(70)
     expect(inferLtvBand(181000, 250000)).toBe(75)
     expect(inferLtvBand(0, 250000)).toBe(0)
+  })
+
+  it('calculates interest-only monthly and fixed-period finance costs without principal', () => {
+    const percentFeeLoan = { loanAmount: 181587, rate: 0.0484, fixedRateMonths: 60, feeMode: 'percent', feeValue: 3, addFeeToLoan: true }
+    const costs = loanCostSummary(percentFeeLoan)
+    expect(costs.monthlyCost).toBeCloseTo(732.4009)
+    expect(costs.totalInterestCost).toBeCloseTo(43944.054)
+    expect(costs.productFee).toBeCloseTo(5447.61)
+    expect(costs.totalCost).toBeCloseTo(49391.664)
+    expect(loanProductFeeAmount({ ...percentFeeLoan, feeMode: 'amount', feeValue: 1495 })).toBe(1495)
+    expect(loanCostSummary({ ...percentFeeLoan, fixedRateMonths: 0 }).totalInterestCost).toBe(0)
   })
 
   it('writes linked loan changes to the BTL and only the current remortgage side', () => {

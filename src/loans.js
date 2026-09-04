@@ -26,6 +26,28 @@ export const inferLtvBand = (loanAmount, propertyValue) => {
   return Math.min(100, Math.max(5, Math.ceil(actual / 5) * 5))
 }
 
+export const loanProductFeeAmount = (loan) => {
+  const balance = nonNegative(loan?.loanAmount)
+  const value = nonNegative(loan?.feeValue)
+  return loan?.feeMode === 'amount' ? value : balance * value / 100
+}
+
+export const loanCostSummary = (loan) => {
+  const balance = nonNegative(loan?.loanAmount)
+  const rate = nonNegative(loan?.rate)
+  const months = Math.max(0, Math.round(finite(loan?.fixedRateMonths)))
+  const monthlyCost = balance * rate / 12
+  const totalInterestCost = monthlyCost * months
+  const productFee = loanProductFeeAmount(loan)
+  return {
+    monthlyCost,
+    totalInterestCost,
+    productFee,
+    totalCost: totalInterestCost + productFee,
+    months,
+  }
+}
+
 export const createBlankLoan = () => ({
   id: makeId(),
   propertyId: '',

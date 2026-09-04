@@ -2,17 +2,11 @@ import React, { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { addMonths, currency, shortDate } from './calculations.js'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
-import { createBlankLoan, createLoanFromProperty, inferLtvBand } from './loans.js'
+import { createBlankLoan, createLoanFromProperty, inferLtvBand, loanCostSummary } from './loans.js'
 
 const RATE_BANDS = [50, 55, 60, 65, 70, 75, 80, 85, 90]
 
 const rateLabel = (value) => `${(Number(value || 0) * 100).toFixed(2)}%`
-const feeLabel = (loan) => {
-  const value = Number(loan.feeValue || 0)
-  const fee = loan.feeMode === 'amount' ? currency(value) : `${value.toFixed(2)}%`
-  return `${fee} · ${loan.addFeeToLoan ? 'added to loan' : 'paid upfront'}`
-}
-
 const fixedLabel = (loan) => {
   const months = Number(loan.fixedRateMonths || 0)
   const end = loan.fixedStartDate && months ? addMonths(loan.fixedStartDate, months) : null
@@ -26,6 +20,7 @@ const actualLtv = (loan, property) => {
 }
 
 function LoanEditor({ loan, properties, onSave, onDelete }) {
+  const costs = loanCostSummary(loan)
   const update = (patch) => onSave({ ...loan, ...patch })
   const linkProperty = (propertyId) => {
     if (!propertyId) {
@@ -99,6 +94,15 @@ function LoanEditor({ loan, properties, onSave, onDelete }) {
       <span><b>Fee added to loan</b><small>Records whether the product fee was capitalised rather than paid upfront.</small></span>
     </label>
 
+    <section className="loan-cost-summary" aria-label="Loan cost summary">
+      <header><strong>Cost over fixed period</strong><small>Interest-only · principal excluded</small></header>
+      <div className="loan-cost-grid">
+        <div className="loan-cost-metric"><small>Monthly cost</small><strong>{currency(costs.monthlyCost)}</strong><span>Current balance × rate ÷ 12</span></div>
+        <div className="loan-cost-metric"><small>Total cost over fixed period</small><strong>{costs.months ? currency(costs.totalCost) : 'Set fixed period'}</strong><span>{costs.months ? `Interest + ${currency(costs.productFee)} product fee` : 'A fixed period is required for a total.'}</span></div>
+        <div className="loan-cost-metric"><small>Interest cost excl. principal</small><strong>{costs.months ? currency(costs.totalInterestCost) : 'Set fixed period'}</strong><span>{costs.months ? `${costs.months} months of interest` : 'Principal is never counted as a cost.'}</span></div>
+      </div>
+    </section>
+
     <div className="loan-editor-actions">
       <button type="button" className="danger-text-button" onClick={onDelete}><Trash2 size={15} /> Delete loan</button>
     </div>
@@ -131,7 +135,7 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
 
       {loans.length > 0 && <div className="loans-list">
         <div className="loan-list-head" aria-hidden="true">
-          <span>Loan / BTL</span><span>Loan size</span><span>Rate</span><span>Fixed period</span><span>Fee</span><span>LTV band</span><span />
+          <span>Loan / BTL</span><span>Loan size</span><span>Rate</span><span>Fixed period</span><span>Monthly cost</span><span>LTV band</span><span />
         </div>
 
         {loans.map((loan) => {
@@ -139,6 +143,7 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
           const fixed = fixedLabel(loan)
           const actual = actualLtv(loan, property)
           const band = Number(loan.ltvBand || 0) || inferLtvBand(loan.loanAmount, property?.latestValuation)
+          const costs = loanCostSummary(loan)
           const expanded = expandedId === loan.id
           return <article className={`loan-row ${expanded ? 'expanded' : ''}`} key={loan.id}>
             <button
@@ -151,7 +156,7 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
               <span className="loan-cell"><small>Loan size</small><strong>{currency(loan.loanAmount)}</strong></span>
               <span className="loan-cell"><small>Rate</small><strong>{rateLabel(loan.rate)}</strong></span>
               <span className="loan-cell"><small>Fixed period</small><strong>{fixed.main}</strong>{fixed.detail && <small>{fixed.detail}</small>}</span>
-              <span className="loan-cell"><small>Fee</small><strong>{feeLabel(loan)}</strong></span>
+              <span className="loan-cell"><small>Monthly cost</small><strong>{currency(costs.monthlyCost)}</strong></span>
               <span className="loan-cell"><small>LTV band</small><strong>{band ? `${band}% band` : 'Not set'}</strong>{actual > 0 && <small>{actual.toFixed(1)}% actual</small>}</span>
               <span className="loan-row-chevron">{expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
             </button>

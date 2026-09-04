@@ -14631,3 +14631,64 @@ textarea {
   .loan-fee-inputs { grid-template-columns: 1fr 1fr; }
 }
 
+/* Brain Drain 2026-09-04 12:34 BST — Loan cost summary */
+.loan-cost-summary {
+  grid-column: 1 / -1;
+  border: 1px solid var(--ui-line);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--ui-surface-subtle);
+}
+
+.loan-cost-summary > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 11px;
+}
+
+.loan-cost-summary > header strong { color: var(--ui-text); }
+.loan-cost-summary > header small { color: var(--ui-muted); }
+
+.loan-cost-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.loan-cost-metric {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--ui-line);
+  border-radius: 11px;
+  background: var(--ui-surface);
+}
+
+.loan-cost-metric small {
+  display: block;
+  color: var(--ui-muted);
+  font-size: 0.73rem;
+  margin-bottom: 3px;
+}
+
+.loan-cost-metric strong {
+  display: block;
+  color: var(--ui-text);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.loan-cost-metric span {
+  display: block;
+  color: var(--ui-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+
+@media (max-width: 560px) {
+  .loan-cost-grid { grid-template-columns: 1fr; }
+  .loan-cost-summary > header { align-items: flex-start; flex-direction: column; gap: 3px; }
+}
+
