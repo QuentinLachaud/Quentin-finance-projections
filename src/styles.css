@@ -14698,10 +14698,10 @@ textarea {
 @media (max-width: 560px) {
   .loans-workspace {
     padding: 0;
-    overflow: visible;
+    overflow: hidden;
     border: 0;
-    border-radius: 0;
-    background: transparent;
+    border-radius: 18px;
+    background: var(--ui-surface);
     box-shadow: none;
   }
 

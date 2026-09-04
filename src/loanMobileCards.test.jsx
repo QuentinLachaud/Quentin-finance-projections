@@ -57,15 +57,17 @@ describe('mobile Loans card hierarchy', () => {
     expect(styles).toContain('display: block;')
   })
 
-  it('removes nested panel chrome and uses compact iOS-style card geometry only on phones', () => {
+  it('uses a rounded outer Loans surface with compact iOS-style card geometry only on phones', () => {
     const marker = styles.indexOf('/* Brain Drain 2026-09-04 13:23 BST — iOS-style mobile loan cards */')
     expect(marker).toBeGreaterThanOrEqual(0)
     const block = styles.slice(marker)
     expect(block).toContain('.loans-workspace {')
+    expect(block).toContain('padding: 0;')
+    expect(block).toContain('overflow: hidden;')
     expect(block).toContain('border: 0;')
-    expect(block).toContain('background: transparent;')
+    expect(block).toContain('border-radius: 18px;')
+    expect(block).toContain('background: var(--ui-surface);')
     expect(block).toContain('box-shadow: none;')
-    expect(block).toContain('border-radius: 16px;')
     expect(block).toContain('grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);')
     expect(block).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));')
     expect(block).not.toContain('@media (min-width:')
