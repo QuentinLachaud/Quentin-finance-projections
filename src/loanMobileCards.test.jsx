@@ -8,6 +8,12 @@ const source = readFileSync(new URL('./LoansWorkspace.jsx', import.meta.url), 'u
 const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 
 describe('mobile Loans card hierarchy', () => {
+  it('keeps the page canvas between the intro panel and loan cards by removing panel from the outer wrapper', () => {
+    expect(source).toContain('<section className="loans-workspace">')
+    expect(source).toContain('<header className="panel loans-toolbar">')
+    expect(source).not.toContain('<section className="panel loans-workspace">')
+  })
+
   const loan = {
     id: 'loan-mobile',
     propertyId: 'btl-1',

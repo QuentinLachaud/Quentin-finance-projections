@@ -133,8 +133,8 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
   }
 
   return <>
-    <section className="panel loans-workspace">
-      <header className="loans-toolbar">
+    <section className="loans-workspace">
+      <header className="panel loans-toolbar">
         <div>
           <span className="kicker">CURRENT FINANCE</span>
           <h2>Mortgages & loans</h2>
