@@ -15244,3 +15244,38 @@ button.contractor-tag-chip { cursor: pointer; }
 .document-viewer-polished{grid-template-rows:auto auto minmax(0,1fr) auto}.document-viewer-polished .document-viewer-header{background:color-mix(in srgb,var(--panel) 96%,transparent)}.document-viewer-polished .document-viewer-close{flex:0 0 auto}.document-viewer-rename-panel{display:grid;grid-template-columns:minmax(150px,230px) minmax(0,1fr);gap:12px 18px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,var(--panel))}.document-viewer-rename-panel label{display:grid;gap:2px}.document-viewer-rename-panel label>span{font-size:12px;font-weight:750;color:var(--text)}.document-viewer-rename-panel label>small{font-size:10px;line-height:1.35;color:var(--muted)}.document-viewer-rename-panel>div{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px}.document-viewer-rename-panel input{width:100%;min-width:0;height:42px;padding:0 12px;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:12px;outline:0;color:var(--text);background:var(--panel);font-size:13px;box-shadow:0 1px 2px rgba(15,23,42,.03)}.document-viewer-rename-panel input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 13%,transparent)}.document-viewer-rename-panel button{min-height:42px;padding:0 13px;border:0;border-radius:12px;font-size:12px;font-weight:700}.document-viewer-rename-cancel{color:var(--text);background:color-mix(in srgb,var(--text) 6%,var(--panel))}.document-viewer-rename-save{display:inline-flex;align-items:center;justify-content:center;gap:5px;color:#fff;background:var(--accent)}.document-viewer-rename-panel>p{grid-column:2;margin:-5px 0 0;color:#b35c54;font-size:11px}.document-viewer-stage.image{padding:0;overflow:hidden}.document-viewer-image-scroll{width:100%;height:100%;min-width:0;min-height:0;display:grid;place-items:center;overflow:auto;padding:24px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--panel) 65%,transparent),transparent 72%)}.document-viewer-image-scroll img{display:block;max-width:100%;max-height:100%;object-fit:contain;border-radius:14px;box-shadow:0 16px 46px rgba(4,10,12,.18);user-select:none;-webkit-user-drag:none;transition:width .16s ease}.document-viewer-toolbar{min-height:68px;display:flex;align-items:center;justify-content:center;gap:9px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:color-mix(in srgb,var(--panel) 95%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}.document-viewer-toolbar>button,.document-viewer-zoom-controls{height:44px;border:1px solid color-mix(in srgb,var(--line) 85%,transparent);border-radius:14px;background:color-mix(in srgb,var(--text) 4%,var(--panel));box-shadow:0 1px 2px rgba(15,23,42,.03)}.document-viewer-toolbar>button{padding:0 15px;display:inline-flex;align-items:center;justify-content:center;gap:7px;color:var(--text);font-size:12px;font-weight:700}.document-viewer-toolbar>button:hover,.document-viewer-zoom-controls button:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 8%,var(--panel));border-color:color-mix(in srgb,var(--accent) 26%,var(--line))}.document-viewer-toolbar button:disabled{opacity:.42;cursor:default}.document-viewer-zoom-controls{display:grid;grid-template-columns:44px 64px 44px;overflow:hidden}.document-viewer-zoom-controls button{border:0;border-radius:0;background:transparent;color:var(--text);display:grid;place-items:center;font-size:11px;font-weight:750}.document-viewer-zoom-controls button+button{border-left:1px solid var(--line)}.document-viewer-zoom-value{font-variant-numeric:tabular-nums}.document-recent-card>svg,.expense-document-open>svg{color:var(--muted)}
 @media(max-width:760px){.document-viewer-polished{grid-template-rows:12px auto auto minmax(0,1fr) auto}.document-viewer-polished .document-viewer-header{padding-right:10px}.document-viewer-rename-panel{grid-template-columns:1fr;gap:8px;padding:11px 12px}.document-viewer-rename-panel label>small{display:none}.document-viewer-rename-panel>div{grid-template-columns:minmax(0,1fr) auto}.document-viewer-rename-cancel{display:none}.document-viewer-rename-panel>p{grid-column:1;margin:-2px 0 0}.document-viewer-image-scroll{padding:12px}.document-viewer-image-scroll img{border-radius:12px;box-shadow:0 12px 34px rgba(4,10,12,.18)}.document-viewer-toolbar{justify-content:space-between;gap:7px;min-height:66px;padding:8px 10px calc(8px + env(safe-area-inset-bottom))}.document-viewer-toolbar>button{height:46px;min-width:46px;padding:0 12px;border-radius:14px}.document-viewer-toolbar>button span{display:none}.document-viewer-zoom-controls{height:46px;grid-template-columns:44px 58px 44px;border-radius:14px}.document-viewer-title h2{max-width:62vw}.document-viewer-title p{max-width:62vw}}
 @media(prefers-reduced-motion:reduce){.document-viewer-image-scroll img{transition:none}}
+
+/* Document viewer fixed grid placement */
+.document-viewer-polished .document-viewer-header { grid-row: 1; }
+.document-viewer-polished .document-viewer-rename-panel { grid-row: 2; }
+.document-viewer-polished .document-viewer-stage {
+  grid-row: 3;
+  min-height: 0;
+  height: 100%;
+  align-self: stretch;
+}
+.document-viewer-polished .document-viewer-toolbar { grid-row: 4; }
+.document-viewer-polished .document-viewer-stage.pdf,
+.document-viewer-polished .document-viewer-stage.text {
+  overflow: hidden;
+}
+.document-viewer-polished .document-viewer-stage iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .document-viewer-polished .document-viewer-grabber { grid-row: 1; }
+  .document-viewer-polished .document-viewer-header { grid-row: 2; }
+  .document-viewer-polished .document-viewer-rename-panel { grid-row: 3; }
+  .document-viewer-polished .document-viewer-stage {
+    grid-row: 4;
+    min-height: 0;
+    height: 100%;
+    align-self: stretch;
+  }
+  .document-viewer-polished .document-viewer-toolbar { grid-row: 5; }
+}
+
