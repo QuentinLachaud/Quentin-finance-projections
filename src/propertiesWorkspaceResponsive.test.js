@@ -74,7 +74,8 @@ describe('responsive Properties decision workspace', () => {
     expect(fixStart).toBeGreaterThanOrEqual(0)
     expect(styles).toContain('.data-table-wrap { overflow: auto; max-height: calc(100vh - 230px);')
     expect(fixBlock).toMatch(/@media \(min-width: 721px\)[\s\S]*?\.property-comparison-wrap\s*\{[\s\S]*?max-height:\s*none;/)
-    expect(app).toContain('const rows = visiblePropertyRows(group.rows, advancedPropertyView)')
+    expect(app).toContain('const rows = supportedPropertyRows(group.rows, advancedPropertyView, filtered)')
+    expect(app).toContain('supportedPropertyRows(group.rows, advancedPropertyView, mobileProperty ? [mobileProperty] : [])')
     expect(app).toContain('property-comparison-wrap')
   })
 

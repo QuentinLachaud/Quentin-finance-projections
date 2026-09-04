@@ -24,6 +24,7 @@ import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
 import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing.js'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, propertyOperatingCashflow, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
+import { PROPERTY_EDITOR_CORE_KEYS, PROPERTY_EDITOR_OPTIONAL_SECTIONS, propertyFieldHasValue, propertyMetricSupported, propertySectionCompletion, supportedPropertyRows } from './propertyDisclosure.js'
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
@@ -42,43 +43,46 @@ const SUPPORT = supportConfig({ enabled: import.meta.env.VITE_SUPPORT_ENABLED, u
 const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, privateIncomeConfirmed: false, taxJurisdiction: 'england' }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
+const editableFieldIndex = new Map(editableSections.flatMap((section) => section.fields.map((field) => [field[0], field])))
+const editableFieldsFor = (keys) => keys.map((key) => editableFieldIndex.get(key)).filter(Boolean)
+
 const propertyGroups = [
-  { title: 'Finance & performance', description: 'Value, leverage, income and financing health', tone: 'green', rows: [
-    ['Current value', (p) => currency(p.latestValuation), 'money', false, 'latestValuation'],
-    ['Loan balance', (p) => currency(p.loanAmount), 'money-negative', false, 'loanAmount'],
-    ['Equity', (p) => currency(p.equity), 'money-positive'],
-    ['Current LTV', (p) => percent(p.currentLtv), 'percent'],
-    ['Monthly rent', (p) => currency(p.rent), 'money-positive', false, 'rent'],
-    ['Mortgage payment / month', (p) => currency(p.monthlyPayment), 'money-negative', false, 'baseRate', 'Calculated from loan balance × the current effective model interest rate ÷ 12. The current BTL model is interest-only.'],
-    ['Operating cash flow / month', (p) => currency(p.operatingCashflow), 'money'],
-    ['Net yield', (p) => percent(p.netYield, 2), 'percent'],
-    ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent', false, 'baseRate'],
-    ['Current lender', (p) => p.lender || 'Not set', 'text', false, 'lender'],
-    ['Next remortgage', (p) => shortDate(p.nextRemortgage), 'date', false, 'latestRemortgage'],
-    ['Purchase price', (p) => currency(p.purchasePrice), 'money', true, 'purchasePrice'],
-    ['Home report at purchase', (p) => currency(p.homeReportPurchase), 'money', true, 'homeReportPurchase'],
-    ['Expected value at remortgage', (p) => currency(p.expectedRemortgageValue), 'money', true],
-    ['Expected LTV at remortgage', (p) => percent(p.expectedRemortgageLtv), 'percent', true],
-    ['Releasable equity at 75% LTV', (p) => currency(p.releasableEquity), 'money-positive', true],
-    ['Gross yield', (p) => percent(p.grossYield, 2), 'percent', true],
-    ['Interest coverage ratio', (p) => percent(p.icr, 0), 'percent', true],
-    ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive', true],
-    ['Voids since ownership', (p) => p.ownedDays ? `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})` : 'Purchase date required', 'text', true],
+  { title: 'Finance & performance', description: 'Value, leverage, income and financing health', tone: 'green', emptyLabel: 'No finance or performance details have been added yet.', emptyEditField: 'latestValuation', rows: [
+    ['Current value', (p) => currency(p.latestValuation), 'money', false, 'latestValuation', null, 'currentValue'],
+    ['Loan balance', (p) => currency(p.loanAmount), 'money-negative', false, 'loanAmount', null, 'loanBalance'],
+    ['Equity', (p) => currency(p.equity), 'money-positive', false, null, null, 'equity'],
+    ['Current LTV', (p) => percent(p.currentLtv), 'percent', false, null, null, 'ltv'],
+    ['Monthly rent', (p) => currency(p.rent), 'money-positive', false, 'rent', null, 'rent'],
+    ['Mortgage payment / month', (p) => currency(p.monthlyPayment), 'money-negative', false, 'baseRate', 'Calculated from loan balance × the current effective model interest rate ÷ 12. The current BTL model is interest-only.', 'mortgagePayment'],
+    ['Operating cash flow / month', (p) => currency(p.operatingCashflow), 'money', false, null, null, 'operatingCashflow'],
+    ['Net yield', (p) => percent(p.netYield, 2), 'percent', false, null, null, 'netYield'],
+    ['Actual interest rate', (p) => formatRateComposition(p.baseRate, p.currentRate), 'percent', false, 'baseRate', null, 'interestRate'],
+    ['Current lender', (p) => p.lender, 'text', false, 'lender', null, 'lender'],
+    ['Next remortgage', (p) => shortDate(p.nextRemortgage), 'date', false, 'latestRemortgage', null, 'nextRemortgage'],
+    ['Purchase price', (p) => currency(p.purchasePrice), 'money', true, 'purchasePrice', null, 'purchasePrice'],
+    ['Home report at purchase', (p) => currency(p.homeReportPurchase), 'money', true, 'homeReportPurchase', null, 'homeReportPurchase'],
+    ['Expected value at remortgage', (p) => currency(p.expectedRemortgageValue), 'money', true, null, null, 'expectedRemortgageValue'],
+    ['Expected LTV at remortgage', (p) => percent(p.expectedRemortgageLtv), 'percent', true, null, null, 'expectedRemortgageLtv'],
+    ['Releasable equity at 75% LTV', (p) => currency(p.releasableEquity), 'money-positive', true, null, null, 'releasableEquity'],
+    ['Gross yield', (p) => percent(p.grossYield, 2), 'percent', true, null, null, 'grossYield'],
+    ['Interest coverage ratio', (p) => percent(p.icr, 0), 'percent', true, null, null, 'interestCoverage'],
+    ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive', true, null, null, 'annualAppreciation'],
+    ['Voids since ownership', (p) => `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})`, 'text', true, null, null, 'voidHistory'],
   ]},
-  { title: 'Property details', description: 'Identity, location and physical characteristics', tone: 'blue', rows: [
-    ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address) || 'Not set', 'text', false, 'address'],
-    ['Postcode', (p) => p.postcode || 'Not set', 'text', false, 'postcode'],
-    ['Bedrooms', (p) => p.bedrooms, 'integer', false, 'bedrooms'],
-    ['EPC rating', (p) => p.epc || 'Not set', 'text', false, 'epc'],
-    ['Area', (p) => `${p.areaSqm} m²`, 'integer', true, 'areaSqm'],
-    ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true, 'purchaseDate'],
+  { title: 'Property details', description: 'Identity, location and physical characteristics', tone: 'blue', emptyLabel: 'No additional property details have been added yet.', emptyEditField: 'address', rows: [
+    ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address), 'text', false, 'address', null, 'address'],
+    ['Postcode', (p) => p.postcode, 'text', false, 'postcode', null, 'postcode'],
+    ['Bedrooms', (p) => p.bedrooms, 'integer', false, 'bedrooms', null, 'bedrooms'],
+    ['EPC rating', (p) => p.epc, 'text', false, 'epc', null, 'epc'],
+    ['Area', (p) => `${p.areaSqm} m²`, 'integer', true, 'areaSqm', null, 'area'],
+    ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true, 'purchaseDate', null, 'purchaseDate'],
   ]},
-  { title: 'Compliance & timing', description: 'Broker and property compliance milestones', tone: 'amber', rows: [
-    ['Call broker', (p) => shortDate(p.brokerDate), 'date'],
-    ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date', true, 'gasExpiry'],
-    ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date', true, 'eicrExpiry'],
-    ['PAT testing expiry', (p) => shortDate(p.patExpiry), 'date', true, 'patExpiry'],
-    ['EPC expiry', (p) => shortDate(p.epcExpiry), 'date', true, 'epcExpiry'],
+  { title: 'Compliance & timing', description: 'Broker and property compliance milestones', tone: 'amber', emptyLabel: 'No compliance dates have been added yet.', emptyEditField: 'gasExpiry', rows: [
+    ['Call broker', (p) => shortDate(p.brokerDate), 'date', false, null, null, 'brokerDate'],
+    ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date', true, 'gasExpiry', null, 'gasExpiry'],
+    ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date', true, 'eicrExpiry', null, 'eicrExpiry'],
+    ['PAT testing expiry', (p) => shortDate(p.patExpiry), 'date', true, 'patExpiry', null, 'patExpiry'],
+    ['EPC expiry', (p) => shortDate(p.epcExpiry), 'date', true, 'epcExpiry', null, 'epcExpiry'],
   ]},
 ]
 
@@ -215,6 +219,14 @@ function PropertyMetricEditButton({ property, label, editField, onEdit }) {
   if (!editField) return null
   const actionLabel = label === 'Mortgage payment / month' ? 'Edit mortgage inputs' : `Edit ${label}`
   return <button type="button" className="property-metric-edit" aria-label={`${actionLabel} for ${property.name}`} onClick={() => onEdit(property.id, editField)}><Pencil size={13} /></button>
+}
+
+function PropertyMetricValue({ property, label, getter, kind, editField, supportKey, onEdit }) {
+  const supported = propertyMetricSupported(property, supportKey)
+  return <span className={`property-metric-value ${supported ? '' : 'missing'}`}>
+    {supported ? getter(property) : <span className="property-metric-missing">Not added</span>}
+    <PropertyMetricEditButton property={property} label={label} editField={editField} onEdit={onEdit} />
+  </span>
 }
 
 function AnimatedNumber({ value, duration = 1000, decimals = 1 }) {
@@ -354,12 +366,15 @@ function MetricCard({ eyebrow, value, delta, icon: Icon, tone = 'neutral', disab
   )
 }
 
+const propertyHasMortgageForOverview = (property) => propertyMetricSupported(property, 'loanBalance') || propertyMetricSupported(property, 'interestRate') || propertyMetricSupported(property, 'lender') || propertyMetricSupported(property, 'nextRemortgage')
+
 function overviewPropertySubtitle(property) {
   const address = formatPropertyAddress(property.flatNumber, property.address) || 'Address not set'
   return property.postcode ? `${address} · ${property.postcode}` : address
 }
 
-function OverviewPropertyMetric({ label, value, emphasis = false }) {
+function OverviewPropertyMetric({ label, value, emphasis = false, supported = true }) {
+  if (!supported) return null
   return <span className={`overview-property-metric ${emphasis ? 'emphasis' : ''}`}>
     <small>{label}</small>
     <b>{value}</b>
@@ -451,19 +466,18 @@ function PropertyCard({ property, onEdit, onClone, onToggle }) {
           <b>{property.name}</b>
           <small>{subtitle}</small>
         </span>
-        <span className="overview-property-card-ltv-pill">{percent(property.currentLtv, 1)} LTV</span>
+        {propertyMetricSupported(property, 'ltv') && <span className="overview-property-card-ltv-pill">{percent(property.currentLtv, 1)} LTV</span>}
       </span>
       <span className="overview-property-card-value">
-        <strong>{currency(property.latestValuation)}</strong>
+        <strong>{propertyMetricSupported(property, 'currentValue') ? currency(property.latestValuation) : 'Not added'}</strong>
         <small>Current value</small>
       </span>
-      <span className="overview-property-card-ltv-line"><small>Loan to value</small><b>{percent(property.currentLtv, 1)}</b></span>
-      <OverviewLtvBar property={property} />
+      {propertyMetricSupported(property, 'ltv') && <><span className="overview-property-card-ltv-line"><small>Loan to value</small><b>{percent(property.currentLtv, 1)}</b></span><OverviewLtvBar property={property} /></>}
       <span className="overview-property-card-metrics">
-        <OverviewPropertyMetric label="Equity" value={currency(property.equity)} emphasis />
-        <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} />
-        <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} />
-        <OverviewPropertyMetric label="Mortgage / mo" value={currency(property.monthlyPayment, 0)} />
+        <OverviewPropertyMetric label="Equity" value={currency(property.equity)} emphasis supported={propertyMetricSupported(property, 'equity')} />
+        <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} supported={propertyMetricSupported(property, 'rent')} />
+        <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} supported={propertyMetricSupported(property, 'netYield')} />
+        <OverviewPropertyMetric label="Mortgage / mo" value={currency(property.monthlyPayment, 0)} supported={propertyMetricSupported(property, 'mortgagePayment')} />
       </span>
     </button>
     <OverviewPropertyActionMenu property={property} onEdit={onEdit} onClone={onClone} onToggle={onToggle} />
@@ -490,12 +504,12 @@ function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
         </span>
         <span className="overview-property-row-key">
           <OverviewPropertyMetric label="Value" value={currency(property.latestValuation)} emphasis />
-          <OverviewPropertyMetric label="LTV" value={percent(property.currentLtv, 1)} />
+          <OverviewPropertyMetric label="LTV" value={percent(property.currentLtv, 1)} supported={propertyMetricSupported(property, 'ltv')} />
         </span>
         <span className="overview-property-row-quick">
-          <OverviewPropertyMetric label="Equity" value={currency(property.equity)} emphasis />
-          <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} />
-          <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} />
+          <OverviewPropertyMetric label="Equity" value={currency(property.equity)} emphasis supported={propertyMetricSupported(property, 'equity')} />
+          <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} supported={propertyMetricSupported(property, 'rent')} />
+          <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} supported={propertyMetricSupported(property, 'netYield')} />
         </span>
         <span className="overview-property-row-chevron" aria-hidden="true">
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -506,15 +520,15 @@ function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
 
     <div className="overview-property-row-shell" aria-hidden={!expanded}>
       <div className="overview-property-row-inner">
-        <PropertyFinancingSummary property={property} variant="row" />
+        {(propertyMetricSupported(property, 'currentValue') || propertyHasMortgageForOverview(property)) && <PropertyFinancingSummary property={property} variant="row" />}
         <div className="overview-property-row-metrics overview-property-row-detail-metrics">
-          <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>
-          <div><span>Mortgage / mo</span><b>{currency(property.monthlyPayment, 0)}</b></div>
-          <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>
-          <div><span>Current rate</span><b>{percent(property.currentRate, 2)}</b></div>
+          {propertyMetricSupported(property, 'rent') && <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>}
+          {propertyMetricSupported(property, 'mortgagePayment') && <div><span>Mortgage / mo</span><b>{currency(property.monthlyPayment, 0)}</b></div>}
+          {propertyMetricSupported(property, 'netYield') && <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>}
+          {propertyMetricSupported(property, 'interestRate') && <div><span>Current rate</span><b>{percent(property.currentRate, 2)}</b></div>}
         </div>
         <div className="overview-property-row-lender">
-          <span>Lender</span><b>{property.lender || 'Not set'}</b>
+          <span>Lender</span><b>{propertyMetricSupported(property, 'lender') ? property.lender : 'Not added'}</b>
         </div>
         <div className="overview-property-row-open-action">
           <button type="button" onClick={() => onEdit(property.id)}>Open property <ArrowUpRight size={15} /></button>
@@ -538,13 +552,13 @@ function OverviewPropertyMiniCard({ property, onEdit, onClone, onToggle }) {
         <small>{subtitle}</small>
       </span>
       <span className="overview-property-mini-value">
-        <strong>{currency(property.latestValuation)}</strong>
+        <strong>{propertyMetricSupported(property, 'currentValue') ? currency(property.latestValuation) : 'Not added'}</strong>
         <small>Value</small>
       </span>
       <span className="overview-property-mini-metrics">
-        <OverviewPropertyMetric label="LTV" value={percent(property.currentLtv, 1)} />
-        <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} />
-        <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} />
+        <OverviewPropertyMetric label="LTV" value={percent(property.currentLtv, 1)} supported={propertyMetricSupported(property, 'ltv')} />
+        <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} supported={propertyMetricSupported(property, 'rent')} />
+        <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} supported={propertyMetricSupported(property, 'netYield')} />
       </span>
     </button>
     <OverviewPropertyActionMenu property={property} onEdit={onEdit} onClone={onClone} onToggle={onToggle} />
@@ -1419,6 +1433,8 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '
     const focusTarget = () => {
       const input = drawerRef.current?.querySelector(`[data-property-field="${focusField}"]`)
       if (!input) return
+      const disclosure = input.closest('details')
+      if (disclosure) disclosure.open = true
       input.scrollIntoView({ block: 'center', behavior: 'smooth' })
       input.focus({ preventScroll: true })
     }
@@ -1430,35 +1446,43 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '
     ...current,
     [key]: type === 'percent' ? Number(value) / 100 : type === 'number' ? Number(value) : type === 'optional-number' ? (value === '' ? '' : Number(value)) : value,
   }))
+  const renderField = ([key, label, type, optional = false]) => <label key={key} className={type === 'text' && ['address', 'depositHeld', 'tenantOccupation'].includes(key) ? 'wide' : ''}>
+    <span>{label}{optional && <small>Optional</small>}</span>
+    <div className={type === 'percent' ? 'input-suffix' : ''}>
+      <input
+        data-property-field={key}
+        type={type === 'percent' || type === 'optional-number' ? 'number' : type}
+        step={type === 'percent' ? '0.1' : ['number', 'optional-number'].includes(type) ? 'any' : undefined}
+        value={type === 'percent' ? percentInputValue(draft[key]) : type === 'date' ? dateInputValue(draft[key]) : draft[key] ?? ''}
+        onChange={(event) => update(key, event.target.value, type)}
+      />
+      {type === 'percent' && <small>%</small>}
+      {type === 'date' && optional && dateInputValue(draft[key]) && <button type="button" className="text-button" aria-label={`Clear ${label}`} onClick={(event) => { event.preventDefault(); update(key, '', type) }}>Clear</button>}
+    </div>
+  </label>
+  const coreFields = editableFieldsFor(PROPERTY_EDITOR_CORE_KEYS)
+  const optionalSections = PROPERTY_EDITOR_OPTIONAL_SECTIONS.map((section) => ({
+    ...section,
+    fields: editableFieldsFor(section.keys),
+    count: propertySectionCompletion(draft, section.keys),
+  }))
 
   return (
     <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <aside ref={drawerRef} className="drawer" aria-label="Edit BTL">
         <header><div><span className="kicker">Portfolio property</span><h2>{isNew ? 'Add a BTL' : `Edit ${draft.name}`}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><X /></button></header>
-        <div className="drawer-body">
-          {editableSections.map((section) => (
-            <section className="form-section" key={section.title}>
-              <h3>{section.title}</h3>
-              <div className="form-grid">
-                {section.fields.map(([key, label, type, optional = false]) => (
-                  <label key={key} className={type === 'text' && ['address', 'depositHeld', 'tenantOccupation'].includes(key) ? 'wide' : ''}>
-                    <span>{label}{optional && <small>Optional</small>}</span>
-                    <div className={type === 'percent' ? 'input-suffix' : ''}>
-                      <input
-                        data-property-field={key}
-                        type={type === 'percent' || type === 'optional-number' ? 'number' : type}
-                        step={type === 'percent' ? '0.1' : ['number', 'optional-number'].includes(type) ? 'any' : undefined}
-                        value={type === 'percent' ? percentInputValue(draft[key]) : type === 'date' ? dateInputValue(draft[key]) : draft[key] ?? ''}
-                        onChange={(event) => update(key, event.target.value, type)}
-                      />
-                      {type === 'percent' && <small>%</small>}
-                      {type === 'date' && optional && dateInputValue(draft[key]) && <button type="button" className="text-button" aria-label={`Clear ${label}`} onClick={(event) => { event.preventDefault(); update(key, '', type) }}>Clear</button>}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </section>
-          ))}
+        <div className="drawer-body property-editor-progressive">
+          <section className="form-section property-editor-essentials">
+            <div className="property-editor-section-heading"><div><span className="kicker">START HERE</span><h3>Essentials</h3></div><p>These are enough to start. Add other details when they are useful to you.</p></div>
+            <div className="form-grid">{coreFields.map(renderField)}</div>
+          </section>
+          <section className="property-editor-more" aria-label="Optional property details">
+            <div className="property-editor-more-heading"><div><span className="kicker">OPTIONAL</span><h3>Add more details</h3></div><small>Financing, tenancy, costs and compliance stay available without blocking setup.</small></div>
+            {optionalSections.map((section) => <details className="property-editor-disclosure" key={section.id}>
+              <summary><span><b>{section.title}</b><small>{section.count ? `${section.count} detail${section.count === 1 ? '' : 's'} added` : section.description}</small></span><ChevronDown size={18} /></summary>
+              <div className="form-grid">{section.fields.map(renderField)}</div>
+            </details>)}
+          </section>
         </div>
         <footer>
           {!isNew && <button className="danger-button" onClick={() => onDelete(draft.id)}><Trash2 size={16} /> Delete</button>}
@@ -1470,7 +1494,6 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '
     </div>
   )
 }
-
 
 function ModelInputsPopup({ settings, onSettingChange, onPercentChange, onClose }) {
   useEffect(() => {
@@ -2060,23 +2083,23 @@ function PortfolioApp({ user }) {
                   <button type="button" className="mobile-property-edit" onClick={() => openPropertyEditor(mobileProperty.id)}><Pencil size={15} /> Edit</button>
                 </div>
                 <div className="mobile-property-snapshot-primary">
-                  <span><small>Current value</small><strong>{currency(mobileProperty.latestValuation)}</strong></span>
-                  <span><small>Equity</small><strong>{currency(mobileProperty.equity)}</strong></span>
+                  <span><small>Current value</small><strong>{propertyMetricSupported(mobileProperty, 'currentValue') ? currency(mobileProperty.latestValuation) : 'Not added'}</strong></span>
+                  {propertyMetricSupported(mobileProperty, 'equity') && <span><small>Equity</small><strong>{currency(mobileProperty.equity)}</strong></span>}
                 </div>
-                <div className="mobile-property-snapshot-ltv">
+                {propertyMetricSupported(mobileProperty, 'ltv') && <div className="mobile-property-snapshot-ltv">
                   <span><small>Loan to value</small><b>{percent(mobileProperty.currentLtv, 1)}</b></span>
                   <OverviewLtvBar property={mobileProperty} />
-                </div>
+                </div>}
                 <div className="mobile-property-snapshot-kpis">
-                  <span><small>Rent / mo</small><b>{currency(mobileProperty.rent)}</b></span>
-                  <span className={mobileProperty.operatingCashflow >= 0 ? 'positive' : 'negative'}><small>Cash flow / mo</small><b>{currency(mobileProperty.operatingCashflow)}</b></span>
-                  <span><small>Net yield</small><b>{percent(mobileProperty.netYield, 1)}</b></span>
+                  {propertyMetricSupported(mobileProperty, 'rent') && <span><small>Rent / mo</small><b>{currency(mobileProperty.rent)}</b></span>}
+                  {propertyMetricSupported(mobileProperty, 'operatingCashflow') && <span className={mobileProperty.operatingCashflow >= 0 ? 'positive' : 'negative'}><small>Cash flow / mo</small><b>{currency(mobileProperty.operatingCashflow)}</b></span>}
+                  {propertyMetricSupported(mobileProperty, 'netYield') && <span><small>Net yield</small><b>{percent(mobileProperty.netYield, 1)}</b></span>}
                 </div>
-                <div className="mobile-property-snapshot-finance">
-                  <span><small>Mortgage / mo</small><b>{currency(mobileProperty.monthlyPayment)}</b></span>
-                  <span><small>Rate / lender</small><b>{percent(mobileProperty.currentRate, 2)}{mobileProperty.lender ? ` · ${mobileProperty.lender}` : ''}</b></span>
-                  <span><small>Next remortgage</small><b>{shortDate(mobileProperty.nextRemortgage)}</b></span>
-                </div>
+                {(propertyMetricSupported(mobileProperty, 'mortgagePayment') || propertyMetricSupported(mobileProperty, 'interestRate') || propertyMetricSupported(mobileProperty, 'lender') || propertyMetricSupported(mobileProperty, 'nextRemortgage')) && <div className="mobile-property-snapshot-finance">
+                  {propertyMetricSupported(mobileProperty, 'mortgagePayment') && <span><small>Mortgage / mo</small><b>{currency(mobileProperty.monthlyPayment)}</b></span>}
+                  {(propertyMetricSupported(mobileProperty, 'interestRate') || propertyMetricSupported(mobileProperty, 'lender')) && <span><small>Rate / lender</small><b>{propertyMetricSupported(mobileProperty, 'interestRate') ? percent(mobileProperty.currentRate, 2) : ''}{propertyMetricSupported(mobileProperty, 'interestRate') && propertyMetricSupported(mobileProperty, 'lender') ? ' · ' : ''}{propertyMetricSupported(mobileProperty, 'lender') ? mobileProperty.lender : ''}</b></span>}
+                  {propertyMetricSupported(mobileProperty, 'nextRemortgage') && <span><small>Next remortgage</small><b>{shortDate(mobileProperty.nextRemortgage)}</b></span>}
+                </div>}
                 <button
                   type="button"
                   className="mobile-property-detail-toggle"
@@ -2105,15 +2128,16 @@ function PortfolioApp({ user }) {
                       {filtered.map((property) => <th key={property.id}>
                         <button className="property-comparison-header-button" onClick={() => openPropertyEditor(property.id)}>
                           <span className="property-comparison-header-title"><b>{property.name}</b><small>{property.postcode || 'Postcode not set'}</small></span>
-                          <span className="property-comparison-header-value"><b>{currency(property.latestValuation)}</b><small>{percent(property.currentLtv, 1)} LTV</small></span>
-                          <OverviewLtvBar property={property} compact />
+                          <span className="property-comparison-header-value"><b>{propertyMetricSupported(property, 'currentValue') ? currency(property.latestValuation) : 'Value not added'}</b><small>{propertyMetricSupported(property, 'ltv') ? `${percent(property.currentLtv, 1)} LTV` : 'Add finance details'}</small></span>
+                          {propertyMetricSupported(property, 'ltv') && <OverviewLtvBar property={property} compact />}
                         </button>
                       </th>)}
                     </tr>
                   </thead>
                   <tbody>
                     {propertyGroups.map((group) => {
-                      const rows = visiblePropertyRows(group.rows, advancedPropertyView)
+                      const rows = supportedPropertyRows(group.rows, advancedPropertyView, filtered)
+                      if (!rows.length && !advancedPropertyView) return null
                       return <React.Fragment key={group.title}>
                         <tr className={`property-section-row ${group.tone}`}>
                           <th colSpan={filtered.length + 1}>
@@ -2121,10 +2145,11 @@ function PortfolioApp({ user }) {
                             <span><b>{group.title}</b><small>{group.description}</small></span>
                           </th>
                         </tr>
-                        {rows.map(([label, getter, kind, advanced, editField, help]) => <tr data-metric={label} data-kind={kind} key={`${group.title}-${label}`}>
+                        {rows.map(([label, getter, kind, advanced, editField, help, supportKey]) => <tr data-metric={label} data-kind={kind} key={`${group.title}-${label}`}>
                           <th className={advanced ? 'advanced-metric-label' : undefined}><span className="property-metric-label">{label}<PropertyMetricHelp label={label} help={help} /></span></th>
-                          {filtered.map((property) => <td className={`${kind} ${label === 'Operating cash flow / month' ? (property.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`} key={property.id}><span className="property-metric-value">{getter(property)}<PropertyMetricEditButton property={property} label={label} editField={editField} onEdit={openPropertyEditor} /></span></td>)}
+                          {filtered.map((property) => <td className={`${kind} ${label === 'Operating cash flow / month' && propertyMetricSupported(property, supportKey) ? (property.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`} key={property.id}><PropertyMetricValue property={property} label={label} getter={getter} kind={kind} editField={editField} supportKey={supportKey} onEdit={openPropertyEditor} /></td>)}
                         </tr>)}
+                        {advancedPropertyView && rows.length === 0 && <tr className="property-group-empty-row"><td colSpan={filtered.length + 1}><span>{group.emptyLabel}</span></td></tr>}
                       </React.Fragment>
                     })}
                   </tbody>
@@ -2135,7 +2160,8 @@ function PortfolioApp({ user }) {
             <div className="mobile-property-details">
               {propertyGroups.map((group) => {
                 const collapsed = collapsedPropertyGroups.has(group.title)
-                const rows = visiblePropertyRows(group.rows, advancedPropertyView)
+                const rows = supportedPropertyRows(group.rows, advancedPropertyView, mobileProperty ? [mobileProperty] : [])
+                if (!rows.length && !advancedPropertyView) return null
                 return <section className={`panel data-panel property-group-panel ${group.tone}`} key={group.title}>
                   <header className={collapsed ? 'collapsed' : ''}>
                     <button
@@ -2152,7 +2178,7 @@ function PortfolioApp({ user }) {
                     </button>
                   </header>
                   {!collapsed && <div className="mobile-property-group-list">
-                    {mobileProperty ? rows.map(([label, getter, kind, advanced, editField, help]) => <div className={`mobile-property-row ${advanced ? 'advanced' : ''}`} key={label}><span className="property-metric-label">{label}<PropertyMetricHelp label={label} help={help} /></span><span className="mobile-property-row-value"><strong className={`${kind} ${label === 'Operating cash flow / month' ? (mobileProperty.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`}>{getter(mobileProperty)}</strong><PropertyMetricEditButton property={mobileProperty} label={label} editField={editField} onEdit={openPropertyEditor} /></span></div>) : <div className="mobile-property-empty">No BTL selected</div>}
+                    {mobileProperty ? (rows.length ? rows.map(([label, getter, kind, advanced, editField, help, supportKey]) => <div className={`mobile-property-row ${advanced ? 'advanced' : ''}`} key={label}><span className="property-metric-label">{label}<PropertyMetricHelp label={label} help={help} /></span><span className="mobile-property-row-value"><strong className={`${kind} ${label === 'Operating cash flow / month' ? (mobileProperty.operatingCashflow >= 0 ? 'property-cashflow-positive' : 'property-cashflow-negative') : ''}`}>{getter(mobileProperty)}</strong><PropertyMetricEditButton property={mobileProperty} label={label} editField={editField} onEdit={openPropertyEditor} /></span></div>) : <div className="mobile-property-empty property-group-empty"><span>{group.emptyLabel}</span><button type="button" className="text-button" onClick={() => openPropertyEditor(mobileProperty.id, group.emptyEditField)}><Plus size={14} /> Add details</button></div>) : <div className="mobile-property-empty">No BTL selected</div>}
                   </div>}
                 </section>
               })}
