@@ -14698,15 +14698,24 @@ textarea {
 @media (max-width: 560px) {
   .loans-workspace {
     padding: 0;
-    overflow: hidden;
+    overflow: visible;
     border: 0;
-    border-radius: 18px;
-    background: var(--ui-surface);
+    border-radius: 0;
+    background: transparent;
     box-shadow: none;
   }
 
   .loans-toolbar {
-    padding-inline: 2px;
+    margin-bottom: 10px;
+    padding: 15px;
+    border: 1px solid var(--ui-line);
+    border-radius: 11px;
+    background: var(--ui-surface);
+    box-shadow: var(--ui-shadow);
+  }
+
+  .loans-toolbar .primary-button {
+    align-self: flex-end;
   }
 
   .loans-list {
