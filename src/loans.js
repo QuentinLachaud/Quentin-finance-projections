@@ -1,6 +1,8 @@
 const makeId = () => globalThis.crypto?.randomUUID?.()
   || `loan-${Date.now()}-${Math.random().toString(16).slice(2)}`
 
+const DEFAULT_REPAYMENT_TERM_MONTHS = 300
+
 const finite = (value, fallback = 0) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -25,6 +27,11 @@ const productFeeFrom = (principalAmount, feeMode, feeValue) => {
   const principal = nonNegative(principalAmount)
   const value = nonNegative(feeValue)
   return feeModeFrom(feeMode) === 'amount' ? value : principal * value / 100
+}
+
+const normalizedTermMonths = (value) => {
+  const parsed = Math.round(finite(value, DEFAULT_REPAYMENT_TERM_MONTHS))
+  return parsed > 0 ? parsed : DEFAULT_REPAYMENT_TERM_MONTHS
 }
 
 export const hasMortgageData = (property) => Boolean(
@@ -54,21 +61,88 @@ export const effectiveLoanAmount = (loan) => {
   return principalAmount + (loan?.addFeeToLoan ? productFeeFrom(principalAmount, loan?.feeMode, loan?.feeValue) : 0)
 }
 
+export const repaymentMonthlyPayment = (balance, annualRate, termMonths) => {
+  const principal = nonNegative(balance)
+  const months = normalizedTermMonths(termMonths)
+  const monthlyRate = nonNegative(annualRate) / 12
+  if (!principal) return 0
+  if (!monthlyRate) return principal / months
+  return principal * monthlyRate / (1 - ((1 + monthlyRate) ** -months))
+}
+
+const repaymentBreakdown = (balance, annualRate, termMonths, fixedRateMonths) => {
+  const principal = nonNegative(balance)
+  const term = normalizedTermMonths(termMonths)
+  const fixedMonths = Math.max(0, Math.round(finite(fixedRateMonths)))
+  const monthlyRate = nonNegative(annualRate) / 12
+  const monthlyPayment = repaymentMonthlyPayment(principal, annualRate, term)
+  const months = Math.min(fixedMonths, term)
+  let remainingBalance = principal
+  let totalInterestCost = 0
+
+  for (let month = 0; month < months && remainingBalance > 0; month += 1) {
+    const interest = remainingBalance * monthlyRate
+    const principalPayment = Math.min(remainingBalance, Math.max(0, monthlyPayment - interest))
+    totalInterestCost += interest
+    remainingBalance = Math.max(0, remainingBalance - principalPayment)
+  }
+
+  const monthlyInterestCost = principal * monthlyRate
+  return {
+    monthlyPayment,
+    monthlyInterestCost,
+    firstMonthPrincipal: Math.max(0, monthlyPayment - monthlyInterestCost),
+    totalInterestCost,
+    totalPrincipalRepaid: principal - remainingBalance,
+    paymentMonths: months,
+  }
+}
+
 export const loanCostSummary = (loan) => {
   const balance = effectiveLoanAmount(loan)
   const rate = nonNegative(loan?.rate)
   const months = Math.max(0, Math.round(finite(loan?.fixedRateMonths)))
-  const monthlyCost = balance * rate / 12
-  const totalInterestCost = monthlyCost * months
+  const interestOnly = loan?.interestOnly !== false
+  const termMonths = normalizedTermMonths(loan?.termMonths)
   const productFee = loanProductFeeAmount(loan)
+  const monthlyInterestCost = balance * rate / 12
+
+  if (interestOnly) {
+    const totalInterestCost = monthlyInterestCost * months
+    return {
+      principalAmount: principalFromLoan(loan),
+      effectiveBalance: balance,
+      interestOnly,
+      termMonths,
+      monthlyCost: monthlyInterestCost,
+      monthlyPayment: monthlyInterestCost,
+      monthlyInterestCost,
+      firstMonthPrincipal: 0,
+      totalPrincipalRepaid: 0,
+      totalInterestCost,
+      productFee,
+      totalCost: totalInterestCost + productFee,
+      months,
+      paymentMonths: months,
+    }
+  }
+
+  const repayment = repaymentBreakdown(balance, rate, termMonths, months)
   return {
     principalAmount: principalFromLoan(loan),
     effectiveBalance: balance,
-    monthlyCost,
-    totalInterestCost,
+    interestOnly,
+    termMonths,
+    monthlyCost: repayment.monthlyPayment,
+    monthlyPayment: repayment.monthlyPayment,
+    monthlyInterestCost: repayment.monthlyInterestCost,
+    firstMonthPrincipal: repayment.firstMonthPrincipal,
+    totalPrincipalRepaid: repayment.totalPrincipalRepaid,
+    totalInterestCost: repayment.totalInterestCost,
     productFee,
-    totalCost: totalInterestCost + productFee,
+    totalCost: repayment.totalInterestCost + productFee,
     months,
+    paymentMonths: repayment.paymentMonths,
   }
 }
 
@@ -87,6 +161,8 @@ export const normalizePropertyMortgage = (property = {}) => {
     mortgageFeeMode: feeMode,
     mortgageFeeValue: feeValue,
     mortgageFeeAddedToLoan: addFeeToLoan,
+    mortgageInterestOnly: property?.mortgageInterestOnly !== false,
+    mortgageTermMonths: normalizedTermMonths(property?.mortgageTermMonths),
   }
 }
 
@@ -107,6 +183,8 @@ export const createBlankLoan = () => ({
   feeMode: 'percent',
   feeValue: 0,
   addFeeToLoan: false,
+  interestOnly: true,
+  termMonths: DEFAULT_REPAYMENT_TERM_MONTHS,
   ltvBand: 0,
 })
 
@@ -131,6 +209,8 @@ export const normalizeLoan = (loan, properties = []) => {
     feeMode,
     feeValue,
     addFeeToLoan,
+    interestOnly: source.interestOnly !== false,
+    termMonths: normalizedTermMonths(source.termMonths),
     ltvBand: nonNegative(source.ltvBand) || fallbackBand,
   }
 }
@@ -141,6 +221,8 @@ export const createLoanFromProperty = (property, existingLoan = null) => {
   const feeMode = existing ? existing.feeMode : feeModeFrom(property?.mortgageFeeMode)
   const feeValue = existing ? existing.feeValue : nonNegative(property?.mortgageFeeValue)
   const addFeeToLoan = existing ? existing.addFeeToLoan : Boolean(property?.mortgageFeeAddedToLoan)
+  const interestOnly = existing ? existing.interestOnly : property?.mortgageInterestOnly !== false
+  const termMonths = existing ? existing.termMonths : normalizedTermMonths(property?.mortgageTermMonths)
   const propertyBalance = nonNegative(property?.loanAmount)
   const propertyHasPrincipal = hasOwn(property, 'mortgagePrincipalAmount')
   const propertyPrincipal = propertyHasPrincipal
@@ -169,6 +251,8 @@ export const createLoanFromProperty = (property, existingLoan = null) => {
     feeMode,
     feeValue,
     addFeeToLoan,
+    interestOnly,
+    termMonths,
     ltvBand: existing?.ltvBand || nonNegative(property?.mortgageLtvBand),
   }
   const normalized = normalizeLoan(raw, [property])
@@ -194,6 +278,8 @@ export const applyLoanToProperty = (loan, property) => ({
   mortgageFeeMode: loan.feeMode,
   mortgageFeeValue: loan.feeValue,
   mortgageFeeAddedToLoan: loan.addFeeToLoan,
+  mortgageInterestOnly: loan.interestOnly,
+  mortgageTermMonths: loan.termMonths,
   mortgageLtvBand: loan.ltvBand,
 })
 

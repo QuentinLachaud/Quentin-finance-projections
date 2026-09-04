@@ -29,7 +29,7 @@ describe('progressive property disclosure UI', () => {
 
   it('adds support metadata without losing direct-edit mortgage verification', () => {
     expect(app).toContain("['Mortgage payment / month', (p) => currency(p.monthlyPayment)")
-    expect(app).toContain("'baseRate', 'Calculated from loan balance × the current effective model interest rate ÷ 12. The current BTL model is interest-only.', 'mortgagePayment'")
+    expect(app).toContain("'baseRate', 'Calculated from the effective loan balance and current rate. Interest-only loans show interest; repayment loans include scheduled principal over the remaining mortgage term.', 'mortgagePayment'")
     expect(app).toContain('function PropertyMetricEditButton')
     expect(app).toContain('function PropertyMetricValue')
   })

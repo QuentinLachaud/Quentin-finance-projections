@@ -67,6 +67,17 @@ function LoanEditor({ loan, properties, onSave, onDelete }) {
       <div className="loan-input-affix"><input type="number" min="0" step="1" value={loan.fixedRateMonths || 0} onChange={(event) => update({ fixedRateMonths: Number(event.target.value) })} /><b>months</b></div>
     </label>
 
+    <label className="loan-capitalised-toggle">
+      <input type="checkbox" checked={loan.interestOnly !== false} onChange={(event) => update({ interestOnly: event.target.checked })} />
+      <span><b>Interest only</b><small>On: monthly payment is interest only. Off: payment includes principal over the remaining mortgage term.</small></span>
+    </label>
+
+    {loan.interestOnly === false && <label className="loan-editor-field">
+      <span>Remaining mortgage term</span>
+      <div className="loan-input-affix"><input type="number" min="1" step="1" value={loan.termMonths || 300} onChange={(event) => update({ termMonths: Number(event.target.value) })} /><b>months</b></div>
+      <small className="loan-derived-balance">{Math.round(Number(loan.termMonths || 300) / 12 * 10) / 10} years remaining</small>
+    </label>}
+
     <div className="loan-editor-field">
       <span>Product fee</span>
       <div className="loan-fee-inputs">
@@ -92,15 +103,15 @@ function LoanEditor({ loan, properties, onSave, onDelete }) {
 
     <label className="loan-capitalised-toggle">
       <input type="checkbox" checked={Boolean(loan.addFeeToLoan)} onChange={(event) => update({ addFeeToLoan: event.target.checked })} />
-      <span><b>Fee added to loan</b><small>When enabled, the product fee increases the mortgage balance and monthly interest cost.</small></span>
+      <span><b>Fee added to loan</b><small>When enabled, the product fee increases the mortgage balance and therefore the monthly payment.</small></span>
     </label>
 
     <section className="loan-cost-summary" aria-label="Loan cost summary">
-      <header><strong>Cost over fixed period</strong><small>Interest-only · principal excluded</small></header>
+      <header><strong>Cost over fixed period</strong><small>{costs.interestOnly ? 'Interest only · principal excluded' : `Repayment · ${costs.termMonths} month remaining term`}</small></header>
       <div className="loan-cost-grid">
-        <div className="loan-cost-metric"><small>Monthly cost</small><strong>{currency(costs.monthlyCost)}</strong><span>Effective balance × rate ÷ 12</span></div>
-        <div className="loan-cost-metric"><small>Total cost over fixed period</small><strong>{costs.months ? currency(costs.totalCost) : 'Set fixed period'}</strong><span>{costs.months ? `Interest + ${currency(costs.productFee)} product fee` : 'A fixed period is required for a total.'}</span></div>
-        <div className="loan-cost-metric"><small>Interest cost excl. principal</small><strong>{costs.months ? currency(costs.totalInterestCost) : 'Set fixed period'}</strong><span>{costs.months ? `${costs.months} months of interest` : 'Principal is never counted as a cost.'}</span></div>
+        <div className="loan-cost-metric"><small>Monthly payment</small><strong>{currency(costs.monthlyPayment)}</strong><span>{costs.interestOnly ? 'Interest only' : `${currency(costs.monthlyInterestCost)} interest + ${currency(costs.firstMonthPrincipal)} principal in month one`}</span></div>
+        <div className="loan-cost-metric"><small>Finance cost over fixed period</small><strong>{costs.months ? currency(costs.totalCost) : 'Set fixed period'}</strong><span>{costs.months ? `Interest + ${currency(costs.productFee)} product fee · principal excluded` : 'A fixed period is required for a total.'}</span></div>
+        <div className="loan-cost-metric"><small>Interest cost excl. principal</small><strong>{costs.months ? currency(costs.totalInterestCost) : 'Set fixed period'}</strong><span>{costs.months ? costs.interestOnly ? `${costs.months} months of interest` : `${costs.paymentMonths} repayment months · ${currency(costs.totalPrincipalRepaid)} principal repaid separately` : 'Principal is never counted as a finance cost.'}</span></div>
       </div>
     </section>
 
@@ -136,7 +147,7 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
 
       {loans.length > 0 && <div className="loans-list">
         <div className="loan-list-head" aria-hidden="true">
-          <span>Loan / BTL</span><span>Loan balance</span><span>Rate</span><span>Fixed period</span><span>Monthly cost</span><span>LTV band</span><span />
+          <span>Loan / BTL</span><span>Loan balance</span><span>Rate</span><span>Fixed period</span><span>Monthly payment</span><span>LTV band</span><span />
         </div>
 
         {loans.map((loan) => {
@@ -153,11 +164,11 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
               aria-expanded={expanded}
               onClick={() => setExpandedId(expanded ? '' : loan.id)}
             >
-              <span className="loan-primary"><strong>{loan.lender || 'Lender not set'}</strong><small>{property ? property.name : 'Manual / unlinked loan'}</small></span>
+              <span className="loan-primary"><strong>{loan.lender || 'Lender not set'}</strong><small>{property ? property.name : 'Manual / unlinked loan'} · {loan.interestOnly !== false ? 'Interest only' : 'Repayment'}</small></span>
               <span className="loan-cell"><small>Loan balance</small><strong>{currency(loan.loanAmount)}</strong></span>
               <span className="loan-cell"><small>Rate</small><strong>{rateLabel(loan.rate)}</strong></span>
               <span className="loan-cell"><small>Fixed period</small><strong>{fixed.main}</strong>{fixed.detail && <small>{fixed.detail}</small>}</span>
-              <span className="loan-cell"><small>Monthly cost</small><strong>{currency(costs.monthlyCost)}</strong></span>
+              <span className="loan-cell"><small>Monthly payment</small><strong>{currency(costs.monthlyPayment)}</strong></span>
               <span className="loan-cell"><small>LTV band</small><strong>{band ? `${band}% band` : 'Not set'}</strong>{actual > 0 && <small>{actual.toFixed(1)}% actual</small>}</span>
               <span className="loan-row-chevron">{expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
             </button>

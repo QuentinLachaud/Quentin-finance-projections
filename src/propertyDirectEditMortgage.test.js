@@ -7,8 +7,8 @@ const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 describe('Properties direct editing and mortgage verification', () => {
   it('shows the established calculated mortgage payment in Properties Essentials without duplicating the formula', () => {
     expect(app).toContain("['Mortgage payment / month', (p) => currency(p.monthlyPayment)")
-    expect(app).toContain('Calculated from loan balance × the current effective model interest rate ÷ 12.')
-    expect(app).toContain('The current BTL model is interest-only.')
+    expect(app).toContain('Calculated from the effective loan balance and current rate.')
+    expect(app).toContain('Interest-only loans show interest; repayment loans include scheduled principal over the remaining mortgage term.')
     expect(app).not.toContain("(p) => currency(p.loanAmount * p.currentRate / 12)")
   })
 

@@ -30,7 +30,7 @@ describe('Loans workspace integration', () => {
     expect(loansWorkspace).toContain('<span>Loan amount before fee</span>')
     expect(loansWorkspace).toContain('value={loan.principalAmount || 0}')
     expect(loansWorkspace).toContain('Mortgage balance: {currency(costs.effectiveBalance)}')
-    expect(loansWorkspace).toContain('When enabled, the product fee increases the mortgage balance and monthly interest cost.')
+    expect(loansWorkspace).toContain('When enabled, the product fee increases the mortgage balance and therefore the monthly payment.')
   })
 
   it('keeps BTL-originated mortgage edits synchronized with Loans and current remortgage state', () => {

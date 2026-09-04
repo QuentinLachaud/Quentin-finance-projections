@@ -22,7 +22,7 @@ describe('LoansWorkspace compact summary', () => {
     expect(html).toContain('£187,035')
     expect(html).toContain('4.84%')
     expect(html).toContain('60 months')
-    expect(html).toContain('Monthly cost')
+    expect(html).toContain('Monthly payment')
     expect(html).toContain('£754')
     expect(html).toContain('75% band')
     expect(html).toContain('71.4% actual')

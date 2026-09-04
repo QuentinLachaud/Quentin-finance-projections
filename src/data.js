@@ -53,6 +53,8 @@ export const createBlankProperty = (name = 'BTL1') => ({
   mortgageFeeMode: 'percent',
   mortgageFeeValue: 0,
   mortgageFeeAddedToLoan: false,
+  mortgageInterestOnly: true,
+  mortgageTermMonths: 300,
   mortgageLtvBand: 0,
   mortgageOverride: '',
   mortgageOverrideRate: null,

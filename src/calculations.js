@@ -41,6 +41,14 @@ export const mortgageInterestPayment = (property, settings) => {
   return loanAmount * currentRate / 12
 }
 
+export const mortgageMonthlyPayment = (property, settings) => {
+  if (property?.mortgageInterestOnly !== false) return mortgageInterestPayment(property, settings)
+  const loanAmount = Math.max(0, Number(property?.loanAmount || 0))
+  const currentRate = Math.max(0, Number(property?.baseRate || 0) + Number(settings?.rateShock || 0))
+  const termMonths = Math.max(1, Math.round(finiteNumber(property?.mortgageTermMonths, 300)))
+  return amortizingPayment(loanAmount, currentRate, termMonths, false)
+}
+
 const qualifyingFinancePayment = (property, settings) => {
   const loanAmount = Math.max(0, Number(property.loanAmount || 0))
   const rawQualifyingBalance = property.qualifyingFinanceBalance
@@ -72,8 +80,9 @@ export function calculateProperty(property, settings, now = new Date()) {
     appreciationRate: finiteNumber(settings?.appreciationRate),
   }
   const currentRate = Math.max(0, Number(property.baseRate || 0) + Number(settings.rateShock || 0))
-  const calculatedMortgage = Math.max(0, Number(property.loanAmount || 0)) * currentRate / 12
-  const monthlyPayment = mortgageInterestPayment(property, settings)
+  const monthlyInterestCost = mortgageInterestPayment(property, settings)
+  const monthlyPayment = mortgageMonthlyPayment(property, settings)
+  const calculatedMortgage = monthlyPayment
   const qualifyingFinanceCost = qualifyingFinancePayment(property, settings)
   const nextRemortgage = addMonths(property.latestRemortgage, property.fixedRateMonths)
   const brokerDate = nextRemortgage ? addMonths(nextRemortgage.toISOString().slice(0, 10), -3) : null
@@ -100,6 +109,7 @@ export function calculateProperty(property, settings, now = new Date()) {
     ...property,
     currentRate,
     monthlyPayment,
+    monthlyInterestCost,
     qualifyingFinanceCost,
     calculatedMortgage,
     mortgageAdmin,
@@ -118,7 +128,7 @@ export function calculateProperty(property, settings, now = new Date()) {
     appreciationAnnual: Number(property.latestValuation) * Number(settings.appreciationRate),
     yearsOwned,
     releasableEquity: equity - Number(property.latestValuation) * 0.25,
-    icr: monthlyPayment ? Number(property.rent) / monthlyPayment : 0,
+    icr: monthlyInterestCost ? Number(property.rent) / monthlyInterestCost : 0,
     fixedCosts,
     voids,
     variableCosts,
@@ -142,14 +152,15 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
   const deductibleCompanyCosts = isCompany ? deductibleItemTotal(settings.companyCosts) : 0
   const extractionTotal = isCompany ? itemTotal(settings.extractions) : 0
   const deductibleExtractions = isCompany ? deductibleItemTotal(settings.extractions) : 0
-  const financeCosts = sum('monthlyPayment')
+  const financeCosts = sum('monthlyInterestCost')
+  const mortgagePayments = sum('monthlyPayment')
   const qualifyingFinanceCosts = sum('qualifyingFinanceCost')
   const factorsCosts = sum('factorsFees')
   const complianceBudget = sum('complianceBudget')
   const financeAdminBudget = sum('financeAdminBudget')
   const problemBudget = sum('problemBudget')
   const voids = sum('voids')
-  const propertyFixedCosts = financeCosts + factorsCosts + complianceBudget + financeAdminBudget
+  const propertyFixedCosts = mortgagePayments + factorsCosts + complianceBudget + financeAdminBudget
   const management = settings.fullyManaged ? rent * finiteNumber(settings.managementRate) : 0
   const fixedCosts = propertyFixedCosts + companyCosts + management
   const variableCosts = voids + problemBudget
@@ -247,6 +258,7 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
     financeAdminBudget,
     factorsCosts,
     financeCosts,
+    mortgagePayments,
     qualifyingFinanceCosts,
     nonFinancePropertyCosts: factorsCosts + complianceBudget,
     extractionTotal,
