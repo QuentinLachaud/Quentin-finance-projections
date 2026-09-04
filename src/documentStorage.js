@@ -90,12 +90,25 @@ export const uploadStoredDocument = async (file, documentId) => {
   return { storagePath: path, fileName: file.name, mimeType, size: Number(file.size || 0) }
 }
 
-export const openStoredDocument = async (storagePath) => {
+export const documentPathBelongsToUser = (storagePath, userId) => {
+  const path = String(storagePath || '').replace(/^\/+/, '')
+  const owner = String(userId || '').trim()
+  return Boolean(path && owner && path.startsWith(`${owner}/`))
+}
+
+export const createStoredDocumentUrl = async (storagePath, expiresIn = 600) => {
   if (!storagePath) throw new Error('This document has no stored file.')
-  await currentUser()
-  const { data, error } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(storagePath, 600)
+  const user = await currentUser()
+  if (!documentPathBelongsToUser(storagePath, user.id)) throw new Error('This document does not belong to the signed-in account.')
+  const { data, error } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(storagePath, expiresIn)
   if (error || !data?.signedUrl) throw new Error(error?.message || 'Could not open this document.')
-  window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  return data.signedUrl
+}
+
+export const openStoredDocument = async (storagePath) => {
+  const signedUrl = await createStoredDocumentUrl(storagePath)
+  window.open(signedUrl, '_blank', 'noopener,noreferrer')
+  return signedUrl
 }
 
 export const removeStoredDocument = async (storagePath) => {

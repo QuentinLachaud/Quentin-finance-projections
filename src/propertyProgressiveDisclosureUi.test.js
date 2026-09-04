@@ -64,7 +64,7 @@ describe('progressive property disclosure UI', () => {
     expect(data).toContain("export const createBlankProperty")
     expect(data).toContain("fixedRateMonths: 24")
     expect(calculations).toContain('return loanAmount * currentRate / 12')
-    expect(app).toContain("supabase.from('portfolio_states').upsert({ user_id: user.id, portfolio: state }")
+    expect(app).toContain("upsert({ user_id: user.id, portfolio: state }, { onConflict: 'user_id' })")
     expect(app).not.toContain('__propertyDisclosureState')
   })
 

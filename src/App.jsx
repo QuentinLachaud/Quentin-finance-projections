@@ -41,6 +41,7 @@ import { bufferStrokeOffset, bufferVisualTarget, interpolateBufferVisual } from 
 import NotificationCenter, { NotificationBell } from './NotificationCenter.jsx'
 import { actionableNotifications, complianceDiaryItems, dismissNotification, normalizeNotificationPreferences, snoozeNotification } from './notifications.js'
 import { disablePushNotifications, enablePushNotifications, syncPushNotifications } from './notificationPush.js'
+import { mergeRemotePortfolio, serverVersionIsNewer } from './portfolioSync.js'
 
 // Keep the completed Open Banking workspace dormant until a production data
 // provider is available. It can be restored without code changes at deploy time.
@@ -1570,6 +1571,9 @@ function PortfolioApp({ user }) {
   const [loadError, setLoadError] = useState('')
   const [saveStatus, setSaveStatus] = useState('saved')
   const loaded = useRef(false)
+  const lastServerUpdatedAt = useRef('')
+  const remoteApplying = useRef(false)
+  const savePending = useRef(false)
   const [editingId, setEditingId] = useState(null)
   const [pendingProperty, setPendingProperty] = useState(null)
   const sectionStorageKey = `btl-active-section:${user.id}`
@@ -1663,12 +1667,13 @@ function PortfolioApp({ user }) {
     setState(null)
     setLoadError('')
     const loadPortfolio = async () => {
-      const { data, error } = await supabase.from('portfolio_states').select('portfolio').eq('user_id', user.id).maybeSingle()
+      const { data, error } = await supabase.from('portfolio_states').select('portfolio, updated_at').eq('user_id', user.id).maybeSingle()
       if (!active) return
       if (error) {
         setLoadError(error.message)
         return
       }
+      lastServerUpdatedAt.current = data?.updated_at || ''
       const portfolioState = data?.portfolio || { properties: [], settings: {} }
       const storedProperties = Array.isArray(portfolioState.properties) ? portfolioState.properties : []
       const isEstablishedPortfolio = storedProperties.length > 0
@@ -1747,13 +1752,64 @@ function PortfolioApp({ user }) {
 
   useEffect(() => {
     if (!state || !loaded.current) return undefined
+    if (remoteApplying.current) {
+      remoteApplying.current = false
+      return undefined
+    }
+    savePending.current = true
     setSaveStatus('saving')
     const timer = window.setTimeout(async () => {
-      const { error } = await supabase.from('portfolio_states').upsert({ user_id: user.id, portfolio: state }, { onConflict: 'user_id' })
+      const { data, error } = await supabase
+        .from('portfolio_states')
+        .upsert({ user_id: user.id, portfolio: state }, { onConflict: 'user_id' })
+        .select('updated_at')
+        .single()
+      if (!error && data?.updated_at) lastServerUpdatedAt.current = data.updated_at
+      savePending.current = false
       setSaveStatus(error ? 'error' : 'saved')
     }, 600)
     return () => window.clearTimeout(timer)
   }, [state, user.id])
+
+  useEffect(() => {
+    let active = true
+    let syncing = false
+
+    const syncFromServer = async () => {
+      if (!active || syncing || !loaded.current || savePending.current) return
+      syncing = true
+      const { data, error } = await supabase
+        .from('portfolio_states')
+        .select('portfolio, updated_at')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      syncing = false
+      if (!active || error || !data?.portfolio) return
+      if (!serverVersionIsNewer(data.updated_at, lastServerUpdatedAt.current)) return
+
+      lastServerUpdatedAt.current = data.updated_at || lastServerUpdatedAt.current
+      remoteApplying.current = true
+      setState((current) => mergeRemotePortfolio(current, data.portfolio))
+      setSaveStatus('saved')
+    }
+
+    const onFocus = () => { syncFromServer() }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') syncFromServer()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') syncFromServer()
+    }, 15000)
+
+    return () => {
+      active = false
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.clearInterval(interval)
+    }
+  }, [user.id])
 
   useEffect(() => {
     if (!state?.settings.pushNotificationsEnabled || state.settings.notificationsEnabled === false) return undefined

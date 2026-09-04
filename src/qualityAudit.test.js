@@ -7,7 +7,7 @@ const read = (path) => readFileSync(path, 'utf8')
 describe('application architecture regression contracts', () => {
   it('loads and persists user workspaces inside the signed-in portfolio state', () => {
     const app = read('src/App.jsx')
-    expect(app).toContain(".from('portfolio_states').select('portfolio').eq('user_id', user.id).maybeSingle()")
+    expect(app).toContain(".from('portfolio_states').select('portfolio, updated_at').eq('user_id', user.id).maybeSingle()")
     expect(app).toContain("expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : []")
     expect(app).toContain("credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : []")
     expect(app).toContain("const migratedRemortgageComparisons = Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : []")

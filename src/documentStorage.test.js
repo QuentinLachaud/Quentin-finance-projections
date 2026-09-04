@@ -5,6 +5,7 @@ import {
   DOCUMENT_IMAGE_ACCEPT,
   DOCUMENT_MIME_BY_EXTENSION,
   MAX_DOCUMENT_BYTES,
+  documentPathBelongsToUser,
   SUPPORTED_DOCUMENT_MIME_TYPES,
   resolveDocumentMimeType,
   validateDocumentFile,
@@ -34,6 +35,15 @@ const supportedFiles = [
   ['photo.gif', 'image/gif'],
   ['scan.bmp', 'image/bmp'],
 ]
+
+describe('document storage ownership', () => {
+  it('requires the authenticated user id as the first storage folder', () => {
+    expect(documentPathBelongsToUser('user-1/doc-1/photo.jpg', 'user-1')).toBe(true)
+    expect(documentPathBelongsToUser('user-2/doc-1/photo.jpg', 'user-1')).toBe(false)
+    expect(documentPathBelongsToUser('../user-1/photo.jpg', 'user-1')).toBe(false)
+    expect(documentPathBelongsToUser('', 'user-1')).toBe(false)
+  })
+})
 
 describe('document upload validation', () => {
   it.each(supportedFiles)('allows %s with %s', (name, type) => {

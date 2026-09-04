@@ -6,8 +6,9 @@ import {
 } from './expenses.js'
 import { exportTabularReport } from './reportExports.js'
 import DocumentCaptureSheet from './DocumentCaptureSheet.jsx'
+import DocumentViewer from './DocumentViewer.jsx'
 import { normalizeDocumentMeta } from './documents.js'
-import { DOCUMENT_FILE_ACCEPT, DOCUMENT_IMAGE_ACCEPT, openStoredDocument, removeStoredDocument } from './documentStorage.js'
+import { DOCUMENT_FILE_ACCEPT, DOCUMENT_IMAGE_ACCEPT, removeStoredDocument } from './documentStorage.js'
 
 const money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' })
 const blankFilters = { query: '', from: '', to: '', property: '__all__', type: '__all__', category: '__all__', recurrence: '__all__' }
@@ -27,6 +28,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [documentDraft, setDocumentDraft] = useState(null)
+  const [previewItem, setPreviewItem] = useState(null)
   const [captureContext, setCaptureContext] = useState(null)
   const importRef = useRef(null)
   const documentFileRef = useRef(null)
@@ -34,6 +36,11 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
   const cameraRef = useRef(null)
 
   const filtered = useMemo(() => filterExpenses(expenses, filters), [expenses, filters])
+  const recentDocuments = useMemo(() => expenses
+    .filter((item) => item.document?.storagePath)
+    .slice()
+    .sort((left, right) => String(right.date || '').localeCompare(String(left.date || '')))
+    .slice(0, 8), [expenses])
   const summary = useMemo(() => summarizeExpenses(filtered), [filtered])
   const allPropertyValues = useMemo(() => [...new Set([
     ...uniqueValues(expenses, 'property'),
@@ -86,9 +93,8 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
     event.target.value = ''
   }
   const addUploadedDocument = (entry) => { onChange([entry, ...expenses]); setDocumentDraft(null); setCaptureContext(null) }
-  const openDocument = async (item) => {
-    try { await openStoredDocument(item?.document?.storagePath) }
-    catch (error) { window.alert(error.message) }
+  const openDocument = (item) => {
+    if (item?.document?.storagePath) setPreviewItem(item)
   }
 
   const importFile = async (event) => {
@@ -185,6 +191,17 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
       {importStatus && <p className="expenses-import-status">{importStatus}</p>}
     </section>
 
+    {recentDocuments.length > 0 && <section className="documents-recents" aria-label="Recent documents">
+      <header><div><span>RECENT DOCUMENTS</span><h2>Your latest files</h2></div><small>Synced securely to your account</small></header>
+      <div className="documents-recent-strip">
+        {recentDocuments.map((item) => <button type="button" className="document-recent-card" key={`recent-${item.id}`} onClick={() => openDocument(item)}>
+          <span className="document-recent-icon">{String(item.document?.mimeType || '').startsWith('image/') ? <FileImage size={19} /> : <FileText size={19} />}</span>
+          <span><b>{item.document?.title || item.document?.fileName || 'Document'}</b><small>{item.document?.association?.label || item.property || 'Unassigned'}{item.date ? ` · ${item.date}` : ''}</small></span>
+          <ExternalLink size={15} />
+        </button>)}
+      </div>
+    </section>}
+
     <section className="expenses-summary-grid">
       <article className="panel expense-summary income"><span>{incomeLabel}</span><strong>{money.format(summary.income)}</strong><small>positive ledger entries</small></article>
       <article className="panel expense-summary expense"><span>Expenses</span><strong>{money.format(summary.expense)}</strong><small>absolute spend</small></article>
@@ -222,7 +239,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
               <td><input value={item.category || ''} onChange={(event) => update(item.id, 'category', event.target.value)} /></td>
               <td className="expense-amount-cell"><input type="number" step="0.01" value={item.amount ?? ''} onChange={(event) => update(item.id, 'amount', event.target.value === '' ? '' : Number(event.target.value))} /></td>
               <td><input value={item.description || ''} onChange={(event) => update(item.id, 'description', event.target.value)} /></td>
-              <td>{item.document ? <div className="expense-document-cell"><button type="button" onClick={() => openDocument(item)} aria-label={`Open ${item.document.title || 'document'}`}><FileText size={15} /></button><div><b>{normalizeDocumentMeta(item.document)?.title || 'Document'}</b><small>{normalizeDocumentMeta(item.document)?.type}</small></div></div> : <span className="expense-document-empty">—</span>}</td>
+              <td>{item.document ? <button type="button" className="expense-document-cell expense-document-open" onClick={() => openDocument(item)} aria-label={`Open ${item.document.title || 'document'}`}><span className="expense-document-icon"><FileText size={15} /></span><span><b>{normalizeDocumentMeta(item.document)?.title || 'Document'}</b><small>{normalizeDocumentMeta(item.document)?.type}</small></span><ExternalLink size={13} /></button> : <span className="expense-document-empty">—</span>}</td>
               <td><span className="expense-contractor-label">{contractorLabelFor(item)}</span></td>
               <td><input value={item.recurrence || ''} onChange={(event) => update(item.id, 'recurrence', event.target.value)} /></td>
               <td><input value={item.notes || ''} onChange={(event) => update(item.id, 'notes', event.target.value)} /></td>
@@ -253,7 +270,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
             <label><span>Property</span><input list="expense-property-options" value={item.property || ''} onChange={(event) => update(item.id, 'property', event.target.value)} /></label>
             <label><span>Category</span><input value={item.category || ''} onChange={(event) => update(item.id, 'category', event.target.value)} /></label>
             <label><span>Recurrence</span><input value={item.recurrence || ''} onChange={(event) => update(item.id, 'recurrence', event.target.value)} /></label>
-            {item.document && <div className="expense-mobile-wide expense-document-cell"><button type="button" onClick={() => openDocument(item)}><FileText size={15} /></button><div><b>{item.document.title}</b><small>{item.document.type} · {item.document.association?.label || 'Unassigned'}</small></div></div>}
+            {item.document && <button type="button" className="expense-mobile-wide expense-document-cell expense-document-open" onClick={() => openDocument(item)}><span className="expense-document-icon"><FileText size={16} /></span><span><b>{item.document.title}</b><small>{item.document.type} · {item.document.association?.label || 'Unassigned'}</small></span><ExternalLink size={14} /></button>}
             {item.document?.contractorId && <div className="expense-mobile-wide expense-contractor-mobile"><span>Contractor</span><b>{contractorLabelFor(item)}</b></div>}
             <label className="expense-mobile-wide"><span>Receipt link</span><div className="expense-receipt-field"><input value={item.receiptLink || ''} onChange={(event) => update(item.id, 'receiptLink', event.target.value)} />{isReceiptUrl(item.receiptLink) && <a href={item.receiptLink} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink size={14} /></a>}</div></label>
             <label className="expense-mobile-wide"><span>Notes</span><input value={item.notes || ''} onChange={(event) => update(item.id, 'notes', event.target.value)} /></label>
@@ -280,6 +297,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
 
     {documentDraft && <DocumentCaptureSheet file={documentDraft.file} sourceMode={documentDraft.sourceMode} initialContext={documentDraft.initialContext} properties={properties} contractors={contractors} contractorTags={contractorTags} companyName={companyName} onCancel={() => setDocumentDraft(null)} onSave={addUploadedDocument} />}
 
+    {previewItem?.document && <DocumentViewer document={previewItem.document} onClose={() => setPreviewItem(null)} />}
 
     {mobileTransferOpen && <div className="expense-transfer-layer" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) setMobileTransferOpen(false)
