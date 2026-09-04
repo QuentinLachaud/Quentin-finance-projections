@@ -165,6 +165,17 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
               onClick={() => setExpandedId(expanded ? '' : loan.id)}
             >
               <span className="loan-primary"><strong>{loan.lender || 'Lender not set'}</strong><small>{property ? property.name : 'Manual / unlinked loan'} · {loan.interestOnly !== false ? 'Interest only' : 'Repayment'}</small></span>
+              <span className="loan-mobile-summary">
+                <span className="loan-mobile-amounts">
+                  <span><small>Balance</small><strong>{currency(loan.loanAmount)}</strong></span>
+                  <span><small>Monthly payment</small><strong>{currency(costs.monthlyPayment)}</strong></span>
+                </span>
+                <span className="loan-mobile-meta">
+                  <span><strong>{rateLabel(loan.rate)}</strong><small>Rate</small></span>
+                  <span><strong>{Number(loan.fixedRateMonths || 0) ? `${Number(loan.fixedRateMonths)} mo` : 'Not set'}</strong><small>{fixed.detail || 'Fixed period'}</small></span>
+                  <span><strong>{actual > 0 ? `${actual.toFixed(1)}%` : '—'}</strong><small>{band ? `${band}% band` : 'LTV'}</small></span>
+                </span>
+              </span>
               <span className="loan-cell"><small>Loan balance</small><strong>{currency(loan.loanAmount)}</strong></span>
               <span className="loan-cell"><small>Rate</small><strong>{rateLabel(loan.rate)}</strong></span>
               <span className="loan-cell"><small>Fixed period</small><strong>{fixed.main}</strong>{fixed.detail && <small>{fixed.detail}</small>}</span>
