@@ -36,13 +36,16 @@ import { confirmPrivateIncome, privateIncomeIsKnown } from './accountMode.js'
 import { supportConfig } from './support.js'
 import { exportTabularReport } from './reportExports.js'
 import { bufferStrokeOffset, bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
+import NotificationCenter, { NotificationBell } from './NotificationCenter.jsx'
+import { actionableNotifications, complianceDiaryItems, dismissNotification, normalizeNotificationPreferences, snoozeNotification } from './notifications.js'
+import { disablePushNotifications, enablePushNotifications, syncPushNotifications } from './notificationPush.js'
 
 // Keep the completed Open Banking workspace dormant until a production data
 // provider is available. It can be restored without code changes at deploy time.
 const BANKING_ENABLED = import.meta.env.VITE_BANKING_ENABLED === 'true'
 const SUPPORT = supportConfig({ enabled: import.meta.env.VITE_SUPPORT_ENABLED, url: import.meta.env.VITE_BUY_ME_A_COFFEE_URL || 'https://buymeacoffee.com/btlportfolio.co.uk' })
 
-const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, privateIncomeConfirmed: false, taxJurisdiction: 'england' }
+const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, privateIncomeConfirmed: false, taxJurisdiction: 'england', notificationsEnabled: true, pushNotificationsEnabled: false }
 const percentInputValue = (value) => Number((Number(value || 0) * 100).toFixed(4))
 const moneyInputValue = (value) => Number(Number(value || 0).toFixed(2))
 const editableFieldIndex = new Map(editableSections.flatMap((section) => section.fields.map((field) => [field[0], field])))
@@ -1539,6 +1542,18 @@ function ModelInputsPopup({ settings, onSettingChange, onPercentChange, onClose 
   </div>
 }
 
+function SettingsSwitch({ checked, disabled = false, label, onChange }) {
+  return <button
+    type="button"
+    role="switch"
+    aria-checked={Boolean(checked)}
+    aria-label={label}
+    disabled={disabled}
+    className={`settings-switch ${checked ? 'on' : ''}`}
+    onClick={() => onChange(!checked)}
+  ><span aria-hidden="true" /></button>
+}
+
 function PortfolioApp({ user }) {
   const [state, setState] = useState(null)
   const [entitlement, setEntitlement] = useState(null)
@@ -1573,6 +1588,8 @@ function PortfolioApp({ user }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [modelInputsPopupOpen, setModelInputsPopupOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(() => new URLSearchParams(window.location.search).get('notifications') === '1')
+  const [pushStatus, setPushStatus] = useState('idle')
   const [privateIncomePromptOpen, setPrivateIncomePromptOpen] = useState(false)
   const accentKey = accentStorageKey(user.id)
   const [accentHue, setAccentHue] = useState(() => initialAccent(window.localStorage.getItem(accentKey)))
@@ -1673,6 +1690,7 @@ function PortfolioApp({ user }) {
         nextBtlPreferences: normalizeNextBtlPreferences(portfolioState.nextBtlPreferences),
         costsCashflowPreferences: normalizeMoneyEntryPreferences(portfolioState.costsCashflowPreferences),
         remortgageComparisons: mortgageMigration.comparisons,
+        notificationPreferences: normalizeNotificationPreferences(portfolioState.notificationPreferences),
         settings: {
           ...defaultSettings,
           ...existingAccountDefaults,
@@ -1724,6 +1742,15 @@ function PortfolioApp({ user }) {
     return () => window.clearTimeout(timer)
   }, [state, user.id])
 
+  useEffect(() => {
+    if (!state?.settings.pushNotificationsEnabled || state.settings.notificationsEnabled === false) return undefined
+    let active = true
+    syncPushNotifications()
+      .then((result) => { if (active) setPushStatus(result.status) })
+      .catch(() => { if (active) setPushStatus('error') })
+    return () => { active = false }
+  }, [state?.settings.pushNotificationsEnabled, state?.settings.notificationsEnabled, user.id])
+
   if (loadError) return <div className="app-status-screen"><CloudOff size={32} /><h1>We couldn’t load your portfolio</h1><p>{loadError}</p><button className="primary-button" onClick={() => window.location.reload()}>Try again</button></div>
   if (!state) return <div className="app-status-screen"><span className="loading-mark"><Building2 /></span><h1>Loading your private portfolio…</h1></div>
 
@@ -1739,6 +1766,12 @@ function PortfolioApp({ user }) {
   const includedProperties = includedPortfolioProperties(state.properties)
   const includedCalculated = includedPortfolioProperties(calculated)
   const includedTenants = tenantsForIncludedProperties(state.tenants, state.properties)
+
+  const upcomingNotifications = actionableNotifications({
+    properties: includedCalculated,
+    preferences: state.notificationPreferences,
+    enabled: state.settings.notificationsEnabled !== false,
+  })
 
   const editing = pendingProperty || state.properties.find((p) => p.id === editingId)
   const effectiveEntitlement = normalizeEntitlement(entitlement)
@@ -1840,6 +1873,19 @@ function PortfolioApp({ user }) {
   const updateNextBtlPreferences = (nextBtlPreferences) => setState((current) => ({ ...current, nextBtlPreferences: normalizeNextBtlPreferences(nextBtlPreferences) }))
   const updateCostsCashflowPreferences = (costsCashflowPreferences) => setState((current) => ({ ...current, costsCashflowPreferences: normalizeMoneyEntryPreferences(costsCashflowPreferences) }))
   const updateRemortgageComparisons = (remortgageComparisons) => setState((current) => ({ ...current, remortgageComparisons }))
+  const dismissReminder = (event) => setState((current) => ({ ...current, notificationPreferences: dismissNotification(current.notificationPreferences, event) }))
+  const snoozeReminder = (event) => setState((current) => ({ ...current, notificationPreferences: snoozeNotification(current.notificationPreferences, event) }))
+  const changePushNotifications = async (enabled) => {
+    setPushStatus('working')
+    try {
+      const result = enabled ? await enablePushNotifications() : await disablePushNotifications()
+      setPushStatus(result.status)
+      if (enabled && result.status !== 'subscribed') return
+      updateSetting('pushNotificationsEnabled', enabled)
+    } catch {
+      setPushStatus('error')
+    }
+  }
   const saveLoan = (loan) => setState((current) => applyLoanToPortfolio(current, loan))
   const removeLoan = (id) => setState((current) => ({ ...current, loans: (current.loans || []).filter((loan) => loan.id !== id) }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
@@ -1985,9 +2031,9 @@ function PortfolioApp({ user }) {
         >
           <header>
             <div>
-              <span className="kicker">APPEARANCE</span>
+              <span className="kicker">PREFERENCES</span>
               <h2 id="settings-title">Settings</h2>
-              <p>Choose the accent used for navigation, controls and key interface highlights.</p>
+              <p>Control appearance and quiet reminders for your portfolio.</p>
             </div>
             <button type="button" className="settings-close" onClick={() => setSettingsOpen(false)} aria-label="Close settings"><X size={19} /></button>
           </header>
@@ -2015,14 +2061,54 @@ function PortfolioApp({ user }) {
               })}
             </div>
           </div>
+
+          <div className="settings-section">
+            <div className="settings-section-copy">
+              <h3>Notifications</h3>
+              <p>Quiet reminders for remortgage windows and upcoming property compliance dates.</p>
+            </div>
+            <div className="settings-notification-controls">
+              <div className="settings-toggle-row">
+                <span><b>Notifications</b><small>Show upcoming reminders in the app</small></span>
+                <SettingsSwitch
+                  label="Notifications"
+                  checked={state.settings.notificationsEnabled !== false}
+                  onChange={(enabled) => updateSetting('notificationsEnabled', enabled)}
+                />
+              </div>
+              <div className="settings-toggle-row">
+                <span><b>Push notifications</b><small>Also notify this browser/device when a reminder becomes actionable</small></span>
+                <SettingsSwitch
+                  label="Push notifications"
+                  checked={state.settings.pushNotificationsEnabled === true}
+                  disabled={state.settings.notificationsEnabled === false || pushStatus === 'working'}
+                  onChange={changePushNotifications}
+                />
+              </div>
+              {pushStatus === 'unsupported' && <p className="settings-push-status">Push notifications are not supported on this browser/device.</p>}
+              {pushStatus === 'denied' && <p className="settings-push-status">Browser notification permission is blocked. Allow it in browser settings before enabling push.</p>}
+              {pushStatus === 'not-configured' && <p className="settings-push-status">Push delivery is not configured on this deployment yet.</p>}
+              {pushStatus === 'error' && <p className="settings-push-status">Push could not be updated. Your in-app reminders are unaffected.</p>}
+            </div>
+          </div>
         </section>
       </div>}
 
       <main>
         <header className="topbar">
           <div className="topbar-context"><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span className="topbar-portfolio-name">{portfolioName}</span><b className="topbar-context-separator">/</b><strong>{section}</strong></div>
-          <div className="topbar-actions"><AccountModeSwitch accountType={state.settings.accountType} onChange={requestAccountType} /><button className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><button className="secondary-button small topbar-reset" onClick={reset} title="Reset portfolio model assumptions"><RotateCcw size={15} /> Reset model</button></div>
+          <div className="topbar-actions"><AccountModeSwitch accountType={state.settings.accountType} onChange={requestAccountType} /><NotificationBell count={upcomingNotifications.length} enabled={state.settings.notificationsEnabled !== false} open={notificationsOpen} onClick={() => setNotificationsOpen((current) => !current)} /><button className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><button className="secondary-button small topbar-reset" onClick={reset} title="Reset portfolio model assumptions"><RotateCcw size={15} /> Reset model</button></div>
         </header>
+
+        <NotificationCenter
+          open={notificationsOpen}
+          enabled={state.settings.notificationsEnabled !== false}
+          items={upcomingNotifications}
+          onClose={() => setNotificationsOpen(false)}
+          onSnooze={snoozeReminder}
+          onDismiss={dismissReminder}
+          onOpenSettings={() => { setNotificationsOpen(false); setSettingsOpen(true) }}
+        />
 
         <div className="content">
           <section className="hero-row">
@@ -2270,7 +2356,7 @@ function PortfolioApp({ user }) {
             onUpgrade={() => setUpgradeOpen(true)}
           />}
 
-          {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{includedCalculated.flatMap((p) => [['Call broker',p.brokerDate],['Gas certificate',p.gasExpiry],['EICR',p.eicrExpiry],['PAT testing',p.patExpiry],['EPC',p.epcExpiry]].map(([label,date]) => ({ property:p.name,label,date:calendarDate(date) }))).filter((item) => item.date).sort((a,b) => a.date-b.date).map((item, index) => <div key={`${item.property}-${item.label}`}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.property}</small></p><time>{shortDate(item.date)}</time></div>)}</div></section>}
+          {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{complianceDiaryItems(includedCalculated).map((item, index) => <div key={item.key}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.propertyName}</small></p><time>{shortDate(calendarDate(item.displayDate))}</time></div>)}</div></section>}
 
           {section === 'Companies House' && state.settings.accountType !== 'private' && <CompaniesHouseWorkspace settings={state.settings} onSettingChange={updateSetting} />}
         </div>

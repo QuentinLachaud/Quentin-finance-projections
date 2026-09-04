@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { addMonths, calculateProperty, shortDate } from './calculations.js'
 import { createBlankProperty, editableSections } from './data.js'
 import { calendarDate, dateInputValue } from './dateUtils.js'
+import { complianceDiaryItems } from './notifications.js'
 import { syncPropertyTenant, tenantTenure } from './tenants.js'
 
 const app = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8')
@@ -79,7 +80,8 @@ describe('optional property and compliance dates', () => {
     expect(app).toContain("type === 'date' ? dateInputValue(draft[key])")
     expect(app).toContain('aria-label={`Clear ${label}`}')
     expect(app).toContain("onClick={(event) => { event.preventDefault(); update(key, '', type) }}")
-    expect(app).toContain('date:calendarDate(date)')
+    const diary = complianceDiaryItems([{ id: 'p1', name: 'Test BTL', active: true, gasExpiry: '2027-03-14T00:00:00.000Z' }])
+    expect(diary.find((item) => item.type === 'gas')?.dueDate).toBe('2027-03-14')
     expect(app).not.toContain('date:new Date(date instanceof Date ? date : `${date}T12:00:00`)')
   })
 })

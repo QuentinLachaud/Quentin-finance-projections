@@ -60,3 +60,20 @@ The calculation engine mirrors the relationships used by the Google Sheet dashbo
 - weighted portfolio interest rate and cash safety buffer
 
 This is a planning tool, not financial or tax advice.
+## Notifications and Web Push
+
+The in-app reminder centre works from the dates already stored in each portfolio. Remortgage reminders open three calendar months before the next remortgage/end-of-fix date; gas, EICR, PAT and EPC reminders open 14 days before expiry. In-app reminders default on. Web Push is separate and opt-in.
+
+To enable push in a deployment:
+
+1. Apply `supabase/migrations/20260904_notifications_push.sql` to the Supabase project. It creates server-only subscription/delivery tables and an hourly `pg_cron` + `pg_net` job.
+2. Run `npm run push:keys` once. Set the printed public key as both `VITE_PUSH_VAPID_PUBLIC_KEY` (build-time client value) and `PUSH_VAPID_PUBLIC_KEY` (server value), and set the private key only as `PUSH_VAPID_PRIVATE_KEY` in Cloudflare Pages. Set `PUSH_VAPID_SUBJECT` to a `mailto:` address or HTTPS site URL. Never expose the private key as a `VITE_` variable.
+3. Generate a long random `NOTIFICATION_DISPATCH_SECRET` and set it in Cloudflare Pages.
+4. Store the dispatch URL and the same secret in Supabase Vault. The installed cron job starts making calls automatically once both names exist:
+
+```sql
+select vault.create_secret('https://btlportfolio.co.uk/api/push-dispatch', 'notification_dispatch_url');
+select vault.create_secret('replace-with-the-same-long-random-secret', 'notification_dispatch_secret');
+```
+
+The cron endpoint checks Europe/London time and only sends during 09:00-17:59. It records one successful delivery claim per reminder/snooze cycle, uses low Web Push urgency, collapses duplicate device notifications, and removes subscriptions reported gone by the push service. An authorised manual test can POST to `/api/push-dispatch?force=1` with the `x-notification-dispatch-secret` header.
