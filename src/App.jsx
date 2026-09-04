@@ -18,6 +18,7 @@ import BankWorkspace from './BankWorkspace.jsx'
 import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import CredentialsWorkspace from './CredentialsWorkspace.jsx'
+import LoansWorkspace from './LoansWorkspace.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 import AcquisitionSimulator from './AcquisitionSimulator.jsx'
 import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
@@ -28,6 +29,7 @@ import { PROPERTY_EDITOR_CORE_KEYS, PROPERTY_EDITOR_OPTIONAL_SECTIONS, propertyF
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
+import { applyLoanToPortfolio, normalizeLoans, syncPropertyMortgage } from './loans.js'
 import MoneyPeriodInput from './MoneyPeriodInput.jsx'
 import { moneyEntryPeriodFor, normalizeMoneyEntryPreferences, setMoneyEntryPeriod } from './moneyPeriods.js'
 import { confirmPrivateIncome, privateIncomeIsKnown } from './accountMode.js'
@@ -125,6 +127,7 @@ const modelInputFields = [
 const workspaceNavigation = [
   ['Overview', 'Overview', Gauge, 'PORTFOLIO'],
   ['Properties', 'Properties', Home, 'PORTFOLIO'],
+  ['Loans', 'Loans', PoundSterling, 'PORTFOLIO'],
   ['Tenants', 'Tenants', Users, 'PORTFOLIO'],
   ['Costs & Cash Flows', 'Costs', ReceiptText, 'PORTFOLIO'],
   ['Expenses', 'Expenses', FileText, 'PORTFOLIO'],
@@ -150,6 +153,11 @@ const sectionMeta = {
     eyebrow: 'PROPERTY DETAILS',
     title: 'Properties',
     description: 'Compare the key facts, values, borrowing and performance of each BTL.',
+  },
+  Loans: {
+    eyebrow: 'PORTFOLIO FINANCE',
+    title: 'Loans',
+    description: 'See every live mortgage and loan at a glance, with linked BTL financing kept in sync.',
   },
   Tenants: {
     eyebrow: 'TENANCIES',
@@ -1646,9 +1654,11 @@ function PortfolioApp({ user }) {
           mortgageOverrideLoanAmount: null,
         }))
       const migratedTenants = importPropertyTenants(migratedProperties, portfolioState.tenants)
+      const migratedLoans = normalizeLoans(portfolioState.loans, migratedProperties)
       loaded.current = true
       setState({
         properties: migratedProperties,
+        loans: migratedLoans,
         tenants: migratedTenants,
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
@@ -1736,7 +1746,21 @@ function PortfolioApp({ user }) {
     if (!state.properties.some((property) => property.id === draft.id) && !requestPropertySlot()) return
     setState((current) => {
       const synced = syncPropertyTenant(draft, current.tenants)
-      return { ...current, tenants: synced.tenants, properties: current.properties.some((p) => p.id === draft.id) ? current.properties.map((p) => p.id === draft.id ? synced.property : p) : [...current.properties, synced.property] }
+      const properties = current.properties.some((property) => property.id === draft.id)
+        ? current.properties.map((property) => property.id === draft.id ? synced.property : property)
+        : [...current.properties, synced.property]
+      const mortgageSync = syncPropertyMortgage({
+        property: synced.property,
+        loans: current.loans || [],
+        comparisons: current.remortgageComparisons || [],
+      })
+      return {
+        ...current,
+        tenants: synced.tenants,
+        properties,
+        loans: mortgageSync.loans,
+        remortgageComparisons: mortgageSync.comparisons,
+      }
     })
     closeEditor()
   }
@@ -1808,6 +1832,8 @@ function PortfolioApp({ user }) {
   const updateNextBtlPreferences = (nextBtlPreferences) => setState((current) => ({ ...current, nextBtlPreferences: normalizeNextBtlPreferences(nextBtlPreferences) }))
   const updateCostsCashflowPreferences = (costsCashflowPreferences) => setState((current) => ({ ...current, costsCashflowPreferences: normalizeMoneyEntryPreferences(costsCashflowPreferences) }))
   const updateRemortgageComparisons = (remortgageComparisons) => setState((current) => ({ ...current, remortgageComparisons }))
+  const saveLoan = (loan) => setState((current) => applyLoanToPortfolio(current, loan))
+  const removeLoan = (id) => setState((current) => ({ ...current, loans: (current.loans || []).filter((loan) => loan.id !== id) }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
     tenants: current.tenants.some((item) => item.id === tenant.id) ? current.tenants.map((item) => item.id === tenant.id ? tenant : item) : [...current.tenants, tenant],
@@ -2190,6 +2216,8 @@ function PortfolioApp({ user }) {
           {section === 'Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} accountType={state.settings.accountType} onChange={updateExpenses} />}
 
           {section === 'IDs & Credentials' && <CredentialsWorkspace credentials={state.credentials || []} onChange={updateCredentials} />}
+
+          {section === 'Loans' && <LoansWorkspace loans={state.loans || []} properties={calculated} onSave={saveLoan} onDelete={removeLoan} />}
 
           {section === 'Tenants' && <TenantsWorkspace tenants={includedTenants} properties={includedProperties} onSave={saveTenant} onRemove={removeTenant} />}
 
