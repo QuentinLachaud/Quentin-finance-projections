@@ -21,6 +21,7 @@ import CredentialsWorkspace from './CredentialsWorkspace.jsx'
 import LoansWorkspace from './LoansWorkspace.jsx'
 import ContractorsWorkspace from './ContractorsWorkspace.jsx'
 import PropertyTimeline from './PropertyTimeline.jsx'
+import PerformanceWorkspace from './PerformanceWorkspace.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 import AcquisitionSimulator from './AcquisitionSimulator.jsx'
 import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
@@ -34,6 +35,7 @@ import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
 import { applyLoanToPortfolio, normalizeLoans, reconcileLoanPortfolio, syncPropertyMortgage, updatePropertyMortgageInput } from './loans.js'
 import { normalizeContractor, normalizeContractors, normalizeContractorTags } from './contractors.js'
 import { loanChangeEvents, normalizePropertyTimelineEvents, normalizeTimelineEvent, propertyChangeEvents } from './propertyTimeline.js'
+import { normalizePerformanceEvents } from './performance.js'
 import MoneyPeriodInput from './MoneyPeriodInput.jsx'
 import { moneyEntryPeriodFor, normalizeMoneyEntryPreferences, setMoneyEntryPeriod } from './moneyPeriods.js'
 import { confirmPrivateIncome, privateIncomeIsKnown } from './accountMode.js'
@@ -135,6 +137,7 @@ const modelInputFields = [
 const workspaceNavigation = [
   ['Overview', 'Overview', Gauge, 'PORTFOLIO'],
   ['Properties', 'Properties', Home, 'PORTFOLIO'],
+  ['Performance', 'Performance', TrendingUp, 'PORTFOLIO'],
   ['Loans', 'Loans', PoundSterling, 'PORTFOLIO'],
   ['Tenants', 'Tenants', Users, 'PORTFOLIO'],
   ['Contractors', 'Contractors', Wrench, 'PORTFOLIO'],
@@ -161,6 +164,11 @@ const sectionMeta = {
   Properties: {
     eyebrow: 'PROPERTY DETAILS',
     title: 'Properties',
+    description: '',
+  },
+  Performance: {
+    eyebrow: 'INVESTMENT RETURN',
+    title: 'Performance',
     description: '',
   },
   Loans: {
@@ -1709,6 +1717,7 @@ function PortfolioApp({ user }) {
         contractors: migratedContractors,
         contractorTags: migratedContractorTags,
         propertyTimelineEvents: normalizePropertyTimelineEvents(portfolioState.propertyTimelineEvents, migratedProperties),
+        performanceEvents: normalizePerformanceEvents(portfolioState.performanceEvents, migratedProperties),
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
         acquisitionScenarios: Array.isArray(portfolioState.acquisitionScenarios) ? portfolioState.acquisitionScenarios : [],
@@ -1904,7 +1913,7 @@ function PortfolioApp({ user }) {
     setEditingId(null)
   }
   const removeProperty = (id) => {
-    setState((current) => ({ ...current, properties: current.properties.filter((p) => p.id !== id), tenants: removeTenantsForProperty(current.tenants, id), propertyTimelineEvents: (current.propertyTimelineEvents || []).filter((event) => event.propertyId !== id) }))
+    setState((current) => ({ ...current, properties: current.properties.filter((p) => p.id !== id), tenants: removeTenantsForProperty(current.tenants, id), propertyTimelineEvents: (current.propertyTimelineEvents || []).filter((event) => event.propertyId !== id), performanceEvents: (current.performanceEvents || []).filter((event) => event.propertyId !== id) }))
     closeEditor()
   }
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
@@ -1979,6 +1988,7 @@ function PortfolioApp({ user }) {
   const updateAcquisitionScenarios = (acquisitionScenarios) => setState((current) => ({ ...current, acquisitionScenarios }))
   const updateNextBtlPreferences = (nextBtlPreferences) => setState((current) => ({ ...current, nextBtlPreferences: normalizeNextBtlPreferences(nextBtlPreferences) }))
   const updateCostsCashflowPreferences = (costsCashflowPreferences) => setState((current) => ({ ...current, costsCashflowPreferences: normalizeMoneyEntryPreferences(costsCashflowPreferences) }))
+  const updatePerformanceEvents = (performanceEvents) => setState((current) => ({ ...current, performanceEvents: normalizePerformanceEvents(performanceEvents, current.properties || []) }))
   const savePropertyTimelineEvent = (event) => setState((current) => {
     const normalized = normalizeTimelineEvent(event)
     if (!normalized || !current.properties.some((property) => property.id === normalized.propertyId)) return current
@@ -2455,6 +2465,18 @@ function PortfolioApp({ user }) {
             </div>
             </>}
           </>}
+
+          {section === 'Performance' && <PerformanceWorkspace
+            properties={includedCalculated}
+            loans={state.loans || []}
+            expenses={state.expenses || []}
+            timelineEvents={state.propertyTimelineEvents || []}
+            performanceEvents={state.performanceEvents || []}
+            settings={state.settings}
+            onEventsChange={updatePerformanceEvents}
+            onAssumptionChange={updateSetting}
+            onOpenExpenses={() => setSection('Documents & Expenses')}
+          />}
 
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onPropertyCommit={commitPropertyTimelineField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
 
