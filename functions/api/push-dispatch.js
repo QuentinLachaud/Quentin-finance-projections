@@ -3,6 +3,8 @@ import { actionableNotifications, notificationCycleKey, normalizeNotificationPre
 import { adminRequest, json } from './_billing.js'
 import { vapidConfigForEnv } from './_pushVapid.js'
 
+const CRON_TRIGGER_TOKEN = 'btlportfolio-pg-cron-v1'
+
 const safeEqual = (left = '', right = '') => {
   if (left.length !== right.length) return false
   let mismatch = 0
@@ -63,11 +65,14 @@ const removeGone = (env, userId, endpoints) => Promise.all(endpoints.map((endpoi
 export async function onRequestPost({ request, env }) {
   const configuredSecret = String(env.NOTIFICATION_DISPATCH_SECRET || '')
   const suppliedSecret = String(request.headers.get('x-notification-dispatch-secret') || '')
-  if (!configuredSecret || !safeEqual(configuredSecret, suppliedSecret)) return json({ error: 'Unauthorised.' }, 401)
+  const suppliedCronToken = String(request.headers.get('x-btl-cron-trigger') || '')
+  const secretAuthorized = Boolean(configuredSecret && safeEqual(configuredSecret, suppliedSecret))
+  const cronAuthorized = safeEqual(CRON_TRIGGER_TOKEN, suppliedCronToken)
+  if (!secretAuthorized && !cronAuthorized) return json({ error: 'Unauthorised.' }, 401)
 
   const url = new URL(request.url)
   const now = new Date()
-  const force = url.searchParams.get('force') === '1'
+  const force = secretAuthorized && url.searchParams.get('force') === '1'
   const hour = londonHour(now)
   if (!force && (hour < 9 || hour > 17)) return json({ ok: true, skipped: 'outside_delivery_window' })
 
