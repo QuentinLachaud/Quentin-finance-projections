@@ -1,7 +1,8 @@
 import { getCurrentSubscription, getNotificationPermission, isPushSupported, serializeSubscription, subscribe, unsubscribe } from '@mmmike/web-push/client'
 import { supabase } from './supabase.js'
+import './mobilePush.css'
 
-const vapidPublicKey = import.meta.env.VITE_PUSH_VAPID_PUBLIC_KEY || ''
+let cachedVapidPublicKey = import.meta.env.VITE_PUSH_VAPID_PUBLIC_KEY || ''
 
 const authHeaders = async () => {
   const { data } = await supabase.auth.getSession()
@@ -11,6 +12,27 @@ const authHeaders = async () => {
 }
 
 const registerServiceWorker = async () => navigator.serviceWorker.register('/push-sw.js')
+const mobileMediaMatches = (query) => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches
+
+export const isMobilePushDevice = () => {
+  if (typeof navigator === 'undefined') return false
+  const phoneWidth = mobileMediaMatches('(max-width: 760px)')
+  const touchCapable = Number(navigator.maxTouchPoints || 0) > 0 || mobileMediaMatches('(pointer: coarse)')
+  return phoneWidth && touchCapable
+}
+
+const loadVapidPublicKey = async () => {
+  if (cachedVapidPublicKey) return cachedVapidPublicKey
+  try {
+    const response = await fetch('/api/push-config', { headers: { accept: 'application/json' } })
+    if (!response.ok) return ''
+    const payload = await response.json()
+    cachedVapidPublicKey = typeof payload?.publicKey === 'string' ? payload.publicKey.trim() : ''
+    return cachedVapidPublicKey
+  } catch {
+    return ''
+  }
+}
 
 const uploadSubscription = async (subscription) => {
   const response = await fetch('/api/push-subscription', {
@@ -32,13 +54,15 @@ const removeServerSubscription = async (endpoint) => {
 }
 
 export const pushCapability = () => {
+  if (!isMobilePushDevice()) return 'mobile-only'
   if (!isPushSupported()) return 'unsupported'
-  if (!vapidPublicKey) return 'not-configured'
   return getNotificationPermission()
 }
 
 export const enablePushNotifications = async () => {
+  if (!isMobilePushDevice()) return { status: 'mobile-only' }
   if (!isPushSupported()) return { status: 'unsupported' }
+  const vapidPublicKey = await loadVapidPublicKey()
   if (!vapidPublicKey) return { status: 'not-configured' }
   await registerServiceWorker()
   const result = await subscribe(vapidPublicKey)
@@ -48,7 +72,9 @@ export const enablePushNotifications = async () => {
 }
 
 export const syncPushNotifications = async () => {
+  if (!isMobilePushDevice()) return { status: 'mobile-only' }
   if (!isPushSupported()) return { status: 'unsupported' }
+  const vapidPublicKey = await loadVapidPublicKey()
   if (!vapidPublicKey) return { status: 'not-configured' }
   if (getNotificationPermission() !== 'granted') return { status: getNotificationPermission() }
   await registerServiceWorker()
@@ -61,6 +87,7 @@ export const syncPushNotifications = async () => {
 }
 
 export const disablePushNotifications = async () => {
+  if (!isMobilePushDevice()) return { status: 'mobile-only' }
   if (!isPushSupported()) return { status: 'unsupported' }
   await registerServiceWorker()
   const endpoint = await unsubscribe()
