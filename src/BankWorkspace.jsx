@@ -6,7 +6,7 @@ import {
 import { supabase } from './supabase.js'
 import {
   aggregateCashFlow, BANK_CATEGORIES, calculateBankMetrics, cashHeldFromAccounts,
-  deduplicateTransactions, detectInternalTransfers, mapStoredBankTransaction, reconstructBalanceSeries, reportingAccountIds,
+  bankTransactionStatePatch, deduplicateTransactions, detectInternalTransfers, mapStoredBankTransaction, reconstructBalanceSeries, reportingAccountIds,
   summarizeCashFlowPipeline, transactionsToCsv, trueCashFlowTransactions,
 } from './banking.js'
 import { currency, shortDate } from './calculations.js'
@@ -291,34 +291,30 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
   }
 
   const updateTransactionMeta = async (transaction, patch) => {
-    const { error: updateError } = await supabase.from('bank_transactions').update(patch).eq('id', transaction.id)
-    if (updateError) { setError(updateError.message); return }
-    const mappedPatch = {
-      ...(Object.hasOwn(patch, 'category') ? { category: patch.category } : {}),
-      ...(Object.hasOwn(patch, 'is_transfer') ? { isTransfer: patch.is_transfer } : {}),
-      ...(Object.hasOwn(patch, 'category_overridden') ? { categoryOverridden: patch.category_overridden } : {}),
-      ...(Object.hasOwn(patch, 'property_id') ? { propertyId: patch.property_id || '' } : {}),
-      ...(Object.hasOwn(patch, 'performance_treatment') ? { performanceTreatment: patch.performance_treatment } : {}),
-      ...(Object.hasOwn(patch, 'exclude_from_performance') ? { excludeFromPerformance: patch.exclude_from_performance } : {}),
-    }
+    const mappedPatch = bankTransactionStatePatch(patch)
     setTransactions((current) => current.map((row) => row.id === transaction.id ? { ...row, ...mappedPatch } : row))
+    const { error: updateError } = await supabase.from('bank_transactions').update(patch).eq('id', transaction.id)
+    if (updateError) {
+      setError(updateError.message)
+      await loadData().catch(() => {})
+      return false
+    }
+    return true
   }
 
   const updateTransactionsMeta = async (targets, patch) => {
     const ids = [...new Set((targets || []).map((transaction) => transaction?.id).filter(Boolean))]
-    if (!ids.length) return
-    const { error: updateError } = await supabase.from('bank_transactions').update(patch).in('id', ids)
-    if (updateError) { setError(updateError.message); return }
-    const mappedPatch = {
-      ...(Object.hasOwn(patch, 'category') ? { category: patch.category } : {}),
-      ...(Object.hasOwn(patch, 'is_transfer') ? { isTransfer: patch.is_transfer } : {}),
-      ...(Object.hasOwn(patch, 'category_overridden') ? { categoryOverridden: patch.category_overridden } : {}),
-      ...(Object.hasOwn(patch, 'property_id') ? { propertyId: patch.property_id || '' } : {}),
-      ...(Object.hasOwn(patch, 'performance_treatment') ? { performanceTreatment: patch.performance_treatment } : {}),
-      ...(Object.hasOwn(patch, 'exclude_from_performance') ? { excludeFromPerformance: patch.exclude_from_performance } : {}),
-    }
+    if (!ids.length) return false
+    const mappedPatch = bankTransactionStatePatch(patch)
     const idSet = new Set(ids)
     setTransactions((current) => current.map((row) => idSet.has(row.id) ? { ...row, ...mappedPatch } : row))
+    const { error: updateError } = await supabase.from('bank_transactions').update(patch).in('id', ids)
+    if (updateError) {
+      setError(updateError.message)
+      await loadData().catch(() => {})
+      return false
+    }
+    return true
   }
 
   const deleteConnection = async (connection) => {

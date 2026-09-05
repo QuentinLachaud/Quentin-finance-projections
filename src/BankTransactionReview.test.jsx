@@ -27,4 +27,16 @@ describe('BankTransactionReview minimal-input UX', () => {
     ]} properties={[]} onUpdate={() => {}} onUpdateMany={() => {}} />)
     expect(html).toContain('No transactions need review.')
   })
+
+  it('counts only unresolved exact matches for Apply to similar', () => {
+    const sameParty = { counterparty: 'Tenant One' }
+    const html = renderToStaticMarkup(<BankTransactionReview transactions={[
+      row('source', 1100, 'Tenant One ref:', sameParty),
+      row('peer', 1100, 'Tenant One ref:', sameParty),
+      row('reviewed', 1100, 'Tenant One ref:', { ...sameParty, category: 'rent', propertyId: 'p1' }),
+    ]} properties={[{ id: 'p1', name: 'BTL1' }]} onUpdate={() => true} onUpdateMany={() => true} />)
+    expect(html).toContain('Apply to 1 similar')
+    expect(html).not.toContain('Apply to 2 similar')
+  })
+
 })

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react'
 import { AlertCircle, Check, EyeOff, Sparkles } from 'lucide-react'
 import {
-  BANK_CATEGORIES, performanceTreatmentForTransaction, similarTransactionsFor,
-  sortTransactionsForReview, transactionNeedsReview,
+  BANK_CATEGORIES, performanceTreatmentForTransaction, reviewPropagationPatch,
+  reviewTransactionsForDisplay, similarTransactionsNeedingReviewFor, transactionNeedsReview,
 } from './banking.js'
 
 const money = (value) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 2 }).format(Number(value || 0))
@@ -19,9 +19,14 @@ export default function BankTransactionReview({ transactions, properties = [], o
   const [mode, setMode] = useState('review')
   const [sortMode, setSortMode] = useState('amount')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [activeReviewId, setActiveReviewId] = useState('')
   const reviewRows = useMemo(() => transactions.filter((transaction) => transactionNeedsReview(transaction, properties)), [transactions, properties])
   const reviewCount = reviewRows.length
-  const visible = useMemo(() => sortTransactionsForReview(mode === 'review' ? reviewRows : transactions, sortMode).slice(0, 120), [transactions, reviewRows, mode, sortMode])
+  const visible = useMemo(() => reviewTransactionsForDisplay(transactions, properties, { mode, sortMode, activeReviewId }).slice(0, 120), [transactions, properties, mode, sortMode, activeReviewId])
+  const updateOne = (transaction, patch) => {
+    if (transaction?.id) setActiveReviewId(String(transaction.id))
+    return onUpdate?.(transaction, patch)
+  }
   if (!transactions.length) return null
 
   return <section className="panel bank-review-panel">
@@ -30,24 +35,22 @@ export default function BankTransactionReview({ transactions, properties = [], o
     {!visible.length ? <div className="bank-review-empty"><Check size={18} /><span>No transactions need review.</span></div> : <div className="bank-review-list">{visible.map((transaction) => {
       const needsReview = transactionNeedsReview(transaction, properties)
       const treatment = performanceTreatmentForTransaction(transaction)
-      const similar = similarTransactionsFor(transaction, transactions)
+      const similar = similarTransactionsNeedingReviewFor(transaction, transactions, properties)
       const propertyRelevant = ['operating', 'financing', 'review'].includes(treatment) || Boolean(transaction.propertyId)
-      const applyToSimilar = () => onUpdateMany?.([transaction, ...similar], {
-        category: transaction.category,
-        category_overridden: true,
-        is_transfer: transaction.category === 'transfer',
-        property_id: transaction.propertyId || null,
-        performance_treatment: transaction.performanceTreatment || 'auto',
-        exclude_from_performance: transaction.excludeFromPerformance === true,
-      })
+      const isActiveReview = activeReviewId === String(transaction?.id || '')
+      const applyToSimilar = async () => {
+        const result = await onUpdateMany?.([transaction, ...similar], reviewPropagationPatch(transaction))
+        if (result !== false) setActiveReviewId('')
+      }
       return <article className={needsReview ? 'needs-review' : ''} key={transaction.id || `${transaction.accountId}:${transaction.transactionKey}`}>
         <div className="bank-review-main"><span>{needsReview && <AlertCircle size={14} />}<b>{transaction.description || transaction.counterparty || 'Transaction'}</b><small>{transaction.bookedAt} · {transaction.accountName || 'Bank account'} · Auto → {treatmentLabels[treatment] || treatment}</small></span><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount)}</strong></div>
         <div className="bank-review-controls">
-          <label><span>Category</span><select value={transaction.category} onChange={(event) => onUpdate(transaction, { category: event.target.value, category_overridden: true, is_transfer: event.target.value === 'transfer' })}>{BANK_CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          {propertyRelevant && <label><span>Property</span><select value={transaction.propertyId || ''} onChange={(event) => onUpdate(transaction, { property_id: event.target.value || null })}><option value="">Portfolio / unassigned</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select></label>}
-          {showAdvanced && <label><span>Performance</span><select value={transaction.performanceTreatment || 'auto'} onChange={(event) => onUpdate(transaction, { performance_treatment: event.target.value })}><option value="auto">Auto · {treatmentLabels[treatment] || treatment}</option><option value="operating">Property cash</option><option value="company">Company only</option><option value="investor">DLA / owner funding</option><option value="exclude">Exclude</option></select></label>}
+          <label><span>Category</span><select value={transaction.category} onChange={(event) => updateOne(transaction, { category: event.target.value, category_overridden: true, is_transfer: event.target.value === 'transfer' })}>{BANK_CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          {propertyRelevant && <label><span>Property</span><select value={transaction.propertyId || ''} onChange={(event) => updateOne(transaction, { property_id: event.target.value || null })}><option value="">Portfolio / unassigned</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select></label>}
+          {showAdvanced && <label><span>Performance</span><select value={transaction.performanceTreatment || 'auto'} onChange={(event) => updateOne(transaction, { performance_treatment: event.target.value })}><option value="auto">Auto · {treatmentLabels[treatment] || treatment}</option><option value="operating">Property cash</option><option value="company">Company only</option><option value="investor">DLA / owner funding</option><option value="exclude">Exclude</option></select></label>}
           {similar.length > 0 && <button type="button" className="secondary-button small" onClick={applyToSimilar}><Sparkles size={14} /> Apply to {similar.length} similar</button>}
-          {showAdvanced && <button type="button" className={transaction.excludeFromPerformance ? 'bank-exclude active' : 'bank-exclude'} onClick={() => onUpdate(transaction, { exclude_from_performance: !transaction.excludeFromPerformance })}><EyeOff size={14} />{transaction.excludeFromPerformance ? 'Excluded' : 'Exclude'}</button>}
+          {isActiveReview && !needsReview && <button type="button" className="text-button" onClick={() => setActiveReviewId('')}>Done</button>}
+          {showAdvanced && <button type="button" className={transaction.excludeFromPerformance ? 'bank-exclude active' : 'bank-exclude'} onClick={() => updateOne(transaction, { exclude_from_performance: !transaction.excludeFromPerformance })}><EyeOff size={14} />{transaction.excludeFromPerformance ? 'Excluded' : 'Exclude'}</button>}
         </div>
       </article>
     })}</div>}

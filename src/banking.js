@@ -223,6 +223,41 @@ export const similarTransactionsFor = (transaction, transactions = []) => {
     && transactionReviewSignature(candidate) === signature)
 }
 
+export const similarTransactionsNeedingReviewFor = (transaction, transactions = [], properties = []) =>
+  similarTransactionsFor(transaction, transactions).filter((candidate) => transactionNeedsReview(candidate, properties))
+
+export const reviewPropagationPatch = (transaction) => ({
+  category: transaction?.category || 'other',
+  category_overridden: true,
+  is_transfer: transaction?.category === 'transfer' || transaction?.isTransfer === true || transaction?.is_transfer === true,
+  property_id: transaction?.propertyId || transaction?.property_id || null,
+  performance_treatment: transaction?.performanceTreatment || transaction?.performance_treatment || 'auto',
+  exclude_from_performance: transaction?.excludeFromPerformance === true || transaction?.exclude_from_performance === true,
+})
+
+export const bankTransactionStatePatch = (patch = {}) => ({
+  ...(Object.hasOwn(patch, 'category') ? { category: patch.category } : {}),
+  ...(Object.hasOwn(patch, 'is_transfer') ? { isTransfer: patch.is_transfer } : {}),
+  ...(Object.hasOwn(patch, 'category_overridden') ? { categoryOverridden: patch.category_overridden } : {}),
+  ...(Object.hasOwn(patch, 'property_id') ? { propertyId: patch.property_id || '' } : {}),
+  ...(Object.hasOwn(patch, 'performance_treatment') ? { performanceTreatment: patch.performance_treatment } : {}),
+  ...(Object.hasOwn(patch, 'exclude_from_performance') ? { excludeFromPerformance: patch.exclude_from_performance } : {}),
+})
+
+export const reviewTransactionsForDisplay = (transactions = [], properties = [], options = {}) => {
+  const mode = options.mode === 'all' ? 'all' : 'review'
+  const sortMode = options.sortMode === 'newest' ? 'newest' : 'amount'
+  const base = mode === 'review'
+    ? (transactions || []).filter((transaction) => transactionNeedsReview(transaction, properties))
+    : (transactions || [])
+  const sorted = sortTransactionsForReview(base, sortMode)
+  if (mode !== 'review' || !options.activeReviewId) return sorted
+  const activeId = String(options.activeReviewId)
+  const active = (transactions || []).find((transaction) => String(transaction?.id || '') === activeId)
+  if (!active) return sorted
+  return [active, ...sorted.filter((transaction) => String(transaction?.id || '') !== activeId)]
+}
+
 export const normalizeGoCardlessTransaction = (raw, accountId, status = 'booked') => {
   const amount = number(raw.transactionAmount?.amount)
   const description = textValue(

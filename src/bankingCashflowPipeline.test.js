@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  similarTransactionsFor, sortTransactionsForReview, summarizeCashFlowPipeline,
-  trueCashFlowTransactions,
+  bankTransactionStatePatch, reviewPropagationPatch, reviewTransactionsForDisplay,
+  similarTransactionsFor, similarTransactionsNeedingReviewFor, sortTransactionsForReview,
+  summarizeCashFlowPipeline, trueCashFlowTransactions,
 } from './banking.js'
 
 const tx = (overrides = {}) => ({
@@ -65,4 +66,35 @@ describe('minimal review workflow', () => {
     const different = tx({ id: 'rent-3', amount: 1100, counterparty: 'Another Tenant', description: 'Another Tenant ref:' })
     expect(similarTransactionsFor(source, [source, same, different]).map((row) => row.id)).toEqual(['rent-2'])
   })
+
+  it('keeps a just-resolved active row pinned so Apply to similar remains available', () => {
+    const properties = [{ id: 'p1', name: 'BTL1' }]
+    const source = tx({ id: 'source', amount: 1100, category: 'rent', propertyId: 'p1', counterparty: 'Tenant One', description: 'Tenant One ref:' })
+    const peer = tx({ id: 'peer', amount: 1100, counterparty: 'Tenant One', description: 'Tenant One ref:' })
+    expect(reviewTransactionsForDisplay([peer, source], properties, { activeReviewId: 'source' }).map((row) => row.id)).toEqual(['source', 'peer'])
+    expect(reviewTransactionsForDisplay([peer, source], properties).map((row) => row.id)).toEqual(['peer'])
+  })
+
+  it('propagates the latest reviewed state only to unresolved exact matches', () => {
+    const properties = [{ id: 'p1', name: 'BTL1' }]
+    const source = tx({ id: 'source', amount: 1100, category: 'rent', propertyId: 'p1', counterparty: 'Tenant One', description: 'Tenant One ref:' })
+    const unresolved = tx({ id: 'unresolved', amount: 1100, counterparty: 'Tenant One', description: 'Tenant One ref:' })
+    const alreadyReviewed = tx({ id: 'reviewed', amount: 1100, category: 'rent', propertyId: 'p1', counterparty: 'Tenant One', description: 'Tenant One ref:' })
+    expect(similarTransactionsNeedingReviewFor(source, [source, unresolved, alreadyReviewed], properties).map((row) => row.id)).toEqual(['unresolved'])
+    expect(reviewPropagationPatch(source)).toEqual({
+      category: 'rent', category_overridden: true, is_transfer: false, property_id: 'p1',
+      performance_treatment: 'auto', exclude_from_performance: false,
+    })
+  })
+
+  it('maps database review patches into immediate optimistic transaction state', () => {
+    expect(bankTransactionStatePatch({
+      category: 'repairs', category_overridden: true, is_transfer: false, property_id: 'p2',
+      performance_treatment: 'operating', exclude_from_performance: true,
+    })).toEqual({
+      category: 'repairs', categoryOverridden: true, isTransfer: false, propertyId: 'p2',
+      performanceTreatment: 'operating', excludeFromPerformance: true,
+    })
+  })
+
 })
