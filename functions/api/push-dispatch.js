@@ -1,6 +1,7 @@
 import { sendPushBatch, topicFromString } from '@mmmike/web-push/send'
 import { actionableNotifications, notificationCycleKey, normalizeNotificationPreferences, pushPayloadForNotification } from '../../src/notifications.js'
 import { adminRequest, json } from './_billing.js'
+import { vapidConfigForEnv } from './_pushVapid.js'
 
 const safeEqual = (left = '', right = '') => {
   if (left.length !== right.length) return false
@@ -70,10 +71,8 @@ export async function onRequestPost({ request, env }) {
   const hour = londonHour(now)
   if (!force && (hour < 9 || hour > 17)) return json({ ok: true, skipped: 'outside_delivery_window' })
 
-  const publicKey = env.PUSH_VAPID_PUBLIC_KEY || env.VITE_PUSH_VAPID_PUBLIC_KEY
-  const privateKey = env.PUSH_VAPID_PRIVATE_KEY
-  const subject = env.PUSH_VAPID_SUBJECT || env.PUBLIC_SITE_URL
-  if (!publicKey || !privateKey || !subject) return json({ error: 'Push delivery is not configured.', code: 'not_configured' }, 503)
+  const vapid = await vapidConfigForEnv(env, request.url)
+  if (!vapid) return json({ error: 'Push delivery is not configured.', code: 'not_configured' }, 503)
 
   try {
     const [portfolioRows, subscriptions, deliveryRows] = await Promise.all([
@@ -93,7 +92,7 @@ export async function onRequestPost({ request, env }) {
         const result = await sendPushBatch(
           subscriptionData,
           pushPayloadForNotification(candidate.event),
-          { publicKey, privateKey, subject },
+          vapid,
           { ttl: 86400, urgency: 'low', topic: await topicFromString(candidate.event.key), concurrency: 8, timeoutMs: 10000 },
         )
         if (result.gone.length) {
