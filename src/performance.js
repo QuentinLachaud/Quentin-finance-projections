@@ -7,6 +7,7 @@ const finite = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 const nonNegative = (value) => Math.max(0, finite(value))
+const hasNumber = (value) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
 const roundMoney = (value) => Math.round((finite(value) + Number.EPSILON) * 100) / 100
 const dateOnly = (value) => {
   const source = clean(value)
@@ -208,6 +209,7 @@ const buildRawEvents = ({ properties, loans, expenses, timelineEvents, performan
         amount: 0,
         assetValue: currentValue,
         debtValue: currentDebt,
+        rentValue: nonNegative(property?.rent),
         sourceType: 'current-state',
         sourceId: propertyId,
         actual: true,
@@ -252,6 +254,7 @@ const buildRawEvents = ({ properties, loans, expenses, timelineEvents, performan
       amount: 0,
       assetValue: afterValuation == null ? null : nonNegative(afterValuation),
       debtValue: loanAfter && Number.isFinite(Number(loanAfter.loanAmount)) ? nonNegative(loanAfter.loanAmount) : null,
+      rentBefore: event.sourceField === 'rent' && Number.isFinite(Number(event.before)) ? nonNegative(event.before) : null,
       rentValue: event.sourceField === 'rent' && Number.isFinite(Number(event.after)) ? nonNegative(event.after) : null,
       sourceType: 'timeline',
       sourceId: clean(event?.id),
@@ -338,32 +341,88 @@ const latestKnownValue = (events, property, key, basis, today) => {
   return 0
 }
 
+const activePropertyIdsAt = (properties, date) => new Set((properties || [])
+  .filter((property) => {
+    const purchaseDate = dateOnly(property?.purchaseDate)
+    return !purchaseDate || purchaseDate <= date
+  })
+  .map((property) => clean(property?.id)))
+
+const performancePoint = ({ date, properties, state, cash, operatingNet, costs }) => {
+  const activeIds = activePropertyIdsAt(properties, date)
+  const activeStates = [...state.entries()].filter(([propertyId]) => activeIds.has(propertyId)).map(([, value]) => value)
+  const assetValue = activeStates.reduce((sum, item) => sum + finite(item.value), 0)
+  const debt = activeStates.reduce((sum, item) => sum + finite(item.debt), 0)
+  const equity = assetValue - debt
+  const activeProperties = properties.filter((property) => activeIds.has(clean(property.id)))
+  const rentKnown = activeProperties.every((property) => hasNumber(state.get(clean(property.id))?.rent))
+  const monthlyRent = rentKnown && activeProperties.length
+    ? activeProperties.reduce((sum, property) => sum + finite(state.get(clean(property.id))?.rent), 0)
+    : null
+  const purchaseBasis = activeProperties.reduce((sum, property) => sum + nonNegative(property?.purchasePrice), 0)
+  return {
+    date,
+    assetValue,
+    debt,
+    equity,
+    monthlyRent,
+    cumulativeNetIncome: operatingNet.value,
+    cumulativeCosts: costs.value,
+    cumulativeAppreciation: assetValue - purchaseBasis,
+    netCash: cash.value,
+    wealth: equity + cash.value,
+    actual: true,
+  }
+}
+
 const buildActualPoints = ({ properties, events, basisByProperty, today }) => {
-  const dates = [...new Set(events.map((event) => event.occurredAt).filter((date) => date <= today))].sort()
+  const sortedEvents = [...events]
+    .filter((event) => event.occurredAt <= today)
+    .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt) || left.title.localeCompare(right.title))
+  const dates = [...new Set(sortedEvents.map((event) => event.occurredAt))].sort()
   if (!dates.includes(today)) dates.push(today)
   const state = new Map()
   const cash = { value: 0 }
+  const operatingNet = { value: 0 }
+  const costs = { value: 0 }
   const points = []
+
   for (const date of dates.sort()) {
-    for (const event of events.filter((candidate) => candidate.occurredAt === date)) {
-      if (event.propertyId) {
-        const current = state.get(event.propertyId) || { value: 0, debt: 0 }
-        if (Number.isFinite(Number(event.assetValue))) current.value = nonNegative(event.assetValue)
-        if (Number.isFinite(Number(event.debtValue))) current.debt = nonNegative(event.debtValue)
+    const eventsOnDate = sortedEvents.filter((candidate) => candidate.occurredAt === date)
+    const rentBeforeEvents = eventsOnDate.filter((event) => event.type === 'rent_change' && Number.isFinite(Number(event.rentBefore)))
+    if (rentBeforeEvents.length) {
+      for (const event of rentBeforeEvents) {
+        const current = state.get(event.propertyId) || { value: 0, debt: 0, rent: null }
+        if (!hasNumber(current.rent)) current.rent = nonNegative(event.rentBefore)
         state.set(event.propertyId, current)
       }
-      cash.value += finite(event.amount)
+      points.push({ ...performancePoint({ date, properties, state, cash, operatingNet, costs }), phase: 'before-change' })
     }
+
+    for (const event of eventsOnDate) {
+      if (event.propertyId) {
+        const current = state.get(event.propertyId) || { value: 0, debt: 0, rent: null }
+        if (hasNumber(event.assetValue)) current.value = nonNegative(event.assetValue)
+        if (hasNumber(event.debtValue)) current.debt = nonNegative(event.debtValue)
+        if (hasNumber(event.rentValue)) current.rent = nonNegative(event.rentValue)
+        state.set(event.propertyId, current)
+      }
+      const amount = finite(event.amount)
+      cash.value += amount
+      if (event.sourceType === 'expense') operatingNet.value += amount
+      if (amount < 0 && event.type !== 'initial_capital') costs.value += Math.abs(amount)
+    }
+
     if (date === today) {
-      for (const property of properties) state.set(clean(property.id), {
-        value: latestKnownValue(events, property, 'assetValue', basisByProperty.get(clean(property.id)), today),
-        debt: latestKnownValue(events, property, 'debtValue', basisByProperty.get(clean(property.id)), today),
-      })
+      for (const property of properties) {
+        const current = state.get(clean(property.id)) || { value: 0, debt: 0, rent: null }
+        current.value = latestKnownValue(events, property, 'assetValue', basisByProperty.get(clean(property.id)), today)
+        current.debt = latestKnownValue(events, property, 'debtValue', basisByProperty.get(clean(property.id)), today)
+        current.rent = nonNegative(property?.rent)
+        state.set(clean(property.id), current)
+      }
     }
-    const assetValue = [...state.values()].reduce((sum, item) => sum + item.value, 0)
-    const debt = [...state.values()].reduce((sum, item) => sum + item.debt, 0)
-    const equity = assetValue - debt
-    points.push({ date, assetValue, debt, equity, netCash: cash.value, wealth: equity + cash.value, actual: true })
+    points.push(performancePoint({ date, properties, state, cash, operatingNet, costs }))
   }
   return points
 }
@@ -401,25 +460,46 @@ const projectionFor = ({ properties, settings, actualEvents, currentNetCash, tod
   const months = Math.max(1, Math.round(horizonYears * 12))
   const points = []
   let projectedCash = currentNetCash
+  let projectedOperatingNet = actualEvents
+    .filter((event) => event.sourceType === 'expense')
+    .reduce((sum, event) => sum + finite(event.amount), 0)
+  let projectedCosts = actualEvents
+    .filter((event) => finite(event.amount) < 0 && event.type !== 'initial_capital')
+    .reduce((sum, event) => sum + Math.abs(finite(event.amount)), 0)
   const projectedFlows = actualEvents.filter((event) => event.amount).map((event) => ({ date: event.occurredAt, amount: event.amount }))
+  const purchaseBasis = properties.reduce((sum, property) => sum + nonNegative(property?.purchasePrice), 0)
   let finalAnnualRent = 0
   let finalAnnualCash = 0
   for (let month = 1; month <= months; month += 1) {
     const propertiesAtMonth = properties.map((property) => projectedPropertyAtMonth(property, month, settings))
     const monthCash = propertiesAtMonth.reduce((sum, property) => sum + property.netCash, 0)
+    const monthRent = propertiesAtMonth.reduce((sum, property) => sum + property.rent, 0)
+    const monthCosts = propertiesAtMonth.reduce((sum, property) => sum + Math.max(0, property.rent - property.netCash), 0)
     projectedCash += monthCash
+    projectedOperatingNet += monthCash
+    projectedCosts += monthCosts
     const date = addMonths(today, month)
     projectedFlows.push({ date, amount: monthCash })
     if (month === months) {
-      finalAnnualRent = propertiesAtMonth.reduce((sum, property) => sum + property.rent * 12, 0)
+      finalAnnualRent = monthRent * 12
       finalAnnualCash = monthCash * 12
     }
-    if (month === 1 || month % 3 === 0 || month === months) {
-      const assetValue = propertiesAtMonth.reduce((sum, property) => sum + property.value, 0)
-      const debt = propertiesAtMonth.reduce((sum, property) => sum + property.debt, 0)
-      const equity = assetValue - debt
-      points.push({ date, assetValue, debt, equity, netCash: projectedCash, wealth: equity + projectedCash, actual: false })
-    }
+    const assetValue = propertiesAtMonth.reduce((sum, property) => sum + property.value, 0)
+    const debt = propertiesAtMonth.reduce((sum, property) => sum + property.debt, 0)
+    const equity = assetValue - debt
+    points.push({
+      date,
+      assetValue,
+      debt,
+      equity,
+      monthlyRent: monthRent,
+      cumulativeNetIncome: projectedOperatingNet,
+      cumulativeCosts: projectedCosts,
+      cumulativeAppreciation: assetValue - purchaseBasis,
+      netCash: projectedCash,
+      wealth: equity + projectedCash,
+      actual: false,
+    })
   }
   const terminal = points.at(-1) || { assetValue: 0, debt: 0, equity: 0, wealth: 0, date: addMonths(today, months) }
   projectedFlows.push({ date: terminal.date, amount: terminal.equity })
@@ -432,6 +512,10 @@ const projectionFor = ({ properties, settings, actualEvents, currentNetCash, tod
       equity: terminal.equity,
       annualRent: finalAnnualRent,
       annualNetCashflow: finalAnnualCash,
+      monthlyRent: terminal.monthlyRent || 0,
+      cumulativeCosts: terminal.cumulativeCosts || 0,
+      cumulativeNetIncome: terminal.cumulativeNetIncome || 0,
+      cumulativeAppreciation: terminal.cumulativeAppreciation || 0,
       wealthCreated: terminal.wealth,
       annualisedReturn: xirr(projectedFlows),
     },
@@ -534,6 +618,10 @@ export const buildPerformanceModel = ({
   if (currentEquity) cashflows.push({ date: today, amount: currentEquity })
   const annualisedReturn = xirr(cashflows)
   const netCash = events.reduce((sum, event) => sum + finite(event.amount), 0)
+  const operatingNetIncome = events.filter((event) => event.sourceType === 'expense').reduce((sum, event) => sum + finite(event.amount), 0)
+  const recordedCosts = events.filter((event) => finite(event.amount) < 0 && event.type !== 'initial_capital').reduce((sum, event) => sum + Math.abs(finite(event.amount)), 0)
+  const currentMonthlyRent = selectedProperties.reduce((sum, property) => sum + nonNegative(property.rent), 0)
+  const appreciationGain = selectedProperties.reduce((sum, property) => sum + nonNegative(property.latestValuation) - nonNegative(property.purchasePrice), 0)
   const wealthCreated = currentEquity + netCash
   const cashOut = Math.abs(events.filter((event) => event.amount < 0).reduce((sum, event) => sum + event.amount, 0))
   const cashIn = events.filter((event) => event.amount > 0).reduce((sum, event) => sum + event.amount, 0)
@@ -576,6 +664,10 @@ export const buildPerformanceModel = ({
       cashReturned: cashIn,
       cashInvested: cashOut,
       netCash,
+      operatingNetIncome,
+      recordedCosts,
+      currentMonthlyRent,
+      appreciationGain,
       moic,
       roi,
       valuationCagr,
