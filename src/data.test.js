@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { assumptions, createBlankProperty, newAccountDefaults } from './data.js'
 
 describe('new account defaults', () => {
-  it('starts cash held and rate shock at zero', () => {
+  it('starts cash held and every default rate shock at zero', () => {
     expect(newAccountDefaults).toMatchObject({ cashHeld: 0, rateShock: 0 })
+    expect(assumptions.rateShock).toBe(0)
   })
 
   it('uses conservative tax defaults that do not silently deduct planning budgets', () => {
