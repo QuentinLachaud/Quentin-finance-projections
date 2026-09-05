@@ -36,7 +36,7 @@ export default function NotificationCenter({ open, enabled, items, onClose, onSn
   return <div className="notification-layer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="notification-center" role="dialog" aria-modal="false" aria-labelledby="notification-center-title" onMouseDown={(event) => event.stopPropagation()}>
       <header>
-        <div><span className="kicker">UPCOMING</span><h2 id="notification-center-title">Notifications</h2></div>
+        <div><h2 id="notification-center-title">Notifications</h2></div>
         <button type="button" className="notification-close" onClick={onClose} aria-label="Close notifications"><X size={18} /></button>
       </header>
       {!enabled ? <div className="notification-empty">

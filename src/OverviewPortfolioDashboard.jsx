@@ -96,7 +96,6 @@ function CashFlowDetail({ portfolio, settings }) {
 function PositionDetail({ portfolio }) {
   const ltv = portfolio.totalValue ? portfolio.totalLoans / portfolio.totalValue : 0
   return <>
-    <p className="overview-insight-explainer">Your current equity position across the properties included in portfolio totals.</p>
     <div className="overview-insight-ledger compact">
       <LedgerRow label="Portfolio value" value={currency(portfolio.totalValue)} />
       <LedgerRow label="Outstanding loans" value={currency(portfolio.totalLoans)} />

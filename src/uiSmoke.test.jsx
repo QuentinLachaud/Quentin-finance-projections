@@ -45,8 +45,6 @@ describe('workspace render smoke tests', () => {
       onUpgrade={() => {}}
     />)
 
-    expect(html).toContain('Remortgage Simulator')
-    expect(html).toContain('Choose a property')
     expect(html).toContain('Add comparison')
     expect(html).toContain('BTL1')
     expect(html).toContain('Manual values')

@@ -234,7 +234,7 @@ export default function CredentialsWorkspace({ credentials = [], onChange }) {
       {active.length === 0 && <div className="panel credentials-empty">
         <KeyRound size={24} />
         <h3>{query ? 'No matching items' : 'No IDs or credentials yet'}</h3>
-        <p>{query ? 'Try another search.' : 'Add your first ID, code, reference or registered-office detail.'}</p>
+        {query && <p>Try another search.</p>}
         {!query && <button className="secondary-button" onClick={addItem}><Plus size={16} /> Add first item</button>}
       </div>}
     </section>

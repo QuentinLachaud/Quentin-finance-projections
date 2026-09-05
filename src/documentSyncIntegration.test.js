@@ -13,7 +13,7 @@ describe('document sync and viewer integration', () => {
 
   it('surfaces recent files and mounts the in-app viewer', () => {
     const workspace = fs.readFileSync(new URL('./ExpensesWorkspace.jsx', import.meta.url), 'utf8')
-    expect(workspace).toContain('RECENT DOCUMENTS')
+    expect(workspace).toContain('Recent documents')
     expect(workspace).toContain('<DocumentViewer')
     expect(workspace).toContain('expense-document-open')
     expect(workspace).not.toContain('await openStoredDocument')

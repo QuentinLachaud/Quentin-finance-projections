@@ -206,7 +206,7 @@ export default function DocumentViewer({ document: documentMeta, onClose, onRena
       </header>
 
       {renaming && <form className="document-viewer-rename-panel" onSubmit={saveRename}>
-        <label htmlFor="document-viewer-rename"><span>File name</span><small>Rename it here without breaking the secure stored file.</small></label>
+        <label htmlFor="document-viewer-rename"><span>File name</span></label>
         <div>
           <input id="document-viewer-rename" autoFocus value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} onFocus={(event) => event.currentTarget.select()} />
           <button type="button" className="document-viewer-rename-cancel" onClick={() => { setRenaming(false); setRenameError('') }}>Cancel</button>
@@ -223,7 +223,7 @@ export default function DocumentViewer({ document: documentMeta, onClose, onRena
           tabIndex={0}
           onDoubleClick={kind === 'image' ? () => setZoom((current) => current === 1 ? 2 : 1) : undefined}
         >
-          {!signedUrl && !loadError && <div className="document-viewer-loading"><LoaderCircle size={26} /><b>Opening securely…</b><span>Loading from your account</span></div>}
+          {!signedUrl && !loadError && <div className="document-viewer-loading"><LoaderCircle size={26} /><b>Opening…</b></div>}
           {loadError && <div className="document-viewer-error"><FileText size={30} /><b>Couldn’t display this file</b><span>{loadError}</span></div>}
           {signedUrl && kind === 'image' && <img
             src={signedUrl}

@@ -178,7 +178,7 @@ export default function ContractorsWorkspace({ contractors = [], contractorTags 
 
     {editor && <ContractorEditor key={editor.id} contractor={editor} properties={properties} tags={tags} documents={documents} onOpenDocuments={onOpenDocuments} onSave={save} onCancel={() => setEditor(null)} />}
 
-    {!contractors.length && !editor && <div className="contractors-empty"><Wrench size={22} /><strong>No contractors yet</strong><p>Add people you use for maintenance, compliance and property work.</p><button type="button" className="primary-button" onClick={() => setEditor(createBlankContractor())}><Plus size={15} /> Add contractor</button></div>}
+    {!contractors.length && !editor && <div className="contractors-empty"><Wrench size={22} /><strong>No contractors yet</strong><button type="button" className="primary-button" onClick={() => setEditor(createBlankContractor())}><Plus size={15} /> Add contractor</button></div>}
 
     {contractors.length > 0 && !visible.length && <div className="contractors-empty is-filtered"><strong>No matching contractors</strong><p>Change the BTL or trade filter to see more contacts.</p></div>}
 
@@ -193,7 +193,7 @@ export default function ContractorsWorkspace({ contractors = [], contractorTags 
 
     {deleteTarget && <DeleteConfirmDialog
       title="Delete contractor?"
-      message={`${contractorDisplayName(deleteTarget)} will be removed from your contractor list. Future property documents will be owned by the Documents feature, not by this contact.`}
+      message={`${contractorDisplayName(deleteTarget)} will be removed from your contractor list. Existing documents are kept.`}
       confirmLabel="Delete contractor"
       onCancel={() => setDeleteTarget(null)}
       onConfirm={() => { onDelete(deleteTarget.id); setDeleteTarget(null) }}

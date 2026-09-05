@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Check, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
+import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
 import { supabase } from './supabase.js'
 import BrandLogo from './BrandLogo.jsx'
 
@@ -52,20 +52,11 @@ export default function AuthScreen() {
     <main className="auth-page">
       <section className="auth-brand-panel">
         <div className="auth-brand"><BrandLogo surface="dark" /></div>
-        <div className="auth-promise">
-          <span className="kicker">PRIVATE PORTFOLIO MODELLING</span>
-          <h1>Your BTL portfolio, clearly modelled.</h1>
-          <p>Keep property details, cash flow, projections and key dates together in one account.</p>
-          <ul><li><Check size={17} /> Property-level cash flow</li><li><Check size={17} /> Scenario projections</li><li><Check size={17} /> Desktop and mobile access</li></ul>
-        </div>
-        <small className="auth-security-note"><LockKeyhole size={14} /> Sign in to access your saved portfolio.</small>
       </section>
 
       <section className="auth-form-panel">
         <div className="auth-card">
-          <span className="kicker">WELCOME TO BTL PORTFOLIO</span>
-          <h2>{mode === 'sign-up' ? 'Create your account' : 'Sign in to your portfolio'}</h2>
-          <p>{mode === 'sign-up' ? 'Start with an empty, private portfolio of your own.' : 'Use Google or your email and password.'}</p>
+          <h2>{mode === 'sign-up' ? 'Create your account' : 'Sign in'}</h2>
 
           <button className="google-auth-button" onClick={signInWithGoogle} disabled={busy}><GoogleMark /> Continue with Google</button>
           <div className="auth-divider"><span>or use email</span></div>
@@ -78,7 +69,7 @@ export default function AuthScreen() {
             <button className="auth-submit" type="submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'sign-up' ? 'Create account' : 'Sign in'}</button>
           </form>
 
-          <p className="auth-switch">{mode === 'sign-up' ? 'Already have an account?' : 'New to BTL Portfolio?'} <button onClick={() => { setMode(mode === 'sign-up' ? 'sign-in' : 'sign-up'); setError(''); setMessage('') }}>{mode === 'sign-up' ? 'Sign in' : 'Create an account'}</button></p>
+          <p className="auth-switch">{mode === 'sign-up' ? 'Already have an account?' : 'New here?'} <button onClick={() => { setMode(mode === 'sign-up' ? 'sign-in' : 'sign-up'); setError(''); setMessage('') }}>{mode === 'sign-up' ? 'Sign in' : 'Create an account'}</button></p>
         </div>
       </section>
     </main>

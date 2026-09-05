@@ -55,7 +55,7 @@ const editableFieldIndex = new Map(editableSections.flatMap((section) => section
 const editableFieldsFor = (keys) => keys.map((key) => editableFieldIndex.get(key)).filter(Boolean)
 
 const propertyGroups = [
-  { title: 'Finance & performance', description: 'Value, leverage, income and financing health', tone: 'green', emptyLabel: 'No finance or performance details have been added yet.', emptyEditField: 'latestValuation', rows: [
+  { title: 'Finance & performance', description: '', tone: 'green', emptyLabel: 'No finance or performance details have been added yet.', emptyEditField: 'latestValuation', rows: [
     ['Current value', (p) => currency(p.latestValuation), 'money', false, 'latestValuation', null, 'currentValue'],
     ['Loan balance', (p) => currency(p.loanAmount), 'money-negative', false, 'loanAmount', null, 'loanBalance'],
     ['Equity', (p) => currency(p.equity), 'money-positive', false, null, null, 'equity'],
@@ -77,7 +77,7 @@ const propertyGroups = [
     ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive', true, null, null, 'annualAppreciation'],
     ['Voids since ownership', (p) => `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})`, 'text', true, null, null, 'voidHistory'],
   ]},
-  { title: 'Property details', description: 'Identity, location and physical characteristics', tone: 'blue', emptyLabel: 'No additional property details have been added yet.', emptyEditField: 'address', rows: [
+  { title: 'Property details', description: '', tone: 'blue', emptyLabel: 'No additional property details have been added yet.', emptyEditField: 'address', rows: [
     ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address), 'text', false, 'address', null, 'address'],
     ['Postcode', (p) => p.postcode, 'text', false, 'postcode', null, 'postcode'],
     ['Bedrooms', (p) => p.bedrooms, 'integer', false, 'bedrooms', null, 'bedrooms'],
@@ -85,7 +85,7 @@ const propertyGroups = [
     ['Area', (p) => `${p.areaSqm} m²`, 'integer', true, 'areaSqm', null, 'area'],
     ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true, 'purchaseDate', null, 'purchaseDate'],
   ]},
-  { title: 'Compliance & timing', description: 'Broker and property compliance milestones', tone: 'amber', emptyLabel: 'No compliance dates have been added yet.', emptyEditField: 'gasExpiry', rows: [
+  { title: 'Compliance & timing', description: '', tone: 'amber', emptyLabel: 'No compliance dates have been added yet.', emptyEditField: 'gasExpiry', rows: [
     ['Call broker', (p) => shortDate(p.brokerDate), 'date', false, null, null, 'brokerDate'],
     ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date', true, 'gasExpiry', null, 'gasExpiry'],
     ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date', true, 'eicrExpiry', null, 'eicrExpiry'],
@@ -154,37 +154,37 @@ const sectionMeta = {
   Overview: {
     eyebrow: 'PORTFOLIO',
     title: 'Portfolio overview',
-    description: 'See value, equity, cash flow and resilience across the properties included in your model.',
+    description: '',
   },
   Properties: {
     eyebrow: 'PROPERTY DETAILS',
     title: 'Properties',
-    description: 'Compare the key facts, values, borrowing and performance of each BTL.',
+    description: '',
   },
   Loans: {
     eyebrow: 'PORTFOLIO FINANCE',
     title: 'Loans',
-    description: 'See every live mortgage and loan at a glance, with linked BTL financing kept in sync.',
+    description: '',
   },
   Tenants: {
     eyebrow: 'TENANCIES',
     title: 'Tenants',
-    description: 'Keep current and historic tenancy details linked to the right property.',
+    description: '',
   },
   Contractors: {
     eyebrow: 'PROPERTY CONTACTS',
     title: 'Contractors',
-    description: 'Keep trusted trades and property contacts organised, tagged and linked to the BTLs they know.',
+    description: '',
   },
   'Costs & Cash Flows': {
     eyebrow: 'MONTHLY MODEL',
     title: 'Costs & Cash Flows',
-    description: 'Review the income and recurring costs that drive your portfolio cash flow.',
+    description: '',
   },
   'Documents & Expenses': {
     eyebrow: 'DOCUMENTS & LEDGER',
     title: 'Documents & Expenses',
-    description: 'Keep invoices, receipts and property documents together with the financial ledger they support.',
+    description: '',
   },
   Banking: {
     eyebrow: 'CONNECTED ACCOUNTS',
@@ -194,7 +194,7 @@ const sectionMeta = {
   Projections: {
     eyebrow: 'FORWARD VIEW',
     title: 'Projections',
-    description: 'Explore how cash and value may develop under different operating assumptions.',
+    description: '',
   },
   'Acquisition Simulator': {
     eyebrow: 'PURCHASE PLANNING',
@@ -209,7 +209,7 @@ const sectionMeta = {
   Compliance: {
     eyebrow: 'KEY DATES',
     title: 'Compliance',
-    description: 'See upcoming remortgage and compliance dates across the active portfolio.',
+    description: '',
   },
   'Companies House': {
     eyebrow: 'COMPANY RECORD',
@@ -219,12 +219,12 @@ const sectionMeta = {
   'IDs & Credentials': {
     eyebrow: 'PRIVATE RECORDS',
     title: 'IDs & Credentials',
-    description: 'Keep important IDs, reference numbers and filing codes organised in one private workspace.',
+    description: '',
   },
   'Plan & billing': {
     eyebrow: 'ACCOUNT',
     title: 'Plan & billing',
-    description: 'Review your access level and manage your subscription.',
+    description: '',
   },
 }
 
@@ -697,7 +697,7 @@ function CompaniesHouseWorkspace({ settings, onSettingChange }) {
   const openCharges = outstandingCharges(charges)
   const verification = identityVerificationSummary(officers, psc)
   const officialUrl = officialCompanyUrl(profile.company_number)
-  return <div className="companies-house-workspace"><section className="panel ch-company-hero"><header><div><span className="kicker">COMPANIES HOUSE RECORD</span><h2>{profile.company_name}</h2><p>{profile.company_number} · Incorporated {shortDate(profile.date_of_creation)}</p></div><div className="ch-hero-actions"><span className={`ch-status ${profile.company_status === 'active' ? 'active' : 'warning'}`}>{profile.company_status}</span><button className="secondary-button small" onClick={() => loadCompany(profile.company_number)}><RefreshCw size={15} /> Refresh</button><a className="secondary-button small" href={officialUrl} target="_blank" rel="noreferrer">Official record <ExternalLink size={14} /></a></div></header><div className="ch-profile-grid"><div><span>Registered office</span><b>{formatCompanyAddress(profile.registered_office_address) || 'Not published'}</b></div><div><span>Company type</span><b>{(profile.type || 'Not published').replaceAll('-', ' ')}</b></div><div><span>SIC codes</span><b>{profile.sic_codes?.join(', ') || 'Not published'}</b></div><div><span>Last checked</span><b>{fetchedAt ? new Date(fetchedAt).toLocaleString('en-GB') : 'Just now'}</b></div></div></section>
+  return <div className="companies-house-workspace"><section className="panel ch-company-hero"><header><div><h2>{profile.company_name}</h2><p>{profile.company_number} · Incorporated {shortDate(profile.date_of_creation)}</p></div><div className="ch-hero-actions"><span className={`ch-status ${profile.company_status === 'active' ? 'active' : 'warning'}`}>{profile.company_status}</span><button className="secondary-button small" onClick={() => loadCompany(profile.company_number)}><RefreshCw size={15} /> Refresh</button><a className="secondary-button small" href={officialUrl} target="_blank" rel="noreferrer">Official record <ExternalLink size={14} /></a></div></header><div className="ch-profile-grid"><div><span>Registered office</span><b>{formatCompanyAddress(profile.registered_office_address) || 'Not published'}</b></div><div><span>Company type</span><b>{(profile.type || 'Not published').replaceAll('-', ' ')}</b></div><div><span>SIC codes</span><b>{profile.sic_codes?.join(', ') || 'Not published'}</b></div><div><span>Last checked</span><b>{fetchedAt ? new Date(fetchedAt).toLocaleString('en-GB') : 'Just now'}</b></div></div></section>
 
   <section className="ch-metrics-grid">{deadlines.map((deadline) => <article className={`panel ch-deadline ${deadline.status}`} key={deadline.id}><CalendarClock /><span>{deadline.label}</span><strong>{shortDate(deadline.date)}</strong><small>{deadline.status === 'overdue' ? `${Math.abs(deadline.days)} days overdue` : deadline.days === 0 ? 'Due today' : `${deadline.days} days remaining`}</small></article>)}<article className="panel ch-register-metric"><Users /><span>Active appointments</span><strong>{directors.length} <small>officers</small> · {controllers.length} <small>PSCs</small></strong><small>{verification.published ? `${verification.verified} verified · ${verification.due} due` : 'Verification detail not published'}</small></article><article className="panel ch-register-metric"><Landmark /><span>Outstanding charges</span><strong>{openCharges.length}</strong><small>{openCharges.length ? 'Review lender security below' : 'None shown on the register'}</small></article></section>
 
@@ -2200,9 +2200,8 @@ function PortfolioApp({ user }) {
         <div className="content">
           <section className="hero-row">
             <div className="hero-copy">
-              <span className="eyebrow">{pageMeta.eyebrow}</span>
               <h1>{pageMeta.title}</h1>
-              <p>{pageMeta.description}</p>
+              {pageMeta.description && <p>{pageMeta.description}</p>}
             </div>
           </section>
 
@@ -2349,7 +2348,7 @@ function PortfolioApp({ user }) {
                         <tr className={`property-section-row ${group.tone}`}>
                           <th colSpan={filtered.length + 1}>
                             <span className="group-marker" />
-                            <span><b>{group.title}</b><small>{group.description}</small></span>
+                            <span><b>{group.title}</b>{group.description && <small>{group.description}</small>}</span>
                           </th>
                         </tr>
                         {rows.map(([label, getter, kind, advanced, editField, help, supportKey]) => <tr data-metric={label} data-kind={kind} key={`${group.title}-${label}`}>
@@ -2379,7 +2378,7 @@ function PortfolioApp({ user }) {
                     >
                       <div>
                         <span className="group-marker" />
-                        <div><h2>{group.title}</h2><p>{group.description}</p></div>
+                        <div><h2>{group.title}</h2>{group.description && <p>{group.description}</p>}</div>
                       </div>
                       <span className="property-group-chevron" aria-hidden="true">{collapsed ? <ChevronDown size={19} /> : <ChevronUp size={19} />}</span>
                     </button>

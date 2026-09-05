@@ -872,13 +872,7 @@ export default function RemortgageSimulator({
   }
 
   return <section className="remortgage-simulator">
-    <section className="panel remortgage-toolbar">
-      <div>
-        <span className="kicker">PRO · FINANCE DECISION TOOL</span>
-        <h2>Remortgage Simulator</h2>
-        <p>Choose a property, add a comparison, then set the remortgage rate, LTV and product fee. <span className="remortgage-desktop-copy">Saved comparisons stay compact so you can compare them at a glance.</span></p>
-      </div>
-
+    <section className="panel remortgage-toolbar copy-actions-only">
       <div className="remortgage-add">
         <label>
           <span>Start from</span>

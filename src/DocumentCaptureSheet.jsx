@@ -77,7 +77,7 @@ export default function DocumentCaptureSheet({ file, sourceMode = 'file', proper
   return <div className="document-capture-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !saving && onCancel()}>
     <form className="document-capture-sheet" role="dialog" aria-modal="true" aria-labelledby="document-capture-title" onSubmit={submit}>
       <header>
-        <div><span className="kicker">NEW DOCUMENT</span><h2 id="document-capture-title">Add document</h2><p>Confirm the document first. Financial details are optional.</p></div>
+        <div><h2 id="document-capture-title">Add document</h2><p>Confirm the document first. Financial details are optional.</p></div>
         <button type="button" className="icon-button" disabled={saving} aria-label="Close" onClick={onCancel}><X size={19} /></button>
       </header>
 

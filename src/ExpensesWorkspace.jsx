@@ -200,7 +200,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
     </section>
 
     {recentDocuments.length > 0 && <section className="documents-recents" aria-label="Recent documents">
-      <header><div><span>RECENT DOCUMENTS</span><h2>Your latest files</h2></div><small>Synced securely to your account</small></header>
+      <header><div><h2>Recent documents</h2></div></header>
       <div className="documents-recent-strip">
         {recentDocuments.map((item) => <button type="button" className="document-recent-card" key={`recent-${item.id}`} onClick={() => openDocument(item)}>
           <span className="document-recent-icon">{String(item.document?.mimeType || '').startsWith('image/') ? <FileImage size={19} /> : <FileText size={19} />}</span>
@@ -211,9 +211,9 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
     </section>}
 
     <section className="expenses-summary-grid">
-      <article className="panel expense-summary income"><span>{incomeLabel}</span><strong>{money.format(summary.income)}</strong><small>positive ledger entries</small></article>
-      <article className="panel expense-summary expense"><span>Expenses</span><strong>{money.format(summary.expense)}</strong><small>absolute spend</small></article>
-      <article className={`panel expense-summary ${summary.net >= 0 ? 'income' : 'expense'}`}><span>Net movement</span><strong>{money.format(summary.net)}</strong><small>income less expenses</small></article>
+      <article className="panel expense-summary income"><span>{incomeLabel}</span><strong>{money.format(summary.income)}</strong></article>
+      <article className="panel expense-summary expense"><span>Expenses</span><strong>{money.format(summary.expense)}</strong></article>
+      <article className={`panel expense-summary ${summary.net >= 0 ? 'income' : 'expense'}`}><span>Net movement</span><strong>{money.format(summary.net)}</strong></article>
       <article className="panel expense-summary"><span>Entries</span><strong>{summary.count}</strong><small>{summary.count === expenses.length ? 'all entries' : `of ${expenses.length}`}</small></article>
     </section>
 
@@ -293,7 +293,7 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
 
     {addMenuOpen && <div className="document-add-menu-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setAddMenuOpen(false)}>
       <section className="document-add-menu" role="dialog" aria-modal="true" aria-labelledby="document-add-title">
-        <header><div><span className="kicker">ADD RECORD</span><h2 id="document-add-title">What are you adding?</h2><p>Keep manual entry fast, or attach the original document.</p></div><button type="button" className="icon-button" onClick={() => setAddMenuOpen(false)}><X size={19} /></button></header>
+        <header><div><h2 id="document-add-title">What are you adding?</h2></div><button type="button" className="icon-button" onClick={() => setAddMenuOpen(false)}><X size={19} /></button></header>
         <div className="document-add-options">
           <button type="button" onClick={() => { setAddMenuOpen(false); openAddExpense() }}><Plus size={20} /><b>Manual expense</b><small>Same quick ledger entry</small></button>
           <button type="button" onClick={() => documentFileRef.current?.click()}><FileUp size={20} /><b>Upload file</b><small>PDF, Office, text or image</small></button>

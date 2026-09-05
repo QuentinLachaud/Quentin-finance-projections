@@ -134,12 +134,7 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
 
   return <>
     <section className="loans-workspace">
-      <header className="panel loans-toolbar">
-        <div>
-          <span className="kicker">CURRENT FINANCE</span>
-          <h2>Mortgages & loans</h2>
-          <p>Live borrowing held by the portfolio, with BTL-linked finance kept in sync automatically.</p>
-        </div>
+      <header className="panel loans-toolbar copy-actions-only">
         <button type="button" className="primary-button" onClick={addLoan}><Plus size={16} /> Add loan</button>
       </header>
 

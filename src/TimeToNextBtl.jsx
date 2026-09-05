@@ -80,7 +80,7 @@ export function PurchaseAssumptionsSheet({ draft, onChange, onCancel, onSave }) 
     <form className="next-btl-sheet" role="dialog" aria-modal="true" aria-labelledby="next-btl-sheet-title" onSubmit={(event) => { event.preventDefault(); onSave() }}>
       <header>
         <button type="button" onClick={onCancel}>Cancel</button>
-        <div><span>PURCHASE FUNDING</span><h3 id="next-btl-sheet-title">Purchase assumptions</h3></div>
+        <div><h3 id="next-btl-sheet-title">Purchase assumptions</h3></div>
         <button type="submit" className="done">Done</button>
       </header>
       <div className="next-btl-sheet-body">
@@ -413,7 +413,7 @@ export default function TimeToNextBtl({
 
   return <section className={`panel next-btl-panel ${className}`.trim()}>
     <header className="next-btl-heading">
-      <div><span className="kicker">PURCHASE TIMING</span><h2>Time to next BTL</h2><p>See when accumulated deployable cash can fund the next acquisition as its target price moves over time.</p></div>
+      <div><h2>Time to next BTL</h2><p>When your available cash can fund the next purchase.</p></div>
     </header>
 
     <div className="next-btl-layout">

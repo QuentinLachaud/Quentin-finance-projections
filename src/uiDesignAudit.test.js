@@ -13,7 +13,7 @@ describe('interface information architecture', () => {
     expect(app).toContain('aria-current={section === label ? \'page\' : undefined}')
   })
 
-  it('gives every workspace a contextual page heading and explanation', () => {
+  it('gives every workspace a clear page heading and only shows useful explanations', () => {
     const app = read('src/App.jsx')
     for (const title of [
       'Portfolio overview',
@@ -31,7 +31,8 @@ describe('interface information architecture', () => {
       expect(app).toContain(`title: '${title}'`)
     }
     expect(app).not.toContain('Last calculated just now')
-    expect(app).toContain('pageMeta.description')
+    expect(app).toContain('{pageMeta.description && <p>{pageMeta.description}</p>}')
+    expect(app).not.toContain('<span className="eyebrow">{pageMeta.eyebrow}</span>')
   })
 
   it('keeps secondary model/profile controls available but collapsed by default', () => {
@@ -70,8 +71,12 @@ describe('interface usability contracts', () => {
     const auth = read('src/AuthScreen.jsx')
     const billing = read('src/BillingWorkspace.jsx')
     expect(auth).not.toContain('never shared with another account')
-    expect(auth).toContain('Your BTL portfolio, clearly modelled.')
+    expect(auth).not.toContain('WELCOME TO BTL PORTFOLIO')
+    expect(auth).not.toContain('Your BTL portfolio, clearly modelled.')
+    expect(auth).toContain("mode === 'sign-up' ? 'Create your account' : 'Sign in'")
     expect(billing).not.toContain('no hidden surprises')
+    expect(billing).not.toContain('Future Pro reporting and integrations')
+    expect(billing).toContain('Upgrade to Pro')
     expect(billing).toContain('Remortgage Simulator and long-range projections')
   })
 })

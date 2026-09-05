@@ -15464,3 +15464,8 @@ button.contractor-tag-chip { cursor: pointer; }
   }
 }
 
+/* Copy cleanup: action-only toolbars */
+.loans-toolbar.copy-actions-only,
+.remortgage-toolbar.copy-actions-only {
+  justify-content: flex-end;
+}

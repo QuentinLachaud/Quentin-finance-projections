@@ -10,7 +10,7 @@ const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 describe('mobile Loans card hierarchy', () => {
   it('keeps the page canvas between the intro panel and loan cards by removing panel from the outer wrapper', () => {
     expect(source).toContain('<section className="loans-workspace">')
-    expect(source).toContain('<header className="panel loans-toolbar">')
+    expect(source).toContain('<header className="panel loans-toolbar copy-actions-only">')
     expect(source).not.toContain('<section className="panel loans-workspace">')
   })
 
