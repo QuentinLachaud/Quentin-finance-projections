@@ -216,24 +216,30 @@ export default function DocumentViewer({ document: documentMeta, onClose, onRena
       </form>}
 
       <div className={`document-viewer-stage ${kind}`}>
-        {!signedUrl && !loadError && <div className="document-viewer-loading"><LoaderCircle size={26} /><b>Opening securely…</b><span>Loading from your account</span></div>}
-        {loadError && <div className="document-viewer-error"><FileText size={30} /><b>Couldn’t display this file</b><span>{loadError}</span></div>}
-        {signedUrl && kind === 'image' && <div className="document-viewer-image-scroll" onDoubleClick={() => setZoom((current) => current === 1 ? 2 : 1)}>
-          <img
+        <div
+          className={`document-viewer-scroll-region ${kind}${kind === 'image' ? ' document-viewer-image-scroll' : ''}`}
+          role="region"
+          aria-label="Document preview"
+          tabIndex={0}
+          onDoubleClick={kind === 'image' ? () => setZoom((current) => current === 1 ? 2 : 1) : undefined}
+        >
+          {!signedUrl && !loadError && <div className="document-viewer-loading"><LoaderCircle size={26} /><b>Opening securely…</b><span>Loading from your account</span></div>}
+          {loadError && <div className="document-viewer-error"><FileText size={30} /><b>Couldn’t display this file</b><span>{loadError}</span></div>}
+          {signedUrl && kind === 'image' && <img
             src={signedUrl}
             alt={title}
             draggable="false"
             style={zoom === 1 ? undefined : { width: `${Math.round(zoom * 100)}%`, maxWidth: 'none', maxHeight: 'none' }}
-          />
-        </div>}
-        {signedUrl && kind === 'pdf' && <PdfCanvasPreview signedUrl={signedUrl} zoom={zoom} onError={setLoadError} />}
-        {signedUrl && kind === 'text' && <iframe src={signedUrl} title={title} />}
-        {signedUrl && kind === 'file' && <div className="document-viewer-file-fallback">
-          <span className="document-viewer-file-icon"><FileText size={34} /></span>
-          <b>{documentMeta?.fileName || title}</b>
-          <p>This file type is best viewed in its native app.</p>
-          <a href={signedUrl} target="_blank" rel="noreferrer">Open file <ExternalLink size={16} /></a>
-        </div>}
+          />}
+          {signedUrl && kind === 'pdf' && <PdfCanvasPreview signedUrl={signedUrl} zoom={zoom} onError={setLoadError} />}
+          {signedUrl && kind === 'text' && <iframe src={signedUrl} title={title} />}
+          {signedUrl && kind === 'file' && <div className="document-viewer-file-fallback">
+            <span className="document-viewer-file-icon"><FileText size={34} /></span>
+            <b>{documentMeta?.fileName || title}</b>
+            <p>This file type is best viewed in its native app.</p>
+            <a href={signedUrl} target="_blank" rel="noreferrer">Open file <ExternalLink size={16} /></a>
+          </div>}
+        </div>
       </div>
 
       {notice && <div className="document-viewer-notice" role="status">{notice}</div>}

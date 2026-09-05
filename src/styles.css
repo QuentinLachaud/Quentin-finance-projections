@@ -15398,3 +15398,69 @@ button.contractor-tag-chip { cursor: pointer; }
   }
 }
 
+/* Document viewer explicit inner scroll viewport */
+.document-viewer-polished .document-viewer-stage {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden !important;
+}
+.document-viewer-scroll-region {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-gutter: stable both-edges;
+  outline: none;
+}
+.document-viewer-scroll-region:focus-visible {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+.document-viewer-scroll-region.pdf {
+  padding: 18px;
+}
+.document-viewer-scroll-region.pdf .document-viewer-pdf-pages {
+  width: 100%;
+  min-width: 100%;
+  min-height: max-content;
+  align-items: center;
+}
+.document-viewer-scroll-region.pdf .document-viewer-pdf-page {
+  flex: 0 0 auto;
+  max-width: none;
+  margin-inline: auto;
+  overflow: visible;
+}
+.document-viewer-scroll-region.text {
+  overflow: hidden;
+}
+.document-viewer-scroll-region.text iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+}
+.document-viewer-scroll-region.document-viewer-image-scroll {
+  width: auto;
+  height: auto;
+}
+.document-viewer-scroll-region > .document-viewer-loading,
+.document-viewer-scroll-region > .document-viewer-error,
+.document-viewer-scroll-region > .document-viewer-file-fallback {
+  min-height: 100%;
+  margin-inline: auto;
+  align-content: center;
+}
+@media (max-width: 760px) {
+  .document-viewer-scroll-region.pdf {
+    padding: 12px;
+  }
+}
+
