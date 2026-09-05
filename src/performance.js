@@ -1,3 +1,5 @@
+import { cashHeldFromAccounts, deduplicateTransactions, performanceTreatmentForTransaction } from './banking.js'
+
 const MS_DAY = 24 * 60 * 60 * 1000
 const MS_YEAR = 365.2425 * MS_DAY
 
@@ -137,7 +139,31 @@ const timelineAmount = (event, key) => {
   return Number.isFinite(Number(value)) ? Number(value) : null
 }
 
-const buildRawEvents = ({ properties, loans, expenses, timelineEvents, performanceEvents, now }) => {
+const bankPropertyId = (transaction) => clean(transaction?.propertyId || transaction?.property_id)
+const daysApart = (left, right) => {
+  const a = utcDate(left)
+  const b = utcDate(right)
+  return a && b ? Math.abs(a - b) / MS_DAY : Number.POSITIVE_INFINITY
+}
+const performanceBankRows = (transactions) => deduplicateTransactions(transactions)
+  .filter((transaction) => transaction?.status !== 'pending' && dateOnly(transaction?.bookedAt || transaction?.booked_at))
+
+const bankTransactionMatchesExpense = (expense, properties, bankTransactions) => {
+  const expenseDate = dateOnly(expense?.date)
+  const expenseAmount = finite(expense?.amount, NaN)
+  if (!expenseDate || !Number.isFinite(expenseAmount)) return false
+  const propertyId = expensePropertyId(expense, properties)
+  return performanceBankRows(bankTransactions).some((transaction) => {
+    const treatment = performanceTreatmentForTransaction(transaction)
+    if (!['operating', 'financing'].includes(treatment)) return false
+    if (Math.abs(finite(transaction.amount) - expenseAmount) >= 0.005) return false
+    if (daysApart(transaction.bookedAt || transaction.booked_at, expenseDate) > 3) return false
+    const bankProperty = bankPropertyId(transaction)
+    return !propertyId || !bankProperty || propertyId === bankProperty
+  })
+}
+
+const buildRawEvents = ({ properties, loans, expenses, timelineEvents, performanceEvents, bankTransactions, now }) => {
   const today = todayDate(now)
   const normalizedManual = normalizePerformanceEvents(performanceEvents, properties)
   const manualInitialProperties = new Set(normalizedManual.filter((event) => event.type === 'initial_capital').map((event) => event.propertyId))
@@ -222,6 +248,7 @@ const buildRawEvents = ({ properties, loans, expenses, timelineEvents, performan
     const occurredAt = dateOnly(expense?.date)
     const amount = finite(expense?.amount, NaN)
     if (!occurredAt || !Number.isFinite(amount) || !amount) continue
+    if (bankTransactionMatchesExpense(expense, properties, bankTransactions)) continue
     events.push({
       id: `performance:expense:${clean(expense?.id) || makeId('expense')}`,
       propertyId: expensePropertyId(expense, properties),
@@ -233,6 +260,34 @@ const buildRawEvents = ({ properties, loans, expenses, timelineEvents, performan
       amount: roundMoney(amount),
       sourceType: 'expense',
       sourceId: clean(expense?.id),
+      actual: true,
+      estimated: false,
+    })
+  }
+
+  for (const transaction of performanceBankRows(bankTransactions)) {
+    const occurredAt = dateOnly(transaction.bookedAt || transaction.booked_at)
+    const treatment = performanceTreatmentForTransaction(transaction)
+    const propertyId = bankPropertyId(transaction)
+    const property = (properties || []).find((candidate) => clean(candidate?.id) === propertyId)
+    const mortgageIsOperatingCash = treatment === 'financing'
+      && transaction.category === 'mortgage'
+      && property
+      && property.mortgageInterestOnly !== false
+    if (treatment !== 'operating' && !mortgageIsOperatingCash) continue
+    const amount = roundMoney(finite(transaction.amount))
+    if (!amount) continue
+    events.push({
+      id: `performance:bank:${clean(transaction.id || transaction.transactionKey || transaction.transaction_key)}`,
+      propertyId,
+      occurredAt,
+      type: amount > 0 ? 'income' : 'cost',
+      category: amount > 0 ? 'income' : 'cost',
+      title: clean(transaction.description) || clean(transaction.counterparty) || 'Bank transaction',
+      details: `${transaction.category || 'other'} · ${transaction.sourceType === 'tide_statement' ? 'Tide statement' : 'Connected bank'}`,
+      amount,
+      sourceType: 'bank',
+      sourceId: clean(transaction.id),
       actual: true,
       estimated: false,
     })
@@ -409,7 +464,7 @@ const buildActualPoints = ({ properties, events, basisByProperty, today }) => {
       }
       const amount = finite(event.amount)
       cash.value += amount
-      if (event.sourceType === 'expense') operatingNet.value += amount
+      if (['expense', 'bank'].includes(event.sourceType)) operatingNet.value += amount
       if (amount < 0 && event.type !== 'initial_capital') costs.value += Math.abs(amount)
     }
 
@@ -461,7 +516,7 @@ const projectionFor = ({ properties, settings, actualEvents, currentNetCash, tod
   const points = []
   let projectedCash = currentNetCash
   let projectedOperatingNet = actualEvents
-    .filter((event) => event.sourceType === 'expense')
+    .filter((event) => ['expense', 'bank'].includes(event.sourceType))
     .reduce((sum, event) => sum + finite(event.amount), 0)
   let projectedCosts = actualEvents
     .filter((event) => finite(event.amount) < 0 && event.type !== 'initial_capital')
@@ -596,12 +651,12 @@ const cashBuckets = (events, projectionPoints, currentNetCash) => {
 }
 
 export const buildPerformanceModel = ({
-  properties = [], loans = [], expenses = [], timelineEvents = [], performanceEvents = [], settings = {}, scope = 'portfolio', horizonYears = 10, now = new Date(),
+  properties = [], loans = [], expenses = [], timelineEvents = [], performanceEvents = [], bankTransactions = [], bankAccounts = [], settings = {}, scope = 'portfolio', horizonYears = 10, now = new Date(),
 } = {}) => {
   const today = todayDate(now)
   const selectedProperties = scopedProperties(properties, scope)
   const selectedIds = new Set(selectedProperties.map((property) => clean(property.id)))
-  const raw = buildRawEvents({ properties, loans, expenses, timelineEvents, performanceEvents, now })
+  const raw = buildRawEvents({ properties, loans, expenses, timelineEvents, performanceEvents, bankTransactions, now })
   const allEvents = raw.events.filter((event) => event.occurredAt <= today)
   const events = scopedEvents(allEvents, scope)
     .filter((event) => scope === 'portfolio' ? (!event.propertyId || selectedIds.has(event.propertyId)) : selectedIds.has(event.propertyId))
@@ -618,7 +673,7 @@ export const buildPerformanceModel = ({
   if (currentEquity) cashflows.push({ date: today, amount: currentEquity })
   const annualisedReturn = xirr(cashflows)
   const netCash = events.reduce((sum, event) => sum + finite(event.amount), 0)
-  const operatingNetIncome = events.filter((event) => event.sourceType === 'expense').reduce((sum, event) => sum + finite(event.amount), 0)
+  const operatingNetIncome = events.filter((event) => ['expense', 'bank'].includes(event.sourceType)).reduce((sum, event) => sum + finite(event.amount), 0)
   const recordedCosts = events.filter((event) => finite(event.amount) < 0 && event.type !== 'initial_capital').reduce((sum, event) => sum + Math.abs(finite(event.amount)), 0)
   const currentMonthlyRent = selectedProperties.reduce((sum, property) => sum + nonNegative(property.rent), 0)
   const appreciationGain = selectedProperties.reduce((sum, property) => sum + nonNegative(property.latestValuation) - nonNegative(property.purchasePrice), 0)
@@ -633,12 +688,20 @@ export const buildPerformanceModel = ({
   const valuationCagr = property ? propertyCagr(property, today) : null
   const rentalCagr = property ? rentCagr(property, events, today) : null
   const estimatedBasisCount = selectedProperties.filter((item) => raw.basisByProperty.get(clean(item.id))?.source !== 'recorded').length
-  const actualCashEntries = events.filter((event) => event.sourceType === 'expense').length
+  const actualCashEntries = events.filter((event) => ['expense', 'bank'].includes(event.sourceType)).length
+  const canonicalBank = performanceBankRows(bankTransactions).filter((transaction) => performanceTreatmentForTransaction(transaction) !== 'exclude')
+  const companyCash = cashHeldFromAccounts(bankAccounts)
+  const dlaInjected = canonicalBank.filter((transaction) => transaction.category === 'dla_injected').reduce((sum, transaction) => sum + Math.max(0, finite(transaction.amount)), 0)
+  const dlaRepaid = canonicalBank.filter((transaction) => transaction.category === 'dla_repaid').reduce((sum, transaction) => sum + Math.abs(Math.min(0, finite(transaction.amount))), 0)
+  const netDlaFunding = dlaInjected - dlaRepaid
+  const bankBackedCashEntries = events.filter((event) => event.sourceType === 'bank').length
+  const bankReviewCount = canonicalBank.filter((transaction) => performanceTreatmentForTransaction(transaction) === 'review').length
   const missingPurchase = selectedProperties.filter((item) => !dateOnly(item.purchaseDate) || !nonNegative(item.purchasePrice)).length
   const missingValuation = selectedProperties.filter((item) => !nonNegative(item.latestValuation)).length
   const warnings = []
   if (estimatedBasisCount) warnings.push(`${estimatedBasisCount} ${estimatedBasisCount === 1 ? 'property uses' : 'properties use'} an estimated initial cash basis. Add the actual initial cash invested to make annualised return exact.`)
-  if (!actualCashEntries) warnings.push('No dated income or cost entries are available. Historical cash return currently excludes rent and operating costs until they are recorded in Documents & Expenses.')
+  if (!actualCashEntries) warnings.push('No dated income or cost entries are available. Historical cash return currently excludes rent and operating costs until they are recorded in Documents & Expenses or Banking.')
+  if (bankReviewCount) warnings.push(`${bankReviewCount} bank ${bankReviewCount === 1 ? 'transaction needs' : 'transactions need'} review before it can be safely used in property performance.`)
   if (missingPurchase) warnings.push(`${missingPurchase} ${missingPurchase === 1 ? 'property is' : 'properties are'} missing a purchase date or purchase price.`)
   if (missingValuation) warnings.push(`${missingValuation} ${missingValuation === 1 ? 'property is' : 'properties are'} missing a current valuation.`)
   const breakdown = returnBreakdown({ properties: selectedProperties, events, basisByProperty: raw.basisByProperty })
@@ -675,6 +738,13 @@ export const buildPerformanceModel = ({
       since: earliest,
       capitalBasis: estimatedBasisCount ? 'estimated' : 'recorded',
       actualCashEntries,
+      companyCash,
+      dlaInjected,
+      dlaRepaid,
+      netDlaFunding,
+      bankBackedCashEntries,
+      bankAccountCount: bankAccounts.length,
+      bankReviewCount,
     },
     projection: projection.summary,
     warnings,

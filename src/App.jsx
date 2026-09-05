@@ -47,9 +47,6 @@ import { actionableNotifications, complianceDiaryItems, dismissNotification, nor
 import { disablePushNotifications, enablePushNotifications, syncPushNotifications } from './notificationPush.js'
 import { mergeRemotePortfolio, serverVersionIsNewer } from './portfolioSync.js'
 
-// Keep the completed Open Banking workspace dormant until a production data
-// provider is available. It can be restored without code changes at deploy time.
-const BANKING_ENABLED = import.meta.env.VITE_BANKING_ENABLED === 'true'
 const SUPPORT = supportConfig({ enabled: import.meta.env.VITE_SUPPORT_ENABLED, url: import.meta.env.VITE_BUY_ME_A_COFFEE_URL || 'https://buymeacoffee.com/btlportfolio.co.uk' })
 
 const defaultSettings = { ...assumptions, ...newAccountDefaults, fullyManaged: false, companyCosts: [], extractions: [], accountType: 'company', companyName: '', onboardingComplete: false, grossAnnualIncome: 0, privateIncomeConfirmed: false, taxJurisdiction: 'england', notificationsEnabled: true, pushNotificationsEnabled: false }
@@ -1599,7 +1596,7 @@ function PortfolioApp({ user }) {
   const [documentCaptureRequest, setDocumentCaptureRequest] = useState(null)
   const [section, setSection] = useState(() => {
     const params = new URLSearchParams(window.location.search)
-    if (BANKING_ENABLED && params.get('bank_callback') === '1') return 'Banking'
+    if (params.get('bank_callback') === '1') return 'Banking'
 
     const savedSection = window.localStorage.getItem(sectionStorageKey)
     return workspaceNavigation.some(([label]) => label === savedSection) ? savedSection : 'Overview'
@@ -1661,7 +1658,6 @@ function PortfolioApp({ user }) {
 
   useEffect(() => {
     if (state?.settings.accountType === 'private' && section === 'Companies House') setSection('Overview')
-    if (!BANKING_ENABLED && section === 'Banking') setSection('Overview')
   }, [state?.settings.accountType, section])
 
   useEffect(() => {
@@ -2048,7 +2044,6 @@ function PortfolioApp({ user }) {
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
   const mobileProperty = calculated.find((property) => property.id === mobilePropertyId) || filtered[0] || calculated[0] || null
   const visibleWorkspaceNavigation = workspaceNavigation.filter(([label]) => {
-    if (!BANKING_ENABLED && label === 'Banking') return false
     if (state.settings.accountType === 'private' && label === 'Companies House') return false
     return true
   })
@@ -2467,6 +2462,7 @@ function PortfolioApp({ user }) {
           </>}
 
           {section === 'Performance' && <PerformanceWorkspace
+            user={user}
             properties={includedCalculated}
             loans={state.loans || []}
             expenses={state.expenses || []}
@@ -2474,6 +2470,7 @@ function PortfolioApp({ user }) {
             performanceEvents={state.performanceEvents || []}
             settings={state.settings}
             onEventsChange={updatePerformanceEvents}
+            onTimelineEventDelete={removePropertyTimelineEvent}
             onAssumptionChange={updateSetting}
             onOpenExpenses={() => setSection('Documents & Expenses')}
           />}
@@ -2492,7 +2489,7 @@ function PortfolioApp({ user }) {
 
           {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
 
-          {BANKING_ENABLED && section === 'Banking' && <BankWorkspace user={user} onCashHeldChange={updateConnectedCashHeld} />}
+          {section === 'Banking' && <BankWorkspace user={user} properties={includedCalculated} onCashHeldChange={updateConnectedCashHeld} />}
 
           {section === 'Projections' && <>
             <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>

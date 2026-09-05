@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react'
+import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
+import { useBankPerformanceData } from './useBankPerformanceData.js'
 import { ChevronDown, CircleHelp, Pencil, Plus, ReceiptText, Trash2, TrendingUp, X } from 'lucide-react'
 import {
   PERFORMANCE_EVENT_TYPES,
@@ -22,7 +24,7 @@ const formatDate = (value) => {
 }
 const sourceLabel = (event) => ({
   expense: 'Documents & Expenses', timeline: 'Property timeline', property: 'Property record', 'current-state': 'Current property data',
-  'manual-performance': 'Performance adjustment', 'derived-capital-basis': 'Estimated basis',
+  'manual-performance': 'Performance adjustment', 'derived-capital-basis': 'Estimated basis', bank: 'Banking',
 }[event?.sourceType] || 'Portfolio data')
 
 const chartViews = {
@@ -261,6 +263,7 @@ function PerformanceEventEditor({ draft, properties, onSave, onClose }) {
 }
 
 export default function PerformanceWorkspace({
+  user,
   properties = [],
   loans = [],
   expenses = [],
@@ -268,6 +271,7 @@ export default function PerformanceWorkspace({
   performanceEvents = [],
   settings = {},
   onEventsChange,
+  onTimelineEventDelete,
   onAssumptionChange,
   onOpenExpenses,
 }) {
@@ -279,7 +283,9 @@ export default function PerformanceWorkspace({
   const [showEvents, setShowEvents] = useState(true)
   const [eventFilter, setEventFilter] = useState('all')
   const [editorDraft, setEditorDraft] = useState(null)
-  const model = useMemo(() => buildPerformanceModel({ properties, loans, expenses, timelineEvents, performanceEvents, settings, scope, horizonYears }), [properties, loans, expenses, timelineEvents, performanceEvents, settings, scope, horizonYears])
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const bankData = useBankPerformanceData(user?.id)
+  const model = useMemo(() => buildPerformanceModel({ properties, loans, expenses, timelineEvents, performanceEvents, bankTransactions: bankData.transactions, bankAccounts: bankData.accounts, settings, scope, horizonYears }), [properties, loans, expenses, timelineEvents, performanceEvents, bankData.transactions, bankData.accounts, settings, scope, horizonYears])
   const selectedProperty = properties.find((property) => property.id === scope) || null
   const visibleEvents = model.events.filter((event) => eventFilter === 'all'
     || (eventFilter === 'income' && event.amount > 0)
@@ -313,9 +319,13 @@ export default function PerformanceWorkspace({
     onEventsChange?.(next)
     setEditorDraft(null)
   }
-  const removeEvent = (event) => {
-    if (!window.confirm(`Delete “${event.title || 'financial event'}”? This removes the manual return adjustment only.`)) return
-    onEventsChange?.((performanceEvents || []).filter((item) => item.id !== event.id))
+  const requestDeleteEvent = (event) => setDeleteTarget(event)
+  const confirmDeleteEvent = () => {
+    const event = deleteTarget
+    setDeleteTarget(null)
+    if (!event) return
+    if (event.sourceType === 'manual-performance') onEventsChange?.((performanceEvents || []).filter((item) => item.id !== event.id))
+    else if (event.sourceType === 'timeline') onTimelineEventDelete?.(event.sourceId)
   }
   const setPercentAssumption = (key, value) => {
     const parsed = Number(value)
@@ -344,6 +354,12 @@ export default function PerformanceWorkspace({
           <span><small>MOIC</small><b>{ratio(model.metrics.moic)}</b></span>
           <span><small>ROI</small><b>{pct(model.metrics.roi, 1)}</b></span>
         </div>
+        {(model.metrics.bankAccountCount > 0 || model.metrics.dlaInjected || model.metrics.dlaRepaid) && <div className="performance-bank-strip" aria-label="Company cash and DLA">
+          <span><small>Company cash</small><b>{currency(model.metrics.companyCash)}</b></span>
+          <span><small>DLA injected</small><b>{currency(model.metrics.dlaInjected)}</b></span>
+          <span><small>DLA repaid</small><b>{currency(model.metrics.dlaRepaid)}</b></span>
+          <span><small>Net DLA funding</small><b>{currency(model.metrics.netDlaFunding)}</b></span>
+        </div>}
         <details className="performance-method"><summary><CircleHelp size={14} /> What these numbers include <ChevronDown size={15} /></summary><div><p><b>Annualised return</b> is XIRR across dated investment cash flows, with current net property equity treated as today’s terminal value. <b>Net income</b> uses dated Documents & Expenses entries only.</p><p>Historical rent, costs and valuations are shown only where a dated record exists. The app does not backfill current assumptions into the past. Forecasts start at Today and use the shared portfolio assumptions.</p></div></details>
       </> : <div className="performance-empty"><TrendingUp size={25} /><b>Add a property to measure performance</b><span>Performance starts from purchase, financing and dated cash-flow data already held in the portfolio.</span></div>}
     </section>
@@ -377,10 +393,12 @@ export default function PerformanceWorkspace({
       <section className="panel performance-history"><header><div><span className="kicker">FINANCIAL HISTORY</span><h2>Every return-relevant event</h2></div><div className="performance-history-filters" role="group" aria-label="Financial history filter">{[['all', 'All'], ['income', 'Income'], ['cost', 'Costs'], ['finance', 'Financing'], ['value', 'Value']].map(([key, label]) => <button key={key} className={eventFilter === key ? 'active' : ''} aria-pressed={eventFilter === key} onClick={() => setEventFilter(key)}>{label}</button>)}</div></header><div className="performance-table-wrap"><table><thead><tr><th>Date</th><th>Event</th><th>Property</th><th>Cash</th><th>Running cash</th><th>Source</th><th aria-label="Actions" /></tr></thead><tbody>{visibleEvents.map((event) => {
         const propertyName = properties.find((property) => property.id === event.propertyId)?.name || (event.propertyId ? 'Property' : 'Portfolio')
         const manual = event.sourceType === 'manual-performance'
-        return <tr key={event.id}><td><time>{formatDate(event.occurredAt)}</time></td><td><b>{event.title}</b>{event.details && <small>{event.details}</small>}{event.estimated && <em>Estimated</em>}</td><td>{propertyName}</td><td className={event.amount > 0 ? 'positive' : event.amount < 0 ? 'negative' : ''}>{event.amount ? money(event.amount) : '—'}</td><td>{money(event.runningCash)}</td><td>{sourceLabel(event)}</td><td>{manual && <span className="performance-row-actions"><button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); editEvent(event) }} aria-label={`Edit ${event.title}`}><Pencil size={14} /></button><button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); removeEvent(event) }} aria-label={`Delete ${event.title}`}><Trash2 size={14} /></button></span>}</td></tr>
+        const deletable = manual || event.sourceType === 'timeline'
+        return <tr key={event.id}><td><time>{formatDate(event.occurredAt)}</time></td><td><b>{event.title}</b>{event.details && <small>{event.details}</small>}{event.estimated && <em>Estimated</em>}</td><td>{propertyName}</td><td className={event.amount > 0 ? 'positive' : event.amount < 0 ? 'negative' : ''}>{event.amount ? money(event.amount) : '—'}</td><td>{money(event.runningCash)}</td><td>{sourceLabel(event)}</td><td>{deletable && <span className="performance-row-actions">{manual && <button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); editEvent(event) }} aria-label={`Edit ${event.title}`}><Pencil size={14} /></button>}<button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); requestDeleteEvent(event) }} aria-label={`Delete ${event.title}`}><Trash2 size={14} /></button></span>}</td></tr>
       })}{visibleEvents.length === 0 && <tr><td colSpan="7" className="performance-table-empty">No matching financial events.</td></tr>}</tbody></table></div></section>
     </>}
 
     {editorDraft && <PerformanceEventEditor draft={editorDraft} properties={properties} onSave={saveEvent} onClose={() => setEditorDraft(null)} />}
+    {deleteTarget && <DeleteConfirmDialog title="Delete financial event?" message={deleteTarget.sourceType === 'timeline' ? 'This removes the historical timeline record only. The current property value, rent or loan field is unchanged.' : 'This removes this manual Performance adjustment.'} onCancel={() => setDeleteTarget(null)} onConfirm={confirmDeleteEvent} />}
   </div>
 }

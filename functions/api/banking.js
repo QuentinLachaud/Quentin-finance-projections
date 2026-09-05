@@ -143,7 +143,7 @@ const syncAccount = async ({ externalAccountId, connection, user, env, authoriza
   const existingOverrides = await supabaseFetch(
     env,
     authorization,
-    `bank_transactions?account_id=eq.${encodeURIComponent(account.id)}&category_overridden=eq.true&select=transaction_key,category,is_transfer`,
+    `bank_transactions?account_id=eq.${encodeURIComponent(account.id)}&select=transaction_key,category,is_transfer,category_overridden,property_id,performance_treatment,exclude_from_performance`,
   )
   const overrides = new Map((existingOverrides || []).map((row) => [row.transaction_key, row]))
   const booked = transactionPayload?.transactions?.booked || []
@@ -166,9 +166,13 @@ const syncAccount = async ({ externalAccountId, connection, user, env, authoriza
       bank_code: row.bankCode || null,
       status: row.status,
       balance_after: row.balanceAfter,
-      category: override?.category || row.category,
-      is_transfer: override?.is_transfer ?? row.isTransfer,
-      category_overridden: Boolean(override),
+      category: override?.category_overridden ? override.category : row.category,
+      is_transfer: override?.category_overridden ? override.is_transfer : row.isTransfer,
+      category_overridden: Boolean(override?.category_overridden),
+      source_type: 'gocardless',
+      property_id: override?.property_id || null,
+      performance_treatment: override?.performance_treatment || 'auto',
+      exclude_from_performance: override?.exclude_from_performance === true,
     }
   })
   for (const batch of chunks(normalised)) {

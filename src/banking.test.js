@@ -11,7 +11,7 @@ const tx = (accountId, bookedAt, amount, extra = {}) => ({
 describe('bank transaction normalisation and classification', () => {
   it.each([
     ['Monthly rent Flat 2', 'rent'], ['THE MORTGAGE WORKS', 'mortgage'], ['HMRC corporation tax', 'tax'],
-    ['PAYROLL SALARY', 'salary'], ['Newton Property Factors', 'factors'], ['Directors loan repayment', 'director_loan'],
+    ['PAYROLL SALARY', 'salary'], ['Newton Property Factors', 'factors'],
     ['Emergency plumber repair', 'repairs'], ['Octopus Energy', 'utilities'], ['Landlord insurance premium', 'insurance'],
     ['Internal transfer to savings', 'transfer'], ['Unrecognised shop', 'other'],
   ])('classifies %s as %s', (description, expected) => expect(classifyTransaction({ description })).toBe(expected))

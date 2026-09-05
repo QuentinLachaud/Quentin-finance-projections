@@ -6,7 +6,8 @@ export const BANK_CATEGORIES = [
   ['tax', 'Tax'],
   ['salary', 'Salary'],
   ['factors', 'Factors & management'],
-  ['director_loan', 'Director loan'],
+  ['dla_injected', 'DLA injected'],
+  ['dla_repaid', 'DLA repaid'],
   ['repairs', 'Repairs & maintenance'],
   ['utilities', 'Utilities'],
   ['insurance', 'Insurance'],
@@ -21,7 +22,6 @@ const CATEGORY_RULES = [
   ['tax', /\b(hmrc|revenue\s*(?:and|&)\s*customs|corporation tax|income tax|council tax|self assessment|vat)\b/i],
   ['salary', /\b(salary|payroll|wages?|payroll payment)\b/i],
   ['factors', /\b(factor(?:ing|s)?|property management|residential management|service charge)\b/i],
-  ['director_loan', /\b(directors?'? loan|shareholder loan|loan (?:from|to) director|director advance)\b/i],
   ['repairs', /\b(repair|maintenance|plumb(?:er|ing)|electrician|joiner|roofer|screwfix|toolstation|b&q)\b/i],
   ['utilities', /\b(electric(?:ity)?|energy|gas|water|broadband|internet|utility|scottish power|octopus|edf|virgin media)\b/i],
   ['insurance', /\b(insurance|insurer|policy premium|aviva|direct line|landlord insurance)\b/i],
@@ -29,6 +29,7 @@ const CATEGORY_RULES = [
   ['transfer', /\b(internal transfer|own account|between accounts|savings transfer|cash transfer|monzo pot|revolut vault)\b/i],
 ]
 
+const DLA_PATTERN = /\b(directors?'? loan|shareholder loan|loan (?:from|to) director|director advance)\b/i
 const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0
 const isoDate = (value) => value ? String(value).slice(0, 10) : ''
 const monthKey = (value) => isoDate(value).slice(0, 7)
@@ -52,7 +53,86 @@ export const classifyTransaction = (transaction) => {
     transaction.remittanceInformationUnstructured,
     transaction.additionalInformation,
   )
+  if (DLA_PATTERN.test(haystack)) return number(transaction.amount) >= 0 ? 'dla_injected' : 'dla_repaid'
   return CATEGORY_RULES.find(([, pattern]) => pattern.test(haystack))?.[0] || 'other'
+}
+
+const canonicalText = (value) => cleanCanonical(value).replace(/\b(?:ref|reference|transaction|payment)\b/g, ' ').replace(/\s+/g, ' ').trim()
+const cleanCanonical = (value) => String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+export const canonicalTransactionKey = (transaction) => stableHash([
+  isoDate(transaction.bookedAt || transaction.booked_at),
+  number(transaction.amount).toFixed(2),
+  String(transaction.currency || 'GBP').toUpperCase(),
+  canonicalText(transaction.description || transaction.counterparty),
+].join('|'))
+
+export const mapStoredBankTransaction = (row, accountNames = new Map()) => {
+  const transaction = {
+    id: row.id,
+    accountId: row.account_id,
+    accountName: accountNames.get(row.account_id) || 'Bank account',
+    transactionKey: row.transaction_key,
+    bookedAt: row.booked_at,
+    valueAt: row.value_at,
+    amount: Number(row.amount || 0),
+    currency: row.currency || 'GBP',
+    description: row.description || 'Bank transaction',
+    counterparty: row.counterparty || '',
+    bankCode: row.bank_code || '',
+    status: row.status || 'booked',
+    balanceAfter: row.balance_after == null ? null : Number(row.balance_after),
+    category: row.category || 'other',
+    isTransfer: row.is_transfer === true,
+    categoryOverridden: row.category_overridden === true,
+    sourceType: row.source_type || 'gocardless',
+    propertyId: row.property_id || '',
+    performanceTreatment: row.performance_treatment || 'auto',
+    excludeFromPerformance: row.exclude_from_performance === true,
+    sourceMetadata: row.source_metadata || {},
+  }
+  return { ...transaction, canonicalKey: canonicalTransactionKey(transaction) }
+}
+
+export const deduplicateTransactions = (transactions) => {
+  const rows = (Array.isArray(transactions) ? transactions : []).map((transaction) => ({
+    ...transaction,
+    canonicalKey: transaction.canonicalKey || canonicalTransactionKey(transaction),
+  }))
+  const liveKeys = new Set(rows.filter((row) => row.sourceType === 'gocardless').map((row) => row.canonicalKey))
+  return rows.filter((row) => !(row.sourceType === 'tide_statement' && liveKeys.has(row.canonicalKey)))
+}
+
+export const performanceTreatmentForTransaction = (transaction) => {
+  if (transaction?.excludeFromPerformance || transaction?.exclude_from_performance) return 'exclude'
+  const override = transaction?.performanceTreatment || transaction?.performance_treatment || 'auto'
+  if (override !== 'auto') return override
+  if (transaction?.isTransfer || transaction?.is_transfer || transaction?.category === 'transfer') return 'exclude'
+  if (['dla_injected', 'dla_repaid'].includes(transaction?.category)) return 'investor'
+  if (['tax', 'salary'].includes(transaction?.category)) return 'company'
+  if (transaction?.category === 'mortgage') return 'financing'
+  if (['rent', 'repairs', 'factors', 'utilities', 'insurance', 'fees'].includes(transaction?.category)) return 'operating'
+  return 'review'
+}
+
+const propertyTokens = (property) => [property?.name, property?.postcode, property?.address, property?.lender]
+  .map((value) => cleanCanonical(value)).filter((value) => value.length >= 3)
+
+export const suggestPropertyId = (transaction, properties = []) => {
+  const metadata = transaction?.sourceMetadata || transaction?.source_metadata || {}
+  const haystack = cleanCanonical([transaction?.description, transaction?.counterparty, metadata.reference, metadata.from, metadata.to].filter(Boolean).join(' '))
+  const matches = (properties || []).map((property) => ({
+    property,
+    score: propertyTokens(property).reduce((score, token) => score + (haystack.includes(token) ? Math.max(1, Math.min(4, token.split(' ').length)) : 0), 0),
+  })).filter((candidate) => candidate.score > 0).sort((a, b) => b.score - a.score)
+  return matches.length && (matches.length === 1 || matches[0].score > matches[1].score) ? String(matches[0].property.id || '') : ''
+}
+
+export const transactionNeedsReview = (transaction, properties = []) => {
+  const treatment = performanceTreatmentForTransaction(transaction)
+  if (treatment === 'review') return true
+  if (['operating', 'financing'].includes(treatment) && !transaction?.propertyId && !transaction?.property_id) return true
+  return false
 }
 
 export const normalizeGoCardlessTransaction = (raw, accountId, status = 'booked') => {

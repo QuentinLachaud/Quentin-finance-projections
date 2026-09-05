@@ -6,9 +6,11 @@ import {
 import { supabase } from './supabase.js'
 import {
   aggregateCashFlow, BANK_CATEGORIES, calculateBankMetrics, cashHeldFromAccounts,
-  detectInternalTransfers, reconstructBalanceSeries, reportingAccountIds, transactionsToCsv,
+  deduplicateTransactions, detectInternalTransfers, mapStoredBankTransaction, reconstructBalanceSeries, reportingAccountIds, transactionsToCsv,
 } from './banking.js'
 import { currency, shortDate } from './calculations.js'
+import BankStatementImportSheet from './BankStatementImportSheet.jsx'
+import BankTransactionReview from './BankTransactionReview.jsx'
 
 const money = (value, currencyCode = 'GBP') => new Intl.NumberFormat('en-GB', {
   style: 'currency', currency: currencyCode || 'GBP', maximumFractionDigits: 2,
@@ -64,24 +66,7 @@ const mapAccount = (row) => ({
   institutionLogo: row.bank_connections?.institution_logo,
 })
 
-const mapTransaction = (row, accountNames) => ({
-  id: row.id,
-  accountId: row.account_id,
-  accountName: accountNames.get(row.account_id) || 'Bank account',
-  transactionKey: row.transaction_key,
-  bookedAt: row.booked_at,
-  valueAt: row.value_at,
-  amount: Number(row.amount || 0),
-  currency: row.currency,
-  description: row.description,
-  counterparty: row.counterparty,
-  bankCode: row.bank_code,
-  status: row.status,
-  balanceAfter: row.balance_after == null ? null : Number(row.balance_after),
-  category: row.category,
-  isTransfer: row.is_transfer,
-  categoryOverridden: row.category_overridden,
-})
+const mapTransaction = (row, accountNames) => mapStoredBankTransaction(row, accountNames)
 
 const downloadFile = (name, contents, type) => {
   const url = URL.createObjectURL(new Blob([contents], { type }))
@@ -195,7 +180,7 @@ function BankMetric({ label, value, note, tone }) {
   return <article className={`bank-metric ${tone || ''}`}><span>{label}</span><strong>{value}</strong>{note && <small>{note}</small>}</article>
 }
 
-export default function BankWorkspace({ user, onCashHeldChange }) {
+export default function BankWorkspace({ user, properties = [], onCashHeldChange }) {
   const [connections, setConnections] = useState([])
   const [accounts, setAccounts] = useState([])
   const [transactions, setTransactions] = useState([])
@@ -208,6 +193,7 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
   const [period, setPeriod] = useState('month')
   const [range, setRange] = useState('12')
   const [selectedAccountIds, setSelectedAccountIds] = useState([])
+  const [showStatementImport, setShowStatementImport] = useState(false)
 
   const loadData = async () => {
     const [connectionRows, accountRows, transactionRows] = await Promise.all([
@@ -217,13 +203,18 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
     ])
     const mappedAccounts = accountRows.map(mapAccount)
     const accountNames = new Map(mappedAccounts.map((account) => [account.id, `${account.institutionName} · ${account.displayName}`]))
-    const mappedTransactions = detectInternalTransfers(transactionRows.map((row) => mapTransaction(row, accountNames)))
+    const mappedTransactions = deduplicateTransactions(detectInternalTransfers(transactionRows.map((row) => mapTransaction(row, accountNames))))
     setConnections(connectionRows)
     setAccounts(mappedAccounts)
     setTransactions(mappedTransactions)
-    setSelectedAccountIds((current) => current.length ? current.filter((id) => mappedAccounts.some((account) => account.id === id)) : mappedAccounts.map((account) => account.id))
+    setSelectedAccountIds((current) => {
+      const valid = current.filter((id) => mappedAccounts.some((account) => account.id === id))
+      const included = mappedAccounts.filter((account) => account.includeInCash).map((account) => account.id)
+      if (included.length && !valid.some((id) => included.includes(id))) return included
+      return valid.length ? valid : (included.length ? included : mappedAccounts.map((account) => account.id))
+    })
     const cashHeld = cashHeldFromAccounts(mappedAccounts)
-    if (mappedAccounts.length) onCashHeldChange(cashHeld)
+    if (mappedAccounts.some((account) => account.includeInCash)) onCashHeldChange(cashHeld)
     setStatus('ready')
   }
 
@@ -299,8 +290,29 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
     setTransactions((current) => current.map((row) => row.id === transaction.id ? { ...row, category, isTransfer: category === 'transfer', categoryOverridden: true } : row))
   }
 
+  const updateTransactionMeta = async (transaction, patch) => {
+    const { error: updateError } = await supabase.from('bank_transactions').update(patch).eq('id', transaction.id)
+    if (updateError) { setError(updateError.message); return }
+    const mappedPatch = {
+      ...(Object.hasOwn(patch, 'category') ? { category: patch.category } : {}),
+      ...(Object.hasOwn(patch, 'is_transfer') ? { isTransfer: patch.is_transfer } : {}),
+      ...(Object.hasOwn(patch, 'category_overridden') ? { categoryOverridden: patch.category_overridden } : {}),
+      ...(Object.hasOwn(patch, 'property_id') ? { propertyId: patch.property_id || '' } : {}),
+      ...(Object.hasOwn(patch, 'performance_treatment') ? { performanceTreatment: patch.performance_treatment } : {}),
+      ...(Object.hasOwn(patch, 'exclude_from_performance') ? { excludeFromPerformance: patch.exclude_from_performance } : {}),
+    }
+    setTransactions((current) => current.map((row) => row.id === transaction.id ? { ...row, ...mappedPatch } : row))
+  }
+
   const deleteConnection = async (connection) => {
+    if (!connection) return
     if (!window.confirm(`Disconnect ${connection.institution_name}? Its imported account history will be removed from this workspace.`)) return
+    if (String(connection.requisition_id || '').startsWith('manual:tide:')) {
+      const { error: deleteError } = await supabase.from('bank_connections').delete().eq('id', connection.id)
+      if (deleteError) { setError(deleteError.message); return }
+      await loadData()
+      return
+    }
     const { data } = await supabase.auth.getSession()
     const response = await fetch(`/api/banking?connection=${encodeURIComponent(connection.id)}`, { method: 'DELETE', headers: { authorization: `Bearer ${data.session?.access_token || ''}` } })
     if (!response.ok) { const payload = await response.json().catch(() => ({})); setError(payload.error || 'The connection could not be removed.'); return }
@@ -353,7 +365,9 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
   if (status === 'loading' || status === 'syncing') return <div className="app-inline-loading"><RefreshCw /><b>{status === 'syncing' ? 'Securely syncing bank data…' : 'Loading connected accounts…'}</b></div>
 
   return <div className="bank-workspace">
-    <section className="panel bank-command-bar"><header><div className="bank-command-context"><ShieldCheck size={16} /><span>Bank-hosted consent · credentials never pass through BTL Portfolio.</span></div><div className="bank-command-actions"><button className="secondary-button small" onClick={syncAll} disabled={!connections.length || status === 'syncing'}><RefreshCw size={15} /> Sync</button><button className="primary-button small" onClick={openConnect}><Link2 size={15} /> Connect account</button></div></header>{error && <p className="bank-error"><AlertTriangle size={16} />{error}</p>}{status === 'not-configured' && <div className="bank-setup-note"><AlertTriangle /><span><b>One-time GoCardless setup required</b><small>The secure server integration is ready. Add Bank Account Data user secrets to Cloudflare to enable live bank selection.</small></span></div>}</section>
+    <section className="panel bank-command-bar"><header><div className="bank-command-context"><ShieldCheck size={16} /><span>Bank-hosted consent · credentials never pass through BTL Portfolio.</span></div><div className="bank-command-actions"><button className="secondary-button small" onClick={syncAll} disabled={!connections.length || status === 'syncing'}><RefreshCw size={15} /> Sync</button><button className="secondary-button small" onClick={() => setShowStatementImport(true)}><FileText size={15} /> Import Tide statement</button><button className="primary-button small" onClick={openConnect}><Link2 size={15} /> Connect account</button></div></header>{error && <p className="bank-error"><AlertTriangle size={16} />{error}</p>}{status === 'not-configured' && <div className="bank-setup-note"><AlertTriangle /><span><b>One-time GoCardless setup required</b><small>The secure server integration is ready. Add Bank Account Data user secrets to Cloudflare to enable live bank selection.</small></span></div>}</section>
+
+    {showStatementImport && <BankStatementImportSheet user={user} connections={connections} accounts={accounts} properties={properties} onClose={() => setShowStatementImport(false)} onImported={loadData} />}
 
     {showConnect && <section className="panel bank-picker"><header><div><span className="kicker">AVAILABLE UK INSTITUTIONS</span><h2>Choose a bank</h2><p>Tide, Monzo, Revolut and Chase are prioritised when returned by GoCardless; all other supported UK providers remain searchable.</p></div><label><Search size={16} /><input aria-label="Search banks" placeholder="Search banks" value={search} onChange={(event) => setSearch(event.target.value)} /></label></header><div className="bank-picker-grid">{filteredInstitutions.map((institution) => <button key={institution.id} onClick={() => connect(institution.id)} disabled={status === 'connecting'}>{institution.logo ? <img src={institution.logo} alt="" /> : <Landmark />}<span><b>{institution.name}</b><small>Up to {Math.min(730, institution.transactionDays)} days history</small></span>{institution.preferred && <em>Priority</em>}<ExternalLink size={14} /></button>)}</div>{!institutions.length && status !== 'not-configured' && <div className="bank-empty-chart"><RefreshCw /><span>Loading live institution availability…</span></div>}</section>}
 
@@ -369,6 +383,8 @@ export default function BankWorkspace({ user, onCashHeldChange }) {
       <section className="panel bank-chart-panel"><header><div><span className="kicker">ACTUAL CASH FLOW</span><h2>Inflow, outflow & net movement</h2></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Inflow</span><span className="outflow">Outflow</span><span className="net">Net cash flow</span></div><CashFlowChart rows={cashFlow} /></section>
 
       <section className="bank-average-grid">{[['3 month', metrics.averages.threeMonth], ['6 month', metrics.averages.sixMonth], ['12 month', metrics.averages.twelveMonth]].map(([label, average]) => <article className="panel" key={label}><span>{label} average</span><div><p><ArrowUpRight /> Inflow <b>{currency(average.inflow)}</b></p><p><ArrowDownRight /> Outflow <b>{currency(average.outflow)}</b></p><p className={average.net >= 0 ? 'positive' : 'negative'}><TrendingUp /> Net <b>{currency(average.net)}</b></p></div></article>)}</section>
+
+      <BankTransactionReview transactions={filteredTransactions} properties={properties} onUpdate={updateTransactionMeta} />
 
       <section className="panel bank-transactions"><header><div><span className="kicker">AUTOMATIC CLASSIFICATION</span><h2>Transactions</h2><p>Rules classify rent, mortgages, tax, salary, factors, director loans and common property costs. You can correct any result.</p></div></header><div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <tr key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{transaction.description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</td></tr>)}</tbody></table></div><div className="bank-transaction-mobile-list">{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <article className="bank-mobile-transaction" key={`mobile-${transaction.id}`}><div className="bank-mobile-transaction-head"><div><b>{transaction.description || transaction.counterparty || 'Transaction'}</b><small>{shortDate(transaction.bookedAt)} · {transaction.counterparty || transaction.accountName}</small></div><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</strong></div><div className="bank-mobile-transaction-meta"><span>{transaction.accountName}</span><select aria-label={`Mobile category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div></article>)}</div></section>
     </>}
