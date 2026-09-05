@@ -6,7 +6,8 @@ import {
 import { supabase } from './supabase.js'
 import {
   aggregateCashFlow, BANK_CATEGORIES, calculateBankMetrics, cashHeldFromAccounts,
-  deduplicateTransactions, detectInternalTransfers, mapStoredBankTransaction, reconstructBalanceSeries, reportingAccountIds, transactionsToCsv,
+  deduplicateTransactions, detectInternalTransfers, mapStoredBankTransaction, reconstructBalanceSeries, reportingAccountIds,
+  summarizeCashFlowPipeline, transactionsToCsv, trueCashFlowTransactions,
 } from './banking.js'
 import { currency, shortDate } from './calculations.js'
 import BankStatementImportSheet from './BankStatementImportSheet.jsx'
@@ -189,7 +190,6 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [showConnect, setShowConnect] = useState(false)
-  const [includeTransfers, setIncludeTransfers] = useState(false)
   const [period, setPeriod] = useState('month')
   const [range, setRange] = useState('12')
   const [selectedAccountIds, setSelectedAccountIds] = useState([])
@@ -304,6 +304,23 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
     setTransactions((current) => current.map((row) => row.id === transaction.id ? { ...row, ...mappedPatch } : row))
   }
 
+  const updateTransactionsMeta = async (targets, patch) => {
+    const ids = [...new Set((targets || []).map((transaction) => transaction?.id).filter(Boolean))]
+    if (!ids.length) return
+    const { error: updateError } = await supabase.from('bank_transactions').update(patch).in('id', ids)
+    if (updateError) { setError(updateError.message); return }
+    const mappedPatch = {
+      ...(Object.hasOwn(patch, 'category') ? { category: patch.category } : {}),
+      ...(Object.hasOwn(patch, 'is_transfer') ? { isTransfer: patch.is_transfer } : {}),
+      ...(Object.hasOwn(patch, 'category_overridden') ? { categoryOverridden: patch.category_overridden } : {}),
+      ...(Object.hasOwn(patch, 'property_id') ? { propertyId: patch.property_id || '' } : {}),
+      ...(Object.hasOwn(patch, 'performance_treatment') ? { performanceTreatment: patch.performance_treatment } : {}),
+      ...(Object.hasOwn(patch, 'exclude_from_performance') ? { excludeFromPerformance: patch.exclude_from_performance } : {}),
+    }
+    const idSet = new Set(ids)
+    setTransactions((current) => current.map((row) => idSet.has(row.id) ? { ...row, ...mappedPatch } : row))
+  }
+
   const deleteConnection = async (connection) => {
     if (!connection) return
     if (!window.confirm(`Disconnect ${connection.institution_name}? Its imported account history will be removed from this workspace.`)) return
@@ -331,8 +348,10 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
   const filteredTransactions = useMemo(() => transactions.filter((transaction) => selectedAccountIds.includes(transaction.accountId) && (!fromDate || transaction.bookedAt >= fromDate)), [transactions, selectedAccountIds, fromDate])
   const balanceSeries = useMemo(() => reconstructBalanceSeries(reportingSelected, transactions, { accountIds: reportingIds }), [reportingSelected, transactions, reportingIds])
   const visibleBalanceSeries = useMemo(() => fromDate ? balanceSeries.filter((point) => point.date >= fromDate) : balanceSeries, [balanceSeries, fromDate])
-  const cashFlow = useMemo(() => aggregateCashFlow(transactions, { period, accountIds: reportingIds, includeTransfers, from: fromDate || undefined }), [transactions, period, reportingIds, includeTransfers, fromDate])
-  const metrics = useMemo(() => calculateBankMetrics(transactions, visibleBalanceSeries, { accountIds: reportingIds, includeTransfers, from: fromDate || undefined }), [transactions, visibleBalanceSeries, reportingIds, includeTransfers, fromDate])
+  const trueCashTransactions = useMemo(() => trueCashFlowTransactions(transactions), [transactions])
+  const cashFlow = useMemo(() => aggregateCashFlow(trueCashTransactions, { period, accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, period, reportingIds, fromDate])
+  const metrics = useMemo(() => calculateBankMetrics(trueCashTransactions, visibleBalanceSeries, { accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, visibleBalanceSeries, reportingIds, fromDate])
+  const cashSummary = useMemo(() => summarizeCashFlowPipeline(transactions, { accountIds: reportingIds, from: fromDate || undefined }), [transactions, reportingIds, fromDate])
   const reportingBalance = reportingSelected.reduce((total, account) => total + account.currentBalance, 0)
 
   const exportCsv = () => downloadFile(`bank-transactions-${new Date().toISOString().slice(0, 10)}.csv`, transactionsToCsv(filteredTransactions), 'text/csv;charset=utf-8')
@@ -342,9 +361,12 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
     const lines = [
       `Accounts: ${selected.map((account) => `${account.institutionName} ${account.displayName}`).join(', ')}`,
       `Current connected GBP balance: ${currency(reportingBalance)}`,
-      `Net cash flow: ${currency(metrics.netCashFlow)}`,
-      `12 month average inflow: ${currency(metrics.averages.twelveMonth.inflow)}`,
-      `12 month average outflow: ${currency(metrics.averages.twelveMonth.outflow)}`,
+      `Property operating cash flow: ${currency(cashSummary.operatingCashFlow)}`,
+      `Company free cash flow: ${currency(cashSummary.companyFreeCashFlow)}`,
+      `Net owner/DLA funding: ${currency(cashSummary.ownerFundingNet)}`,
+      `Net bank movement (internal transfers excluded): ${currency(cashSummary.netBankMovement)}`,
+      `12 month average true inflow: ${currency(metrics.averages.twelveMonth.inflow)}`,
+      `12 month average true outflow: ${currency(metrics.averages.twelveMonth.outflow)}`,
       `Lowest balance: ${currency(metrics.lowestBalance)}   Highest balance: ${currency(metrics.highestBalance)}`,
     ]
     document.setFont('helvetica', 'bold'); document.setFontSize(18); document.text('Banking and cash flow report', 44, 52)
@@ -374,17 +396,19 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
     {accounts.length > 0 && <>
       <section className="bank-account-grid">{accounts.map((account) => <article className={`panel bank-account ${selectedAccountIds.includes(account.id) ? 'selected' : ''}`} key={account.id}><header><label><input type="checkbox" checked={selectedAccountIds.includes(account.id)} onChange={() => setSelectedAccountIds((current) => current.includes(account.id) ? current.filter((id) => id !== account.id) : [...current, account.id])} /><i />{account.institutionLogo ? <img src={account.institutionLogo} alt="" /> : <Building2 />}</label><button className="icon-button" aria-label={`Disconnect ${account.institutionName}`} onClick={() => deleteConnection(connections.find((connection) => connection.id === account.connectionId))}><Trash2 size={15} /></button></header><span>{account.institutionName}</span><h3>{account.displayName}</h3><strong>{money(account.currentBalance, account.currency)}</strong><small>{account.currency} · {account.ibanLast4 ? `ending ${account.ibanLast4}` : 'account details protected'}</small><footer><label className="switch-label"><input type="checkbox" checked={account.includeInCash} onChange={() => toggleAccount(account)} /><i /><span>Include in cash held</span></label></footer></article>)}</section>
 
-      <section className="bank-metrics-grid"><BankMetric label="Connected GBP balance" value={currency(reportingBalance)} note={`${reportingIds.length} selected GBP account${reportingIds.length === 1 ? '' : 's'} · non-GBP excluded from aggregates`} tone="dark" /><BankMetric label="Net cash flow" value={currency(metrics.netCashFlow)} note="Selected range" tone={metrics.netCashFlow >= 0 ? 'positive' : 'negative'} /><BankMetric label="Average monthly inflow" value={currency(metrics.averageMonthlyInflow)} note={`Trailing up to 12 months · ${metrics.historyMonths || 0} month${metrics.historyMonths === 1 ? '' : 's'} available`} /><BankMetric label="Average monthly outflow" value={currency(metrics.averageMonthlyOutflow)} note={`Trailing up to 12 months · ${metrics.historyMonths || 0} month${metrics.historyMonths === 1 ? '' : 's'} available`} /><BankMetric label="Lowest balance" value={currency(metrics.lowestBalance)} note="Selected range" /><BankMetric label="Highest balance" value={currency(metrics.highestBalance)} note="Selected range" /></section>
+      <section className="bank-metrics-grid"><BankMetric label="Connected GBP balance" value={currency(reportingBalance)} note={`${reportingIds.length} selected GBP account${reportingIds.length === 1 ? '' : 's'} · non-GBP excluded`} tone="dark" /><BankMetric label="Property operating cashflow" value={currency(cashSummary.operatingCashFlow)} note="Rent and property running costs only" tone={cashSummary.operatingCashFlow >= 0 ? 'positive' : 'negative'} /><BankMetric label="Company free cashflow" value={currency(cashSummary.companyFreeCashFlow)} note="Operating + company costs + financing · DLA excluded" tone={cashSummary.companyFreeCashFlow >= 0 ? 'positive' : 'negative'} /><BankMetric label="Net owner funding" value={currency(cashSummary.ownerFundingNet)} note={`DLA injected ${currency(cashSummary.dlaInjected)} · repaid ${currency(cashSummary.dlaRepaid)}`} /><BankMetric label="Net bank movement" value={currency(cashSummary.netBankMovement)} note="Company cash + owner funding + unresolved · internal transfers excluded" tone={cashSummary.netBankMovement >= 0 ? 'positive' : 'negative'} /><BankMetric label="Needs review" value={String(cashSummary.reviewCount)} note={cashSummary.reviewCount ? `${currency(cashSummary.reviewAbsolute)} absolute movement · ${currency(cashSummary.reviewNet)} net` : 'Nothing unresolved in this range'} /></section>
 
-      <section className="panel bank-toolbar"><div className="segmented">{[['3', '3M'], ['6', '6M'], ['12', '12M'], ['all', 'All']].map(([value, label]) => <button className={range === value ? 'active' : ''} key={value} onClick={() => setRange(value)}>{label}</button>)}</div><label className="switch-label"><input type="checkbox" checked={includeTransfers} onChange={(event) => setIncludeTransfers(event.target.checked)} /><i /><span>Include transfers</span></label><div className="bank-exports"><button className="secondary-button small" onClick={exportCsv}><Download size={14} /> CSV</button><button className="secondary-button small" onClick={exportPdf}><FileText size={14} /> PDF</button></div></section>
+      <section className="panel bank-toolbar"><div className="segmented">{[['3', '3M'], ['6', '6M'], ['12', '12M'], ['all', 'All']].map(([value, label]) => <button className={range === value ? 'active' : ''} key={value} onClick={() => setRange(value)}>{label}</button>)}</div><div className="bank-exports"><button className="secondary-button small" onClick={exportCsv}><Download size={14} /> CSV</button><button className="secondary-button small" onClick={exportPdf}><FileText size={14} /> PDF</button></div></section>
 
       <section className="panel bank-chart-panel"><header><div><span className="kicker">BALANCE HISTORY</span><h2>Cash balance over time</h2></div><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></header><BalanceChart points={visibleBalanceSeries} /></section>
 
-      <section className="panel bank-chart-panel"><header><div><span className="kicker">ACTUAL CASH FLOW</span><h2>Inflow, outflow & net movement</h2></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Inflow</span><span className="outflow">Outflow</span><span className="net">Net cash flow</span></div><CashFlowChart rows={cashFlow} /></section>
+      <section className="panel bank-chart-panel"><header><div><span className="kicker">TRUE COMPANY CASH FLOW</span><h2>Generated cash, without DLA distortion</h2><p>Includes operating, company-only and financing movements. Owner funding, internal transfers and unresolved rows stay out until classified.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">True inflow</span><span className="outflow">True outflow</span><span className="net">Company free cashflow</span></div><CashFlowChart rows={cashFlow} /></section>
+
+      <section className="panel bank-chart-panel" aria-label="Cash flow reconciliation"><header><div><span className="kicker">CASH-FLOW RECONCILIATION</span><h2>Why bank movement differs from generated cash</h2><p>DLA is real bank movement but not business-generated cash. Internal transfers remain neutral.</p></div></header><div className="bank-average-grid"><article className="panel"><span>Property operating</span><div><p><b>{currency(cashSummary.operatingCashFlow)}</b></p></div></article><article className="panel"><span>Company-only</span><div><p><b>{currency(cashSummary.companyOnlyCashFlow)}</b></p></div></article><article className="panel"><span>Financing</span><div><p><b>{currency(cashSummary.financingCashFlow)}</b></p></div></article><article className="panel"><span>Owner / DLA funding</span><div><p><b>{currency(cashSummary.ownerFundingNet)}</b></p></div></article><article className="panel"><span>Unresolved</span><div><p><b>{currency(cashSummary.reviewNet)}</b></p><small>{cashSummary.reviewCount} to review</small></div></article><article className="panel"><span>Excluded / non-economic</span><div><p><b>{currency(cashSummary.excludedNet)}</b></p><small>{cashSummary.excludedCount} excluded</small></div></article></div><p className="performance-chart-note"><b>Company free cashflow</b> = operating + company-only + financing. <b>Net bank movement</b> then adds owner/DLA funding, unresolved and explicitly excluded bank movement. {cashSummary.internalTransferCount} internal transfer{cashSummary.internalTransferCount === 1 ? '' : 's'} excluded.</p></section>
 
       <section className="bank-average-grid">{[['3 month', metrics.averages.threeMonth], ['6 month', metrics.averages.sixMonth], ['12 month', metrics.averages.twelveMonth]].map(([label, average]) => <article className="panel" key={label}><span>{label} average</span><div><p><ArrowUpRight /> Inflow <b>{currency(average.inflow)}</b></p><p><ArrowDownRight /> Outflow <b>{currency(average.outflow)}</b></p><p className={average.net >= 0 ? 'positive' : 'negative'}><TrendingUp /> Net <b>{currency(average.net)}</b></p></div></article>)}</section>
 
-      <BankTransactionReview transactions={filteredTransactions} properties={properties} onUpdate={updateTransactionMeta} />
+      <BankTransactionReview transactions={filteredTransactions} properties={properties} onUpdate={updateTransactionMeta} onUpdateMany={updateTransactionsMeta} />
 
       <section className="panel bank-transactions"><header><div><span className="kicker">AUTOMATIC CLASSIFICATION</span><h2>Transactions</h2><p>Rules classify rent, mortgages, tax, salary, factors, director loans and common property costs. You can correct any result.</p></div></header><div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <tr key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{transaction.description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</td></tr>)}</tbody></table></div><div className="bank-transaction-mobile-list">{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <article className="bank-mobile-transaction" key={`mobile-${transaction.id}`}><div className="bank-mobile-transaction-head"><div><b>{transaction.description || transaction.counterparty || 'Transaction'}</b><small>{shortDate(transaction.bookedAt)} · {transaction.counterparty || transaction.accountName}</small></div><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</strong></div><div className="bank-mobile-transaction-meta"><span>{transaction.accountName}</span><select aria-label={`Mobile category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div></article>)}</div></section>
     </>}

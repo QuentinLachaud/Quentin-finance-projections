@@ -135,6 +135,94 @@ export const transactionNeedsReview = (transaction, properties = []) => {
   return false
 }
 
+
+export const trueCashFlowTransactions = (transactions = []) => (transactions || []).filter((transaction) => {
+  const treatment = performanceTreatmentForTransaction(transaction)
+  return ['operating', 'company', 'financing'].includes(treatment)
+})
+
+export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
+  const accountIds = options.accountIds ? new Set(options.accountIds) : null
+  const rows = (transactions || []).filter((transaction) => (
+    (!accountIds || accountIds.has(transaction.accountId))
+    && (options.includePending || transaction.status !== 'pending')
+    && (!options.from || transaction.bookedAt >= options.from)
+    && (!options.to || transaction.bookedAt <= options.to)
+  ))
+  const totals = {
+    operatingCashFlow: 0,
+    companyOnlyCashFlow: 0,
+    financingCashFlow: 0,
+    ownerFundingNet: 0,
+    dlaInjected: 0,
+    dlaRepaid: 0,
+    reviewNet: 0,
+    reviewAbsolute: 0,
+    reviewCount: 0,
+    internalTransferCount: 0,
+    internalTransferAbsolute: 0,
+    excludedCount: 0,
+    excludedNet: 0,
+    excludedAbsolute: 0,
+  }
+  rows.forEach((transaction) => {
+    const amount = number(transaction.amount)
+    const treatment = performanceTreatmentForTransaction(transaction)
+    if (transaction.isTransfer || transaction.is_transfer || transaction.category === 'transfer') {
+      totals.internalTransferCount += 1
+      totals.internalTransferAbsolute += Math.abs(amount)
+      return
+    }
+    if (treatment === 'operating') totals.operatingCashFlow += amount
+    else if (treatment === 'company') totals.companyOnlyCashFlow += amount
+    else if (treatment === 'financing') totals.financingCashFlow += amount
+    else if (treatment === 'investor') {
+      totals.ownerFundingNet += amount
+      if (transaction.category === 'dla_injected') totals.dlaInjected += Math.max(0, amount)
+      if (transaction.category === 'dla_repaid') totals.dlaRepaid += Math.max(0, -amount)
+    } else if (treatment === 'review') {
+      totals.reviewNet += amount
+      totals.reviewAbsolute += Math.abs(amount)
+      totals.reviewCount += 1
+    } else {
+      totals.excludedCount += 1
+      totals.excludedNet += amount
+      totals.excludedAbsolute += Math.abs(amount)
+    }
+  })
+  const companyFreeCashFlow = totals.operatingCashFlow + totals.companyOnlyCashFlow + totals.financingCashFlow
+  const netDlaFunding = totals.dlaInjected - totals.dlaRepaid
+  const netBankMovement = companyFreeCashFlow + totals.ownerFundingNet + totals.reviewNet + totals.excludedNet
+  return Object.fromEntries(Object.entries({
+    ...totals,
+    companyFreeCashFlow,
+    netDlaFunding,
+    netBankMovement,
+  }).map(([key, value]) => [key, typeof value === 'number' ? Number(value.toFixed(2)) : value]))
+}
+
+export const sortTransactionsForReview = (transactions = [], mode = 'amount') => [...(transactions || [])].sort((left, right) => {
+  if (mode === 'newest') return String(right.bookedAt || '').localeCompare(String(left.bookedAt || '')) || Math.abs(number(right.amount)) - Math.abs(number(left.amount))
+  return Math.abs(number(right.amount)) - Math.abs(number(left.amount)) || String(right.bookedAt || '').localeCompare(String(left.bookedAt || ''))
+})
+
+const GENERIC_REVIEW_PARTIES = new Set(['', 'bank account', 'current account', 'savings account', 'tide'])
+export const transactionReviewSignature = (transaction) => {
+  const metadata = transaction?.sourceMetadata || transaction?.source_metadata || {}
+  const party = cleanCanonical(transaction?.counterparty || (number(transaction?.amount) >= 0 ? metadata.from : metadata.to))
+  if (party.length >= 4 && !GENERIC_REVIEW_PARTIES.has(party)) return `party:${party}`
+  const description = cleanCanonical(transaction?.description)
+  return description.length >= 8 ? `description:${description}` : ''
+}
+
+export const similarTransactionsFor = (transaction, transactions = []) => {
+  const signature = transactionReviewSignature(transaction)
+  if (!signature) return []
+  return (transactions || []).filter((candidate) => candidate !== transaction
+    && String(candidate?.id || '') !== String(transaction?.id || '')
+    && transactionReviewSignature(candidate) === signature)
+}
+
 export const normalizeGoCardlessTransaction = (raw, accountId, status = 'booked') => {
   const amount = number(raw.transactionAmount?.amount)
   const description = textValue(
