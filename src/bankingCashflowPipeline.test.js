@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  bankTransactionStatePatch, reviewPropagationPatch, reviewTransactionsForDisplay,
-  similarTransactionsFor, similarTransactionsNeedingReviewFor, sortTransactionsForReview,
-  summarizeCashFlowPipeline, trueCashFlowTransactions,
+  bankTransactionStatePatch, reviewDraftForTransaction, reviewPatchFromDraft, reviewPropagationPatch,
+  reviewTransactionsForDisplay, similarTransactionsFor, similarTransactionsNeedingReviewFor, sortTransactionsForReview,
+  summarizeCashFlowPipeline, transactionNeedsReview, transactionWithReviewDraft, trueCashFlowTransactions,
 } from './banking.js'
 
 const tx = (overrides = {}) => ({
@@ -95,6 +95,26 @@ describe('minimal review workflow', () => {
       category: 'repairs', categoryOverridden: true, isTransfer: false, propertyId: 'p2',
       performanceTreatment: 'operating', excludeFromPerformance: true,
     })
+  })
+
+  it('builds a non-persistent review draft with a unique property suggestion and only becomes saveable once review is resolved', () => {
+    const properties = [
+      { id: 'p1', name: 'BTL1', lender: 'Paragon' },
+      { id: 'p2', name: 'BTL2', lender: 'The Mortgage Works' },
+    ]
+    const source = tx({ id: 'mortgage', amount: -900, category: 'mortgage', description: 'Paragon mortgage', propertyId: '' })
+    const draft = reviewDraftForTransaction(source, properties)
+    expect(draft.propertyId).toBe('p1')
+    expect(source.propertyId).toBe('')
+    expect(transactionNeedsReview(transactionWithReviewDraft(source, draft), properties)).toBe(false)
+    expect(reviewPatchFromDraft(draft)).toMatchObject({ category: 'mortgage', property_id: 'p1', category_overridden: true })
+  })
+
+  it('keeps Other rows gated until the user explicitly chooses a cash-flow treatment', () => {
+    const source = tx({ id: 'other', amount: -40, category: 'other', description: 'Unclear payment' })
+    const draft = reviewDraftForTransaction(source, [])
+    expect(transactionNeedsReview(transactionWithReviewDraft(source, draft), [])).toBe(true)
+    expect(transactionNeedsReview(transactionWithReviewDraft(source, { ...draft, performanceTreatment: 'company' }), [])).toBe(false)
   })
 
 })

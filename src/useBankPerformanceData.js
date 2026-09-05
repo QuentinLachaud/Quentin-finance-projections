@@ -10,7 +10,7 @@ export const useBankPerformanceData = (userId) => {
     const load = async () => {
       const [accountsResult, transactionsResult] = await Promise.all([
         supabase.from('bank_accounts').select('id,currency,current_balance,include_in_cash'),
-        supabase.from('bank_transactions').select('id,account_id,transaction_key,booked_at,value_at,amount,currency,description,counterparty,status,balance_after,category,is_transfer,category_overridden,source_type,property_id,performance_treatment,exclude_from_performance'),
+        supabase.from('bank_transactions').select('id,account_id,transaction_key,booked_at,value_at,amount,currency,description,counterparty,status,balance_after,category,is_transfer,category_overridden,source_type,import_id,property_id,performance_treatment,exclude_from_performance,source_metadata'),
       ])
       if (!active) return
       if (accountsResult.error || transactionsResult.error) {

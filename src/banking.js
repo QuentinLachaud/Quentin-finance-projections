@@ -86,6 +86,7 @@ export const mapStoredBankTransaction = (row, accountNames = new Map()) => {
     isTransfer: row.is_transfer === true,
     categoryOverridden: row.category_overridden === true,
     sourceType: row.source_type || 'gocardless',
+    importId: row.import_id || '',
     propertyId: row.property_id || '',
     performanceTreatment: row.performance_treatment || 'auto',
     excludeFromPerformance: row.exclude_from_performance === true,
@@ -94,13 +95,54 @@ export const mapStoredBankTransaction = (row, accountNames = new Map()) => {
   return { ...transaction, canonicalKey: canonicalTransactionKey(transaction) }
 }
 
+const reviewStateScore = (transaction) => (
+  (transaction?.categoryOverridden || transaction?.category_overridden ? 4 : 0)
+  + (transaction?.propertyId || transaction?.property_id ? 2 : 0)
+  + ((transaction?.performanceTreatment || transaction?.performance_treatment || 'auto') !== 'auto' ? 2 : 0)
+  + (transaction?.excludeFromPerformance || transaction?.exclude_from_performance ? 1 : 0)
+)
+
+const statementImportId = (transaction) => String(transaction?.importId || transaction?.import_id || '')
+
+const preferredStatementImportRows = (rows) => {
+  const byImport = new Map()
+  const unscoped = []
+  rows.forEach((row, index) => {
+    const importId = statementImportId(row)
+    if (!importId) { unscoped.push(row); return }
+    const group = byImport.get(importId) || { importId, firstIndex: index, rows: [] }
+    group.rows.push(row)
+    byImport.set(importId, group)
+  })
+  if (byImport.size < 2) return rows
+  const preferred = [...byImport.values()].sort((left, right) => (
+    right.rows.length - left.rows.length
+    || right.rows.reduce((sum, row) => sum + reviewStateScore(row), 0) - left.rows.reduce((sum, row) => sum + reviewStateScore(row), 0)
+    || left.firstIndex - right.firstIndex
+  ))[0].rows
+  return [...preferred, ...unscoped]
+}
+
 export const deduplicateTransactions = (transactions) => {
   const rows = (Array.isArray(transactions) ? transactions : []).map((transaction) => ({
     ...transaction,
     canonicalKey: transaction.canonicalKey || canonicalTransactionKey(transaction),
   }))
-  const liveKeys = new Set(rows.filter((row) => row.sourceType === 'gocardless').map((row) => row.canonicalKey))
-  return rows.filter((row) => !(row.sourceType === 'tide_statement' && liveKeys.has(row.canonicalKey)))
+  const groups = new Map()
+  rows.forEach((row) => {
+    const group = groups.get(row.canonicalKey) || []
+    group.push(row)
+    groups.set(row.canonicalKey, group)
+  })
+  return [...groups.values()].flatMap((group) => {
+    const live = group.filter((row) => row.sourceType === 'gocardless')
+    const statements = group.filter((row) => row.sourceType === 'tide_statement')
+    const other = group.filter((row) => !['gocardless', 'tide_statement'].includes(row.sourceType))
+    if (live.length) return [...live, ...other]
+    if (statements.length <= 1) return group
+    const preferredStatements = preferredStatementImportRows(statements)
+    return [...preferredStatements, ...other]
+  })
 }
 
 export const performanceTreatmentForTransaction = (transaction) => {
@@ -242,6 +284,27 @@ export const bankTransactionStatePatch = (patch = {}) => ({
   ...(Object.hasOwn(patch, 'property_id') ? { propertyId: patch.property_id || '' } : {}),
   ...(Object.hasOwn(patch, 'performance_treatment') ? { performanceTreatment: patch.performance_treatment } : {}),
   ...(Object.hasOwn(patch, 'exclude_from_performance') ? { excludeFromPerformance: patch.exclude_from_performance } : {}),
+})
+
+export const reviewDraftForTransaction = (transaction, properties = []) => ({
+  category: transaction?.category || 'other',
+  propertyId: transaction?.propertyId || transaction?.property_id || suggestPropertyId(transaction, properties) || '',
+  performanceTreatment: transaction?.performanceTreatment || transaction?.performance_treatment || 'auto',
+  excludeFromPerformance: transaction?.excludeFromPerformance === true || transaction?.exclude_from_performance === true,
+})
+
+export const reviewPatchFromDraft = (draft = {}) => ({
+  category: draft.category || 'other',
+  category_overridden: true,
+  is_transfer: draft.category === 'transfer',
+  property_id: draft.propertyId || null,
+  performance_treatment: draft.performanceTreatment || 'auto',
+  exclude_from_performance: draft.excludeFromPerformance === true,
+})
+
+export const transactionWithReviewDraft = (transaction, draft = {}) => ({
+  ...transaction,
+  ...bankTransactionStatePatch(reviewPatchFromDraft(draft)),
 })
 
 export const reviewTransactionsForDisplay = (transactions = [], properties = [], options = {}) => {

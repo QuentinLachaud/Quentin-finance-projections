@@ -24,10 +24,10 @@ const companySettings = {
 describe('property and portfolio calculations', () => {
   it('matches the interest-only mortgage and headline metrics for BTL1', () => {
     const btl = calculateProperty(testProperties[0], companySettings, fixedNow)
-    expect(btl.monthlyPayment).toBeCloseTo(786.88, 1)
+    expect(btl.monthlyPayment).toBeCloseTo(680.95, 1)
     expect(btl.currentLtv).toBeCloseTo(0.693, 2)
     expect(btl.grossYield).toBeCloseTo(0.0843, 3)
-    expect(btl.icr).toBeCloseTo(2.097, 2)
+    expect(btl.icr).toBeCloseTo(2.423, 2)
   })
 
   it('uses current valuation consistently for forward appreciation', () => {

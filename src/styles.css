@@ -15753,23 +15753,49 @@ button.contractor-tag-chip { cursor: pointer; }
 .bank-import-success { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--positive); }
 .bank-review-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .bank-review-panel > header h2 { margin: 3px 0; font-size: 17px; }
-.bank-review-panel > header p { margin: 0; color: var(--muted); font-size: 11px; }
-.bank-review-list { display: grid; gap: 7px; margin-top: 14px; }
-.bank-review-list article { border: 1px solid var(--line); border-radius: 13px; padding: 10px 12px; }
-.bank-review-list article.needs-review { border-color: color-mix(in srgb, var(--warning) 38%, var(--line)); }
-.bank-review-main { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
-.bank-review-main > span { min-width: 0; display: grid; grid-template-columns: auto 1fr; column-gap: 6px; }
-.bank-review-main > span svg { grid-row: 1 / span 2; color: var(--warning); margin-top: 1px; }
-.bank-review-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.bank-review-main small { color: var(--muted); font-size: 9px; }
-.bank-review-main strong { font-size: 12px; }
-.bank-review-controls { margin-top: 8px; display: grid; grid-template-columns: 1.25fr 1fr 1.25fr auto; gap: 7px; align-items: end; }
-.bank-review-controls label { display: grid; gap: 3px; }
-.bank-review-controls label > span { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .07em; }
-.bank-review-controls select { min-width: 0; height: 34px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); font-size: 10px; padding: 0 8px; }
-.bank-exclude { height: 34px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; padding: 0 9px; font-size: 10px; }
+.bank-review-panel > header p { max-width: 690px; margin: 0; color: var(--muted); font-size: 11px; }
+.bank-review-progress { margin-top: 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 10px; }
+.bank-review-progress span { display: inline-flex; align-items: baseline; gap: 4px; }
+.bank-review-progress b { color: var(--ink); font-size: 15px; }
+.bank-review-focus { margin-top: 8px; border: 1px solid color-mix(in srgb, var(--green) 22%, var(--line)); border-radius: 16px; padding: 15px; background: color-mix(in srgb, var(--panel) 96%, var(--green-light)); box-shadow: 0 8px 24px rgba(22, 50, 39, .06); }
+.bank-review-main { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
+.bank-review-main > span { min-width: 0; display: grid; gap: 3px; }
+.bank-review-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.bank-review-main small { color: var(--muted); font-size: 10px; }
+.bank-review-main strong { font-size: 15px; white-space: nowrap; }
+.bank-review-fields { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; align-items: end; }
+.bank-review-fields label { min-width: 0; display: grid; gap: 4px; }
+.bank-review-fields label > span { color: var(--muted); font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.bank-review-fields label > small { color: var(--green); font-size: 9px; }
+.bank-review-fields select { width: 100%; min-width: 0; height: 39px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 11px; padding: 0 9px; }
+.bank-exclude { min-height: 39px; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: var(--muted); display: inline-flex; justify-content: center; gap: 6px; align-items: center; padding: 0 10px; font-size: 10px; }
 .bank-exclude.active { color: var(--negative); border-color: color-mix(in srgb, var(--negative) 35%, var(--line)); }
+.bank-review-hint { margin: 9px 0 0; color: var(--warning); font-size: 10px; }
+.bank-review-batch { margin-top: 12px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 11px; display: flex; align-items: center; gap: 9px; background: var(--surface); cursor: pointer; }
+.bank-review-batch input { position: absolute; opacity: 0; pointer-events: none; }
+.bank-review-batch > i { width: 32px; height: 20px; position: relative; flex: 0 0 auto; border-radius: 999px; background: #cbd3cf; transition: .18s ease; }
+.bank-review-batch > i::after { content: ''; width: 16px; height: 16px; position: absolute; top: 2px; left: 2px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.18); transition: .18s ease; }
+.bank-review-batch input:checked + i { background: var(--green); }
+.bank-review-batch input:checked + i::after { transform: translateX(12px); }
+.bank-review-batch > span { display: grid; gap: 2px; }
+.bank-review-batch b { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; }
+.bank-review-batch small { color: var(--muted); font-size: 9px; }
+.bank-review-actions { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 9px; }
+.bank-review-actions .primary-button { min-width: 132px; }
+.bank-review-actions .primary-button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.bank-review-next { margin-top: 12px; display: grid; gap: 4px; }
+.bank-review-next > span { color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.bank-review-next > div { padding: 7px 9px; border-radius: 9px; display: flex; justify-content: space-between; gap: 10px; background: var(--surface); }
+.bank-review-next b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 500; }
+.bank-review-next strong { font-size: 10px; white-space: nowrap; }
+.bank-review-all { margin-top: 12px; display: grid; gap: 5px; }
+.bank-review-all article { padding: 8px 9px; border: 1px solid var(--line); border-radius: 11px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; }
+.bank-review-all article > div { min-width: 0; display: grid; gap: 2px; }
+.bank-review-all b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.bank-review-all small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; }
+.bank-review-all strong { font-size: 10px; white-space: nowrap; }
 .bank-review-empty { margin-top: 12px; padding: 14px; border-radius: 12px; background: var(--surface); color: var(--muted); display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.bank-review-skipped { justify-content: space-between; }
 .performance-bank-strip { margin-top: 9px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--line); }
 .performance-bank-strip > span { min-width: 0; background: var(--panel); padding: 9px 11px; display: grid; gap: 2px; }
 .performance-bank-strip small { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .06em; }
@@ -15778,6 +15804,13 @@ button.contractor-tag-chip { cursor: pointer; }
   .bank-import-layer { padding: 0; align-items: end; }
   .bank-import-sheet { width: 100%; max-height: 92dvh; border-radius: 22px 22px 0 0; padding: 18px; }
   .bank-review-panel > header { display: grid; }
-  .bank-review-controls { grid-template-columns: 1fr 1fr; }
+  .bank-review-fields { grid-template-columns: 1fr; }
+  .bank-review-main b { white-space: normal; }
+  .bank-review-main small { line-height: 1.35; }
+  .bank-review-actions { position: sticky; bottom: 0; margin-inline: -15px; margin-bottom: -15px; padding: 11px 15px 15px; background: color-mix(in srgb, var(--panel) 96%, var(--green-light)); border-radius: 0 0 16px 16px; }
+  .bank-review-actions > button { flex: 1; }
+  .bank-review-all article { grid-template-columns: minmax(0, 1fr) auto; }
+  .bank-review-all article > button { grid-column: 1 / -1; width: 100%; }
+  .bank-review-skipped { align-items: stretch; flex-direction: column; }
   .performance-bank-strip { grid-template-columns: 1fr 1fr; }
 }

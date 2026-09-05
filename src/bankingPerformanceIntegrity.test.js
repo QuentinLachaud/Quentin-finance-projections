@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  canonicalTransactionKey, classifyTransaction, deduplicateTransactions,
+  canonicalTransactionKey, classifyTransaction, deduplicateTransactions, mapStoredBankTransaction,
   performanceTreatmentForTransaction, suggestPropertyId, transactionNeedsReview,
 } from './banking.js'
 import { buildPerformanceModel } from './performance.js'
@@ -34,6 +34,30 @@ describe('banking and Performance integrity', () => {
     const live = { ...base, id: 'live', transactionKey: 'live-row', sourceType: 'gocardless' }
     expect(canonicalTransactionKey(imported)).toBe(canonicalTransactionKey(live))
     expect(deduplicateTransactions([imported, live]).map((row) => row.id)).toEqual(['live'])
+  })
+
+
+
+  it('deduplicates overlapping statement imports without collapsing genuine multiplicity inside one statement', () => {
+    const duplicate = bank({ bookedAt: '2026-02-01', amount: -88.5, description: 'Speirs Gumley' })
+    const rows = [
+      { ...duplicate, id: 'a1', sourceType: 'tide_statement', importId: 'import-a' },
+      { ...duplicate, id: 'a2', sourceType: 'tide_statement', importId: 'import-a' },
+      { ...duplicate, id: 'b1', sourceType: 'tide_statement', importId: 'import-b' },
+      { ...duplicate, id: 'b2', sourceType: 'tide_statement', importId: 'import-b' },
+    ]
+    expect(deduplicateTransactions(rows).map((row) => row.id)).toEqual(['a1', 'a2'])
+    expect(deduplicateTransactions([rows[0], rows[2]]).map((row) => row.id)).toEqual(['a1'])
+  })
+
+  it('maps statement import identity so overlap dedupe is available outside the Banking workspace', () => {
+    const mapped = mapStoredBankTransaction({
+      id: 'row', account_id: 'a', transaction_key: 'tx', booked_at: '2026-02-01', amount: '-12.50',
+      currency: 'GBP', description: 'Fee', source_type: 'tide_statement', import_id: 'statement-123',
+      source_metadata: { reference: 'abc' },
+    })
+    expect(mapped.importId).toBe('statement-123')
+    expect(mapped.sourceMetadata.reference).toBe('abc')
   })
 
   it('suggests a property from unique name/postcode/lender evidence and leaves uncertain rows in review', () => {
