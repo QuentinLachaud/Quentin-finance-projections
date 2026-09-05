@@ -20,6 +20,7 @@ import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import CredentialsWorkspace from './CredentialsWorkspace.jsx'
 import LoansWorkspace from './LoansWorkspace.jsx'
 import ContractorsWorkspace from './ContractorsWorkspace.jsx'
+import PropertyTimeline from './PropertyTimeline.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 import AcquisitionSimulator from './AcquisitionSimulator.jsx'
 import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
@@ -32,6 +33,7 @@ import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvata
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
 import { applyLoanToPortfolio, normalizeLoans, reconcileLoanPortfolio, syncPropertyMortgage, updatePropertyMortgageInput } from './loans.js'
 import { normalizeContractor, normalizeContractors, normalizeContractorTags } from './contractors.js'
+import { loanChangeEvents, normalizePropertyTimelineEvents, normalizeTimelineEvent, propertyChangeEvents } from './propertyTimeline.js'
 import MoneyPeriodInput from './MoneyPeriodInput.jsx'
 import { moneyEntryPeriodFor, normalizeMoneyEntryPreferences, setMoneyEntryPeriod } from './moneyPeriods.js'
 import { confirmPrivateIncome, privateIncomeIsKnown } from './accountMode.js'
@@ -1215,6 +1217,7 @@ function CostsWorkspace({
   settings,
   portfolio,
   onPropertyChange,
+  onPropertyCommit,
   onLineItemChange,
   onLineItemAdd,
   onLineItemRemove,
@@ -1227,13 +1230,14 @@ function CostsWorkspace({
   const onEntryPeriodChange = (preferenceKey, period) =>
     onEntryPeriodPreferencesChange?.(setMoneyEntryPeriod(normalizedEntryPeriods, preferenceKey, period))
 
-  const propertyMoneyInput = ({ property, fieldKey, monthlyValue, onMonthlyChange, step = '0.01' }) => {
+  const propertyMoneyInput = ({ property, fieldKey, monthlyValue, onMonthlyChange, onCommit, step = '0.01' }) => {
     const preferenceKey = `property:${property.id}:${fieldKey}`
     return <MoneyPeriodInput
       ariaLabel={`${property.name || 'BTL'} ${fieldKey}`}
       monthlyValue={monthlyValue}
       period={moneyEntryPeriodFor(normalizedEntryPeriods, preferenceKey)}
       onMonthlyChange={onMonthlyChange}
+      onCommit={onCommit}
       onPeriodChange={(period) => onEntryPeriodChange(preferenceKey, period)}
       step={step}
     />
@@ -1268,6 +1272,7 @@ function CostsWorkspace({
                   fieldKey: "rent",
                   monthlyValue: source.rent,
                   onMonthlyChange: (value) => onPropertyChange(property.id, 'rent', value),
+                  onCommit: (before, after) => onPropertyCommit?.(property.id, 'rent', before, after),
                   step: '1',
                 })}
               </label>
@@ -1593,6 +1598,7 @@ function PortfolioApp({ user }) {
   })
   const [search, setSearch] = useState('')
   const [advancedPropertyView, setAdvancedPropertyView] = useState(false)
+  const [propertyWorkspaceView, setPropertyWorkspaceView] = useState('compare')
   const [mobilePropertyId, setMobilePropertyId] = useState('')
   const [editingField, setEditingField] = useState('')
   const [collapsedPropertyGroups, setCollapsedPropertyGroups] = useState(
@@ -1702,6 +1708,7 @@ function PortfolioApp({ user }) {
         tenants: migratedTenants,
         contractors: migratedContractors,
         contractorTags: migratedContractorTags,
+        propertyTimelineEvents: normalizePropertyTimelineEvents(portfolioState.propertyTimelineEvents, migratedProperties),
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
         acquisitionScenarios: Array.isArray(portfolioState.acquisitionScenarios) ? portfolioState.acquisitionScenarios : [],
@@ -1854,6 +1861,8 @@ function PortfolioApp({ user }) {
   const saveProperty = (draft) => {
     if (!state.properties.some((property) => property.id === draft.id) && !requestPropertySlot()) return
     setState((current) => {
+      const previousProperty = current.properties.find((property) => property.id === draft.id) || null
+      const previousLoan = (current.loans || []).find((loan) => loan.propertyId === draft.id) || null
       const synced = syncPropertyTenant(draft, current.tenants)
       const properties = current.properties.some((property) => property.id === draft.id)
         ? current.properties.map((property) => property.id === draft.id ? synced.property : property)
@@ -1864,12 +1873,17 @@ function PortfolioApp({ user }) {
         comparisons: current.remortgageComparisons || [],
       })
       const effectiveProperty = mortgageSync.property || synced.property
+      const nextLoan = (mortgageSync.loans || []).find((loan) => loan.propertyId === draft.id) || null
+      const timelineChanges = previousProperty
+        ? [...propertyChangeEvents(previousProperty, effectiveProperty), ...loanChangeEvents(previousLoan, nextLoan, draft.id)]
+        : []
       return {
         ...current,
         tenants: synced.tenants,
         properties: properties.map((property) => property.id === draft.id ? effectiveProperty : property),
         loans: mortgageSync.loans,
         remortgageComparisons: mortgageSync.comparisons,
+        propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges],
       }
     })
     closeEditor()
@@ -1890,7 +1904,7 @@ function PortfolioApp({ user }) {
     setEditingId(null)
   }
   const removeProperty = (id) => {
-    setState((current) => ({ ...current, properties: current.properties.filter((p) => p.id !== id), tenants: removeTenantsForProperty(current.tenants, id) }))
+    setState((current) => ({ ...current, properties: current.properties.filter((p) => p.id !== id), tenants: removeTenantsForProperty(current.tenants, id), propertyTimelineEvents: (current.propertyTimelineEvents || []).filter((event) => event.propertyId !== id) }))
     closeEditor()
   }
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
@@ -1901,6 +1915,12 @@ function PortfolioApp({ user }) {
       return { ...property, [key]: value }
     }),
   }))
+  const commitPropertyTimelineField = (id, key, beforeValue, afterValue) => setState((current) => {
+    const property = current.properties.find((candidate) => candidate.id === id)
+    if (!property) return current
+    const timelineChanges = propertyChangeEvents({ ...property, [key]: beforeValue }, { ...property, [key]: afterValue })
+    return timelineChanges.length ? { ...current, propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges] } : current
+  })
   const updateSetting = (key, value) => setState((current) => ({
     ...current,
     settings: {
@@ -1959,6 +1979,19 @@ function PortfolioApp({ user }) {
   const updateAcquisitionScenarios = (acquisitionScenarios) => setState((current) => ({ ...current, acquisitionScenarios }))
   const updateNextBtlPreferences = (nextBtlPreferences) => setState((current) => ({ ...current, nextBtlPreferences: normalizeNextBtlPreferences(nextBtlPreferences) }))
   const updateCostsCashflowPreferences = (costsCashflowPreferences) => setState((current) => ({ ...current, costsCashflowPreferences: normalizeMoneyEntryPreferences(costsCashflowPreferences) }))
+  const savePropertyTimelineEvent = (event) => setState((current) => {
+    const normalized = normalizeTimelineEvent(event)
+    if (!normalized || !current.properties.some((property) => property.id === normalized.propertyId)) return current
+    const existing = current.propertyTimelineEvents || []
+    const propertyTimelineEvents = existing.some((candidate) => candidate.id === normalized.id)
+      ? existing.map((candidate) => candidate.id === normalized.id ? normalized : candidate)
+      : [...existing, normalized]
+    const contractors = normalized.contractorId ? (current.contractors || []).map((contractor) => contractor.id === normalized.contractorId
+      ? normalizeContractor({ ...contractor, propertyIds: [...new Set([...(contractor.propertyIds || []), normalized.propertyId])] }, current.properties || [], current.contractorTags || [])
+      : contractor) : current.contractors
+    return { ...current, propertyTimelineEvents, contractors }
+  })
+  const removePropertyTimelineEvent = (id) => setState((current) => ({ ...current, propertyTimelineEvents: (current.propertyTimelineEvents || []).filter((event) => event.id !== id) }))
   const updateRemortgageComparisons = (remortgageComparisons) => setState((current) => ({ ...current, remortgageComparisons }))
   const dismissReminder = (event) => setState((current) => ({ ...current, notificationPreferences: dismissNotification(current.notificationPreferences, event) }))
   const snoozeReminder = (event) => setState((current) => ({ ...current, notificationPreferences: snoozeNotification(current.notificationPreferences, event) }))
@@ -1973,7 +2006,14 @@ function PortfolioApp({ user }) {
       setPushStatus('error')
     }
   }
-  const saveLoan = (loan) => setState((current) => applyLoanToPortfolio(current, loan))
+  const saveLoan = (loan) => setState((current) => {
+    const previousLoan = (current.loans || []).find((candidate) => candidate.id === loan.id) || null
+    const next = applyLoanToPortfolio(current, loan)
+    const nextLoan = (next.loans || []).find((candidate) => candidate.id === loan.id) || null
+    const propertyId = nextLoan?.propertyId || previousLoan?.propertyId || ''
+    const timelineChanges = propertyId ? loanChangeEvents(previousLoan, nextLoan, propertyId) : []
+    return { ...next, propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges] }
+  })
   const removeLoan = (id) => setState((current) => ({ ...current, loans: (current.loans || []).filter((loan) => loan.id !== id) }))
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
@@ -2006,6 +2046,12 @@ function PortfolioApp({ user }) {
     eyebrow: 'PORTFOLIO',
     title: section,
     description: 'Review and manage your portfolio.',
+  }
+  const openTimelineSource = (event) => {
+    if (['document', 'expense'].includes(event.sourceType)) setSection('Documents & Expenses')
+    else if (['loan', 'loan-change'].includes(event.sourceType)) setSection('Loans')
+    else if (event.sourceType === 'tenant') setSection('Tenants')
+    else if (['property', 'property-change'].includes(event.sourceType)) openPropertyEditor(event.propertyId, event.sourceField || '')
   }
   const navigateMobile = (nextSection) => {
     setSection(nextSection)
@@ -2253,7 +2299,11 @@ function PortfolioApp({ user }) {
                 <p>Compare the financial health of each BTL first, then reveal specialist and projected details when needed.</p>
               </div>
               <div className="table-tools properties-tools">
-                <div className="property-view-mode" role="group" aria-label="Property detail level">
+                <div className="property-view-mode property-workspace-mode" role="group" aria-label="Property workspace view">
+                  <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'compare' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'compare'} onClick={() => setPropertyWorkspaceView('compare')}>Compare</button>
+                  <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'timeline' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'timeline'} onClick={() => { setPropertyWorkspaceView('timeline'); setSearch('') }}>Timeline</button>
+                </div>
+                {propertyWorkspaceView === 'compare' && <div className="property-view-mode" role="group" aria-label="Property detail level">
                   <button
                     type="button"
                     className={`property-view-choice ${!advancedPropertyView ? 'active' : ''}`}
@@ -2270,12 +2320,26 @@ function PortfolioApp({ user }) {
                   >
                     Full details
                   </button>
-                </div>
-                <label className="properties-search"><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+                </div>}
+                {propertyWorkspaceView === 'compare' && <label className="properties-search"><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>}
                 <button className="primary-button small properties-new-button" onClick={addProperty}><Plus size={16} /> New BTL</button>
               </div>
             </section>
 
+            {propertyWorkspaceView === 'timeline' ? <PropertyTimeline
+              property={mobileProperty}
+              properties={calculated}
+              loans={state.loans || []}
+              tenants={state.tenants || []}
+              contractors={state.contractors || []}
+              expenses={state.expenses || []}
+              timelineEvents={state.propertyTimelineEvents || []}
+              onSelectProperty={(id) => { setMobilePropertyId(id); setSearch('') }}
+              onSaveEvent={savePropertyTimelineEvent}
+              onDeleteEvent={removePropertyTimelineEvent}
+              onAddDocument={(propertyId) => { setDocumentCaptureRequest({ propertyId, nonce: Date.now() }); setSection('Documents & Expenses') }}
+              onOpenSource={openTimelineSource}
+            /> : <>
             <div className="mobile-property-tabs-sticky" aria-label="Choose property">
               <div className="mobile-property-segments" role="tablist" aria-label="BTLs">
                 {calculated.map((property) => <button type="button" role="tab" aria-selected={mobileProperty?.id === property.id} className={mobileProperty?.id === property.id ? 'active' : ''} key={property.id} onClick={() => { setMobilePropertyId(property.id); setSearch('') }}>{property.name}</button>)}
@@ -2389,9 +2453,10 @@ function PortfolioApp({ user }) {
                 </section>
               })}
             </div>
+            </>}
           </>}
 
-          {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
+          {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onPropertyCommit={commitPropertyTimelineField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
 
           {section === 'Documents & Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} contractors={state.contractors || []} contractorTags={state.contractorTags || []} accountType={state.settings.accountType} companyName={state.settings.companyName} captureRequest={documentCaptureRequest} onCaptureRequestConsumed={() => setDocumentCaptureRequest(null)} onChange={updateExpenses} />}
 

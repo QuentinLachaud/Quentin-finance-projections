@@ -18,7 +18,9 @@ describe('Loans workspace integration', () => {
     expect(app).toContain('properties: mortgageMigration.properties,')
     expect(app).toContain('loans: mortgageMigration.loans,')
     expect(app).toContain('remortgageComparisons: mortgageMigration.comparisons,')
-    expect(app).toContain('const saveLoan = (loan) => setState((current) => applyLoanToPortfolio(current, loan))')
+    expect(app).toContain('const saveLoan = (loan) => setState((current) => {')
+    expect(app).toContain('const next = applyLoanToPortfolio(current, loan)')
+    expect(app).toContain('loanChangeEvents(previousLoan, nextLoan, propertyId)')
     expect(app).toContain("{section === 'Loans' && <LoansWorkspace")
   })
 
