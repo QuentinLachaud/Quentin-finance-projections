@@ -1,0 +1,15 @@
+/* Push setup is phone-only. In-app notifications remain available on all devices. */
+.settings-toggle-row:has(.settings-switch[aria-label='Push notifications']),
+.settings-push-status {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .settings-toggle-row:has(.settings-switch[aria-label='Push notifications']) {
+    display: flex;
+  }
+
+  .settings-push-status {
+    display: block;
+  }
+}
