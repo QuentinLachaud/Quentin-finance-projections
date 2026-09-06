@@ -66,8 +66,8 @@ const ensureStatementAccount = async ({ user, connections, accounts, role, closi
     display_name: role === 'savings' ? 'Tide Savings account' : 'Tide Current account',
     account_type: role,
     currency: 'GBP',
-    current_balance: Number.isFinite(Number(closingBalance)) ? Number(closingBalance) : 0,
-    balance_updated_at: statementTo ? `${statementTo}T23:59:59Z` : null,
+    current_balance: Number.isFinite(Number(closingBalance)) ? Number(closingBalance) : null,
+    balance_updated_at: Number.isFinite(Number(closingBalance)) && statementTo ? `${statementTo}T23:59:59Z` : null,
     include_in_cash: false,
   }).select('id').single()
   if (error) throw error

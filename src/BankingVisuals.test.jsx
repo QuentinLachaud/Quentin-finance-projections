@@ -1,7 +1,7 @@
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { BalanceChart, CashFlowReconciliation } from './BankingVisuals.jsx'
+import { BalanceChart, BankSummary, CashFlowReconciliation } from './BankingVisuals.jsx'
 
 const points = [
   { date: '2026-01-12', balance: 10420 },
@@ -40,6 +40,14 @@ describe('Banking less-is-more visuals', () => {
     expect(html).toContain('Apr 2026')
     expect(html).toContain('bank-balance-hit-area')
     expect(html).toContain('bank-balance-mobile')
+  })
+
+  it('does not present a missing imported-statement balance as a real £0 cash balance', () => {
+    const html = renderToStaticMarkup(<BankSummary reportingBalance={null} reportingAccountCount={1} cashSummary={cashSummary} />)
+    expect(html).toContain('Cash balance')
+    expect(html).toContain('>—<')
+    expect(html).toContain('Current balance unavailable from imported statement')
+    expect(html).not.toContain('<strong>£0</strong>')
   })
 
   it('keeps five plain-language reconciliation cards with detail on demand', () => {

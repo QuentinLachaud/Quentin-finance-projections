@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { supabase } from './supabase.js'
 import {
-  aggregateCashFlow, calculateBankMetrics, cashHeldFromAccounts,
+  aggregateCashFlow, authoritativeAccountBalance, calculateBankMetrics, cashHeldFromAccounts,
   bankTransactionStatePatch, deduplicateTransactions, detectInternalTransfers, mapStoredBankTransaction, reconstructBalanceSeries, reportingAccountIds,
   summarizeCashFlowPipeline, transactionsToCsv, trueCashFlowTransactions,
 } from './banking.js'
@@ -61,7 +61,7 @@ const mapAccount = (row) => ({
   ibanLast4: row.iban_last4,
   currency: row.currency,
   accountType: row.account_type,
-  currentBalance: Number(row.current_balance || 0),
+  currentBalance: row.current_balance == null ? null : Number(row.current_balance),
   availableBalance: row.available_balance == null ? null : Number(row.available_balance),
   balanceUpdatedAt: row.balance_updated_at,
   includeInCash: row.include_in_cash,
@@ -294,7 +294,11 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
   const cashFlow = useMemo(() => aggregateCashFlow(trueCashTransactions, { period, accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, period, reportingIds, fromDate])
   const metrics = useMemo(() => calculateBankMetrics(trueCashTransactions, visibleBalanceSeries, { accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, visibleBalanceSeries, reportingIds, fromDate])
   const cashSummary = useMemo(() => summarizeCashFlowPipeline(transactions, { accountIds: reportingIds, from: fromDate || undefined }), [transactions, reportingIds, fromDate])
-  const reportingBalance = reportingSelected.reduce((total, account) => total + account.currentBalance, 0)
+  const reportingBalanceValues = reportingSelected.map((account) => authoritativeAccountBalance(account, transactions))
+  const reportingBalanceAvailable = reportingBalanceValues.every((value) => value != null)
+  const reportingBalance = reportingBalanceAvailable
+    ? reportingBalanceValues.reduce((total, value) => total + value, 0)
+    : null
 
   const exportCsv = () => downloadFile(`bank-transactions-${new Date().toISOString().slice(0, 10)}.csv`, transactionsToCsv(filteredTransactions), 'text/csv;charset=utf-8')
   const exportPdf = async () => {
@@ -302,7 +306,7 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
     const document = new jsPDF({ unit: 'pt', format: 'a4' })
     const lines = [
       `Accounts: ${selected.map((account) => `${account.institutionName} ${account.displayName}`).join(', ')}`,
-      `Current connected GBP balance: ${currency(reportingBalance)}`,
+      `Current connected GBP balance: ${reportingBalance == null ? 'Unavailable from imported statement' : currency(reportingBalance)}`,
       `Property operating cash flow: ${currency(cashSummary.operatingCashFlow)}`,
       `Company free cash flow: ${currency(cashSummary.companyFreeCashFlow)}`,
       `Net owner/DLA funding: ${currency(cashSummary.ownerFundingNet)}`,
@@ -352,7 +356,7 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
 
       <BankSummary reportingBalance={reportingBalance} reportingAccountCount={reportingIds.length} cashSummary={cashSummary} />
 
-      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history <span className="bank-analysis-badge">Analysis-adjusted</span></h2><p>Opening bank balance is preserved. Excluded transactions are ignored; DLA movements follow the toggle.</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Toggle owner funding / DLA movements in this analysis-adjusted balance. Excluded transactions always remain hidden."><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
+      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history <span className="bank-analysis-badge">{reportingBalanceAvailable ? 'Analysis-adjusted' : 'Relative movement'}</span></h2><p>{reportingBalanceAvailable ? 'Opening bank balance is preserved. Excluded transactions and internal transfers are ignored; DLA movements follow the toggle.' : 'This Tide statement export contains no balance column, so the opening balance is unknown. The chart starts at £0 and shows cumulative included movements; excluded transactions and internal transfers are ignored, and DLA follows the toggle.'}</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Toggle owner funding / DLA movements in this analysis-adjusted balance. Excluded transactions and internal transfers always remain hidden."><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
 
       <section className="panel bank-chart-panel bank-cashflow-panel"><header><div><h2>Business cash flow</h2><p>Money generated by the business. Owner funding, cash extraction, internal transfers and anything still awaiting review are excluded.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Money in</span><span className="outflow">Money out</span><span className="net">Net business cash</span></div><CashFlowChart rows={cashFlow} /></section>
 

@@ -726,10 +726,44 @@ export const calculateBankMetrics = (transactions, balanceSeries = [], options =
   }
 }
 
-export const transactionExcludedFromAnalysis = (transaction) => (
-  transaction?.excludeFromPerformance === true
-  || transaction?.exclude_from_performance === true
-  || (transaction?.performanceTreatment || transaction?.performance_treatment || 'auto') === 'exclude'
+export const transactionExcludedFromAnalysis = (transaction) => performanceTreatmentForTransaction(transaction) === 'exclude'
+
+const optionalNumber = (value) => (
+  value == null || value === '' || !Number.isFinite(Number(value))
+    ? null
+    : Number(value)
+)
+
+const isManualTideStatementAccount = (account) => String(
+  account?.externalAccountId || account?.external_account_id || '',
+).startsWith('manual:tide')
+
+const latestObservedBalanceForRows = (rows = []) => {
+  let latest = null
+  ;(rows || []).forEach((transaction, index) => {
+    const balance = optionalNumber(transaction?.balanceAfter ?? transaction?.balance_after)
+    if (balance == null || transaction?.status === 'pending' || !transaction?.bookedAt) return
+    const candidate = { transaction, index, balance }
+    if (!latest
+      || String(transaction.bookedAt).localeCompare(String(latest.transaction.bookedAt)) > 0
+      || (String(transaction.bookedAt) === String(latest.transaction.bookedAt) && index > latest.index)) {
+      latest = candidate
+    }
+  })
+  return latest
+}
+
+export const authoritativeAccountBalance = (account, transactions = []) => {
+  const accountId = String(account?.id || '')
+  const accountRows = (transactions || []).filter((transaction) => String(transaction?.accountId || transaction?.account_id || '') === accountId)
+  const observed = latestObservedBalanceForRows(accountRows)
+  if (isManualTideStatementAccount(account)) return observed?.balance ?? null
+  const current = optionalNumber(account?.currentBalance ?? account?.current_balance)
+  return current ?? observed?.balance ?? null
+}
+
+export const accountBalanceIsAuthoritative = (account, transactions = []) => (
+  authoritativeAccountBalance(account, transactions) != null
 )
 
 export const reconstructBalanceSeries = (accounts, transactions, options = {}) => {
@@ -745,20 +779,37 @@ export const reconstructBalanceSeries = (accounts, transactions, options = {}) =
       && (options.includeOwnerFunding !== false || performanceTreatmentForTransaction(transaction) !== 'investor')
     ))
     allRows.forEach((transaction) => dates.add(transaction.bookedAt))
-    const currentDate = isoDate(account.balanceUpdatedAt || options.asOf || new Date().toISOString())
-    if (currentDate) dates.add(currentDate)
-    return {
-      baseline: number(account.currentBalance) - allRows.reduce((sum, transaction) => sum + transaction.amount, 0),
-      rows,
+
+    const observed = latestObservedBalanceForRows(allRows)
+    const manualStatement = isManualTideStatementAccount(account)
+    const currentBalance = optionalNumber(account.currentBalance ?? account.current_balance)
+    let baseline = 0
+
+    if (manualStatement && observed) {
+      baseline = observed.balance - allRows
+        .slice(0, observed.index + 1)
+        .reduce((sum, transaction) => sum + number(transaction.amount), 0)
+    } else if (!manualStatement && currentBalance != null) {
+      baseline = currentBalance - allRows.reduce((sum, transaction) => sum + number(transaction.amount), 0)
+      const currentDate = isoDate(account.balanceUpdatedAt || account.balance_updated_at || options.asOf || new Date().toISOString())
+      if (currentDate) dates.add(currentDate)
+    } else if (observed) {
+      baseline = observed.balance - allRows
+        .slice(0, observed.index + 1)
+        .reduce((sum, transaction) => sum + number(transaction.amount), 0)
     }
+
+    return { baseline, rows }
   })
+
   return [...dates].sort().map((date) => ({
     date,
     balance: Number(histories.reduce((total, history) => total + history.baseline + history.rows
       .filter((transaction) => transaction.bookedAt <= date)
-      .reduce((sum, transaction) => sum + transaction.amount, 0), 0).toFixed(2)),
+      .reduce((sum, transaction) => sum + number(transaction.amount), 0), 0).toFixed(2)),
   }))
 }
+
 
 export const balanceSeriesWithoutOwnerFundingDates = (balanceSeries = [], transactions = [], accountIds = []) => {
   const selected = accountIds?.length ? new Set(accountIds) : null
