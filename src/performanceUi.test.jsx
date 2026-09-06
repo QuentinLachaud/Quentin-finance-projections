@@ -3,39 +3,34 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import PerformanceWorkspace from './PerformanceWorkspace.jsx'
 
-const property = { id: 'p1', name: 'BTL1', purchaseDate: '2025-01-01', purchasePrice: 200000, latestValuation: 220000, mortgagePrincipalAmount: 150000, loanAmount: 150000, rent: 1100, operatingCashflow: 300, mortgageInterestOnly: true, baseRate: 0.04 }
+const property = {
+  id: 'p1', name: 'BTL1', active: true, latestValuation: 220000, purchasePrice: 200000,
+  loanAmount: 150000, rent: 1100, mortgageInterestOnly: true, mortgageTermMonths: 300,
+  baseRate: 0.04, repairs: 65, factorsFees: 0, legionella: 0, gasCertificate: 0, eicr: 0,
+}
+const settings = {
+  accountType: 'company', appreciationRate: 0.03, rentGrowthRate: 0.02, rateShock: 0,
+  companyCosts: [], extractions: [], fullyManaged: false,
+  performanceUpdates: [{ id: 'rent-1', kind: 'rent', propertyId: 'p1', value: 1200, startMonth: '2026-01', endMonth: '', order: 0 }],
+}
 
-describe('Performance workspace UI', () => {
-  it('uses a clear investment snapshot and explicit, toggleable graph controls rather than an ambiguous mixed chart', () => {
-    const html = renderToStaticMarkup(<PerformanceWorkspace properties={[property]} expenses={[{ id: 'r1', date: '2025-06-01', property: 'BTL1', amount: 5000, description: 'Rent' }]} settings={{ appreciationRate: 0.03, rentGrowthRate: 0.02, rateShock: 0 }} />)
-    expect(html).toContain('Investment snapshot')
-    expect(html).toContain('Annualised return')
-    expect(html).toContain('Wealth created')
-    expect(html).toContain('Current equity')
-    expect(html).toContain('Recorded net income')
-    expect(html).toContain('PERFORMANCE OVER TIME')
-    expect(html).toContain('Value &amp; debt')
-    expect(html).toContain('Rent')
-    expect(html).toContain('Cash')
-    expect(html).toContain('Return')
-    expect(html).toContain('Displayed metrics')
-    expect(html).toContain('Equity')
-    expect(html).toContain('Property value')
-    expect(html).toContain('Mortgage debt')
-    expect(html).toContain('Forecast')
-    expect(html).toContain('Events')
-    expect(html).toContain('5Y')
-    expect(html).toContain('10Y')
-    expect(html).toContain('15Y')
-    expect(html).toContain('Today · Equity')
-    expect(html).toContain('Solid lines are recorded history')
+describe('Performance v2 UI', () => {
+  it('renders the default portfolio conservative forward model with high-value controls', () => {
+    const html = renderToStaticMarkup(<PerformanceWorkspace properties={[property]} settings={settings} onAssumptionChange={() => {}} />)
+    for (const text of ['Forward model', 'Performance', 'Whole portfolio', 'Conservative', 'No voids', 'No repairs/voids', '10Y', 'Portfolio value', 'Equity', 'Monthly cash flow', 'Cash accumulated', 'Exclude extractions', 'Shows true company cash flow']) {
+      expect(html).toContain(text)
+    }
+    expect(html).toContain('aria-label="Forward performance chart"')
+    expect(html).toContain('data-testid="performance-chart-scroll"')
   })
 
-  it('keeps incomplete-history caveats visible but secondary and does not present estimated data as exact', () => {
-    const html = renderToStaticMarkup(<PerformanceWorkspace properties={[property]} settings={{ appreciationRate: 0.03, rentGrowthRate: 0.02 }} />)
-    expect(html).toContain('Estimated cash basis')
-    expect(html).toContain('Data coverage')
-    expect(html).toContain('No dated income or cost entries are available')
-    expect(html).toContain('does not backfill current assumptions into the past')
+  it('renders scoped model inputs and the tagged update ledger without redundant historical dashboard copy', () => {
+    const html = renderToStaticMarkup(<PerformanceWorkspace properties={[property]} settings={settings} onAssumptionChange={() => {}} />)
+    for (const text of ['Model inputs', 'Portfolio assumptions', 'Rent growth', 'HPI / appreciation', 'Rate shock', 'Additive to current mortgage rate', 'Shock starts', 'Recorded inputs', 'Rent &amp; valuation updates', 'Rent', 'Valuation', 'Add update', '£1,200 / month']) {
+      expect(html).toContain(text)
+    }
+    expect(html).not.toContain('Investment snapshot')
+    expect(html).not.toContain('Return breakdown')
+    expect(html).not.toContain('Financial history')
   })
 })

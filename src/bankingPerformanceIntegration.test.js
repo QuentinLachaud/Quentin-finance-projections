@@ -37,15 +37,16 @@ describe('Banking + Performance integrity integration', () => {
     expect(reviewUi).toContain('Save & next')
     expect(read('src/banking.js')).toContain('deduplicateTransactions')
     expect(read('src/performance.js')).toContain('bankTransactionMatchesExpense')
-    expect(read('src/PerformanceWorkspace.jsx')).toContain('Company cash')
-    expect(read('src/PerformanceWorkspace.jsx')).toContain('Net DLA funding')
+    expect(read('src/PerformanceWorkspace.jsx')).toContain('Exclude extractions')
+    expect(read('src/performanceForecast.js')).toContain('scenario.bankCashflow')
+    expect(read('src/performanceForecast.js')).toContain('scenario.cashflow')
   })
 
-  it('uses the shared delete-confirm dialog for deletable manual and timeline Performance events', () => {
+  it('uses the shared delete-confirm dialog for Performance input updates', () => {
     const ui = read('src/PerformanceWorkspace.jsx')
     expect(ui).toContain("import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'")
-    expect(ui).toContain("event.sourceType === 'timeline'")
-    expect(ui).toContain('onTimelineEventDelete')
-    expect(ui).not.toContain('This removes the manual return adjustment only.')
+    expect(ui).toContain('Delete this ${deleteUpdate.kind} update?')
+    expect(ui).toContain('confirmLabel="Delete update"')
+    expect(ui).toContain('onConfirm={() => { writeUpdates')
   })
 })

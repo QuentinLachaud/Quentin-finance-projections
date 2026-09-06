@@ -1,67 +1,52 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const app = readFileSync('src/App.jsx', 'utf8')
-const model = readFileSync('src/performance.js', 'utf8')
-const ui = readFileSync('src/PerformanceWorkspace.jsx', 'utf8')
-const styles = readFileSync('src/styles.css', 'utf8')
+const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8')
+const app = read('./App.jsx')
+const ui = read('./PerformanceWorkspace.jsx')
+const forecast = read('./performanceForecast.js')
+const styles = read('./styles.css')
 
-describe('Performance integration', () => {
-  it('keeps Performance as a portfolio workspace and stores only manual performance adjustments in portfolio JSON', () => {
-    expect(app).toContain("['Performance', 'Performance', TrendingUp, 'PORTFOLIO']")
-    expect(app).toContain("Performance: {")
+describe('Performance v2 integration', () => {
+  it('keeps Performance wired through the existing portfolio state without a backend migration', () => {
     expect(app).toContain("import PerformanceWorkspace from './PerformanceWorkspace.jsx'")
-    expect(app).toContain('performanceEvents: normalizePerformanceEvents(portfolioState.performanceEvents, migratedProperties)')
     expect(app).toContain("{section === 'Performance' && <PerformanceWorkspace")
-    expect(app).not.toContain("from('performance_")
+    expect(ui).toContain("onAssumptionChange?.('performanceUpdates'")
+    expect(ui).toContain("onAssumptionChange?.('performanceModelOverrides'")
+    expect(forecast).toContain('settings.performanceUpdates')
+    expect(forecast).not.toContain("from('performance_")
   })
 
-  it('derives actual graph histories from dated ledgers and snapshots without inventing historical rent or costs', () => {
-    expect(model).toContain("sourceType: 'expense'")
-    expect(model).toContain("event.sourceField === 'rent'")
-    expect(model).toContain('rentBefore:')
-    expect(model).toContain('cumulativeNetIncome')
-    expect(model).toContain('cumulativeCosts')
-    expect(model).toContain('cumulativeAppreciation')
-    expect(model).toContain('monthlyRent')
-    expect(model).toContain('hasNumber(event.assetValue)')
-    expect(model).toContain('No dated income or cost entries are available')
-    expect(model).not.toContain('backfillRent')
-    expect(ui).toContain('does not backfill current assumptions into the past')
+  it('reuses canonical calculatePortfolio scenario cash semantics instead of duplicating them', () => {
+    expect(forecast).toContain("import { amortizingPayment, calculatePortfolio } from './calculations.js'")
+    expect(forecast).toContain('const portfolio = calculatePortfolio(projected, calculationSettings')
+    expect(forecast).toContain('scenario.bankCashflow')
+    expect(forecast).toContain('scenario.cashflow')
+    expect(forecast).toContain("{ id: 0, label: 'Conservative'")
+    expect(forecast).toContain("{ id: 1, label: 'No voids'")
+    expect(forecast).toContain("{ id: 2, label: 'No repairs or voids'")
   })
 
-  it('provides explicit graph views, metric toggles, calendar-month ticks and clean currency-axis intervals', () => {
-    expect(ui).toContain("label: 'Value & debt'")
-    expect(ui).toContain("label: 'Rent'")
-    expect(ui).toContain("label: 'Cash'")
-    expect(ui).toContain("label: 'Return'")
-    expect(ui).toContain('Displayed metrics')
-    expect(ui).toContain("month: 'short'")
-    expect(ui).toContain('niceCurrencyTicks')
-    expect(ui).toContain('axisMoney')
-    expect(ui).toContain('performance-switch')
-    expect(ui).not.toContain('PerformanceCashChart')
+  it('supports explicit update ranges, overlap validation, editing, deletion confirmation and drag reordering', () => {
+    for (const token of ['normalizePerformanceUpdate', 'validatePerformanceUpdate', 'activePerformanceUpdate', 'rangesOverlap']) expect(forecast).toContain(token)
+    expect(ui).toContain('draggable')
+    expect(ui).toContain('onDrop={() => reorder(entry.id)}')
+    expect(ui).toContain('role="alertdialog"')
+    expect(ui).toContain('Delete this {update.kind} update?')
+    expect(ui).toContain('Edit ${entry.kind} update')
   })
 
-  it('groups dense chart events and exposes hover/focus/tap detail cards with event metadata instead of overlapping expense dots', () => {
-    expect(ui).toContain('groupChartEvents')
-    expect(ui).toContain('performance-event-popover')
-    expect(ui).toContain('onMouseEnter')
-    expect(ui).toContain('onFocus')
-    expect(ui).toContain('onClick')
-    expect(ui).toContain('hover, focus or tap a mark for the value, type, date and source')
-    expect(styles).toContain('.performance-event-popover')
-    expect(styles).toContain('.performance-event-mark line')
+  it('offers all requested toggles, scoped assumptions, additive delayed rate shock and adaptive axes', () => {
+    for (const token of ['assetValue', 'equity', 'debt', 'monthlyCashflow', 'cashAccumulation', 'monthlyRent', 'performanceRateShockStartMonth', 'performanceModelOverrides', 'niceCurrencyAxis', 'performanceXAxisTicks']) expect(forecast).toContain(token)
+    expect(ui).toContain('Exclude extractions')
+    expect(ui).toContain('Shows true company cash flow')
+    expect(ui).toContain('Additive to current mortgage rate')
+    expect(ui).toContain('Use portfolio inputs')
   })
 
-  it('uses a restrained type hierarchy, iOS-like switches, responsive local chart scrolling and the existing shared expense ledger', () => {
-    expect(styles).toContain('/* Performance workspace */')
-    expect(styles).toContain('.performance-switch > input:checked + span')
-    expect(styles).toContain('.performance-metric > b { color: var(--ink); font-size: 23px')
-    expect(styles).toContain('.performance-chart { min-width: 680px; }')
-    expect(styles).toContain('@media (max-width: 700px)')
-    expect(app).toContain("onOpenExpenses={() => setSection('Documents & Expenses')}")
-    expect(ui).toContain('Actual income / costs')
+  it('keeps horizontal overflow local and preserves clear iOS-like visual affordances', () => {
+    for (const token of ['.performance-v2-chart-scroll', 'overflow-x: auto', '.performance-v2-switch', '.performance-v2-segmented', '.performance-v2-modal-backdrop', '@media (max-width: 560px)']) expect(styles).toContain(token)
+    expect(styles).toContain('min-height: 40px')
+    expect(styles).toContain('--perf-blue: #0a84ff')
   })
-
 })
