@@ -327,13 +327,21 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
     document.save(`bank-report-${new Date().toISOString().slice(0, 10)}.pdf`)
   }
 
+  const finishStatementImport = async () => {
+    let reconciliation = { reconciled: 0 }
+    try { reconciliation = await apiRequest('', { action: 'reconcile-transfers' }) }
+    catch (requestError) { setError(requestError.message) }
+    await loadData()
+    return reconciliation
+  }
+
   const filteredInstitutions = institutions.filter((institution) => institution.name.toLowerCase().includes(search.toLowerCase()))
   if (status === 'loading' || status === 'syncing') return <div className="app-inline-loading"><RefreshCw /><b>{status === 'syncing' ? 'Securely syncing bank data…' : 'Loading connected accounts…'}</b></div>
 
   return <div className="bank-workspace">
     <section className="panel bank-command-bar"><header><div className="bank-command-context"><ShieldCheck size={16} /><span>Secure bank connection</span></div><div className="bank-command-actions"><button className="secondary-button small" onClick={syncAll} disabled={!connections.length || status === 'syncing'}><RefreshCw size={15} /> Sync</button><button className="secondary-button small" onClick={() => setShowStatementImport(true)}><FileText size={15} /> Import Tide statement</button><button className="primary-button small" onClick={openConnect}><Link2 size={15} /> Connect account</button></div></header>{error && <p className="bank-error"><AlertTriangle size={16} />{error}</p>}{status === 'not-configured' && <div className="bank-setup-note"><AlertTriangle /><span><b>One-time GoCardless setup required</b><small>The secure server integration is ready. Add Bank Account Data user secrets to Cloudflare to enable live bank selection.</small></span></div>}</section>
 
-    {showStatementImport && <BankStatementImportSheet user={user} connections={connections} accounts={accounts} properties={properties} onClose={() => setShowStatementImport(false)} onImported={loadData} />}
+    {showStatementImport && <BankStatementImportSheet user={user} connections={connections} accounts={accounts} properties={properties} onClose={() => setShowStatementImport(false)} onImported={finishStatementImport} />}
 
     {showConnect && <section className="panel bank-picker"><header><div><span className="kicker">AVAILABLE UK INSTITUTIONS</span><h2>Choose a bank</h2><p>Tide, Monzo, Revolut and Chase are prioritised when returned by GoCardless; all other supported UK providers remain searchable.</p></div><label><Search size={16} /><input aria-label="Search banks" placeholder="Search banks" value={search} onChange={(event) => setSearch(event.target.value)} /></label></header><div className="bank-picker-grid">{filteredInstitutions.map((institution) => <button key={institution.id} onClick={() => connect(institution.id)} disabled={status === 'connecting'}>{institution.logo ? <img src={institution.logo} alt="" /> : <Landmark />}<span><b>{institution.name}</b><small>Up to {Math.min(730, institution.transactionDays)} days history</small></span>{institution.preferred && <em>Priority</em>}<ExternalLink size={14} /></button>)}</div>{!institutions.length && status !== 'not-configured' && <div className="bank-empty-chart"><RefreshCw /><span>Loading live institution availability…</span></div>}</section>}
 

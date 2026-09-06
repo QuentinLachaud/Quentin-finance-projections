@@ -23,7 +23,7 @@ describe('bank transaction normalisation and classification', () => {
     expect(BANK_CATEGORIES.map(([value]) => value)).toEqual([
       'rent', 'other_property_income', 'mortgage', 'repairs', 'capital_improvement', 'factors', 'insurance', 'utilities',
       'legal_professional', 'tax_property_duties', 'property_acquisition', 'tenant_deposit', 'payroll', 'bank_admin_fees',
-      'owner_funding', 'cash_extraction', 'transfer', 'other',
+      'bank_interest', 'owner_funding', 'cash_extraction', 'transfer', 'other',
     ])
   })
 
@@ -81,6 +81,30 @@ describe('transfer detection', () => {
       tx('b', '2026-06-10', 500), tx('c', '2026-06-01', 500, { currency: 'EUR' }),
     ])
     expect(result.every((row) => !row.isTransfer)).toBe(true)
+  })
+
+  it('never overrides a manually reviewed non-transfer while matching passive account transfers', () => {
+    const result = detectInternalTransfers([
+      tx('current', '2026-06-01', -1000, { category: 'repairs', categoryOverridden: true }),
+      tx('savings', '2026-06-01', 1000),
+      tx('current', '2026-06-02', -750, { category: 'transfer', isTransfer: true }),
+      tx('savings', '2026-06-02', 750),
+    ])
+    expect(result[0]).toMatchObject({ category: 'repairs', isTransfer: false })
+    expect(result[1].isTransfer).toBe(false)
+    expect(result[2].isTransfer).toBe(true)
+    expect(result[3]).toMatchObject({ category: 'transfer', isTransfer: true })
+  })
+
+  it('leaves ambiguous same-amount candidates unresolved instead of guessing a transfer pair', () => {
+    const result = detectInternalTransfers([
+      tx('current', '2026-06-02', -1000, { category: 'transfer', isTransfer: true }),
+      tx('savings', '2026-06-02', 1000),
+      tx('savings', '2026-06-02', 1000),
+    ])
+    expect(result[0].isTransfer).toBe(true)
+    expect(result[1].isTransfer).toBe(false)
+    expect(result[2].isTransfer).toBe(false)
   })
 })
 

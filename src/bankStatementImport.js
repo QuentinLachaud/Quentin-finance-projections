@@ -82,6 +82,66 @@ const TIDE_CURRENT_HEADERS = [
 const stripLeadingApostrophe = (value) => clean(value).replace(/^'/, '')
 const normaliseText = (value) => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
 
+export const tideStatementAccountRoleForAccount = (account) => {
+  const haystack = normaliseText([
+    account?.accountType, account?.account_type, account?.displayName, account?.display_name,
+    account?.externalAccountId, account?.external_account_id,
+  ].filter(Boolean).join(' '))
+  if (/\b(savings|saving|svgs)\b/.test(haystack)) return 'savings'
+  if (/\b(current|cacc)\b/.test(haystack)) return 'current'
+  return ''
+}
+
+export const inferTideStatementAccountRoleFromHistory = (statement, existingTransactions = [], accounts = []) => {
+  const keys = new Set((statement?.transactions || []).map((transaction) => String(transaction?.transactionKey || '')).filter(Boolean))
+  if (!keys.size) return ''
+  const accountRoles = new Map((accounts || []).map((account) => [String(account?.id || ''), tideStatementAccountRoleForAccount(account)]))
+  const roles = new Set((existingTransactions || [])
+    .filter((transaction) => keys.has(String(transaction?.transaction_key || transaction?.transactionKey || '')))
+    .map((transaction) => accountRoles.get(String(transaction?.account_id || transaction?.accountId || '')))
+    .filter(Boolean))
+  return roles.size === 1 ? [...roles][0] : ''
+}
+
+const statementTransferOutToSavings = (transaction) => {
+  const metadata = transaction?.sourceMetadata || transaction?.source_metadata || {}
+  const haystack = normaliseText([
+    transaction?.description, transaction?.counterparty, metadata.reference, metadata.to, metadata.transactionType,
+  ].filter(Boolean).join(' '))
+  return Number(transaction?.amount) < 0
+    && (transaction?.isTransfer === true || transaction?.category === 'transfer' || normaliseText(metadata.transactionType) === 'fundstransferout')
+    && haystack.includes('savings account')
+}
+
+const statementDirectSavingsEvidence = (transaction) => {
+  const metadata = transaction?.sourceMetadata || transaction?.source_metadata || {}
+  const haystack = normaliseText([
+    transaction?.description, transaction?.counterparty, metadata.reference, metadata.from, metadata.transactionType,
+  ].filter(Boolean).join(' '))
+  return Number(transaction?.amount) > 0 && /\b(current account|transfer from current|own account)\b/.test(haystack)
+}
+
+const statementDayGap = (left, right) => {
+  const a = Date.parse(`${left}T12:00:00Z`)
+  const b = Date.parse(`${right}T12:00:00Z`)
+  return Number.isFinite(a) && Number.isFinite(b) ? Math.abs(a - b) / 86_400_000 : Number.POSITIVE_INFINITY
+}
+
+export const inferTideStatementAccountRole = (statement, statements = []) => {
+  const fileName = normaliseText(statement?.fileName)
+  if (/\b(savings|saving)\b/.test(fileName)) return 'savings'
+  if (/\bcurrent\b/.test(fileName)) return 'current'
+  const rows = statement?.transactions || []
+  if (rows.some(statementTransferOutToSavings)) return 'current'
+  if (rows.some(statementDirectSavingsEvidence)) return 'savings'
+  const incoming = rows.filter((transaction) => Number(transaction?.amount) > 0)
+  const pairedWithCurrent = (statements || []).some((candidate) => candidate !== statement
+    && (candidate?.transactions || []).some((outgoing) => statementTransferOutToSavings(outgoing)
+      && incoming.some((credit) => Math.abs(Number(credit.amount) + Number(outgoing.amount)) < 0.005
+        && statementDayGap(credit.bookedAt, outgoing.bookedAt) <= 2)))
+  return pairedWithCurrent ? 'savings' : ''
+}
+
 const classifyExactTideRow = (transaction, metadata) => {
   const categoryName = normaliseText(metadata.categoryName)
   const transactionType = normaliseText(metadata.transactionType)
@@ -93,7 +153,9 @@ const classifyExactTideRow = (transaction, metadata) => {
   if (/\b(?:safe deposits scotland|safedeposits scotland|safedepositscotland|tenancy deposit|tenant deposit|deposit protection)\b/.test(haystack)) return { category: 'tenant_deposit', isTransfer: false }
   if (/\b(?:lbtt|additional dwelling supplement|property acquisition|property purchase|purchase completion|completion monies|completion funds)\b/.test(haystack)) return { category: 'property_acquisition', isTransfer: false }
   if (/\b(?:capital improvement|refurbishment|refurb|renovation|new kitchen|new bathroom|extension)\b/.test(haystack)) return { category: 'capital_improvement', isTransfer: false }
-  if (categoryName === 'bank interest paid' || /\b(?:paragon|tmw|the mortgage works|mortgage)\b/.test(haystack)) return { category: 'mortgage', isTransfer: false }
+  if (/\b(?:paragon|tmw|the mortgage works|mortgage)\b/.test(haystack)) return { category: 'mortgage', isTransfer: false }
+  if (transaction.amount > 0 && (categoryName === 'bank interest paid' || /\b(?:interest earned|interest received|credit interest|savings interest)\b/.test(haystack))) return { category: 'bank_interest', isTransfer: false }
+  if (categoryName === 'bank interest paid') return { category: 'bank_admin_fees', isTransfer: false }
   if (categoryName === 'rent' || (categoryName === 'income' && transaction.amount > 0) || /\brent\b/.test(haystack)) return { category: 'rent', isTransfer: false }
   if (categoryName === 'taxes' || /\b(?:hmrc|corporation tax|income tax|vat|council tax)\b/.test(haystack)) return { category: 'tax_property_duties', isTransfer: false }
   if (/\b(?:salary|payroll|wages)\b/.test(haystack)) return { category: 'payroll', isTransfer: false }

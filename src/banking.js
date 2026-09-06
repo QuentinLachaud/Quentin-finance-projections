@@ -15,6 +15,7 @@ export const BANK_CATEGORIES = [
   ['tenant_deposit', 'Tenant deposit'],
   ['payroll', 'Payroll'],
   ['bank_admin_fees', 'Bank & admin fees'],
+  ['bank_interest', 'Bank interest'],
   ['owner_funding', 'Owner funding / DLA'],
   ['cash_extraction', 'Cash extraction'],
   ['transfer', 'Internal transfer'],
@@ -44,7 +45,7 @@ const CATEGORY_RULES = [
   ['utilities', /\b(electric(?:ity)?|energy|gas|water|broadband|internet|utility|scottish power|octopus|edf|virgin media)\b/i],
   ['insurance', /\b(insurance|insurer|policy premium|aviva|direct line|landlord insurance)\b/i],
   ['legal_professional', /\b(solicitor|legal fee|legal services|conveyanc(?:e|ing)|accountant|accountancy)\b/i],
-  ['bank_admin_fees', /\b(bank fee|account fee|overdraft fee|interest charge|bank charge)\b/i],
+  ['bank_admin_fees', /\b(bank fee|account fee|overdraft fee|interest charge|bank interest|debit interest|bank charge)\b/i],
   ['transfer', /\b(internal transfer|own account|between accounts|savings transfer|cash transfer|monzo pot|revolut vault)\b/i],
 ]
 
@@ -73,6 +74,7 @@ export const classifyTransaction = (transaction) => {
     transaction.additionalInformation,
   )
   if (DLA_PATTERN.test(haystack)) return 'owner_funding'
+  if (number(transaction?.amount) > 0 && /\b(bank interest|interest earned|interest received|credit interest|savings interest)\b/i.test(haystack)) return 'bank_interest'
   return CATEGORY_RULES.find(([, pattern]) => pattern.test(haystack))?.[0] || 'other'
 }
 
@@ -175,7 +177,7 @@ export const performanceTreatmentForTransaction = (transaction) => {
   if (['property_acquisition', 'capital_improvement'].includes(category)) return 'capital'
   if (category === 'tenant_deposit') return 'liability'
   if (category === 'mortgage') return 'financing'
-  if (category === 'bank_admin_fees') return 'company'
+  if (['bank_admin_fees', 'bank_interest'].includes(category)) return 'company'
   if (category === 'tax_property_duties') return (transaction?.propertyId || transaction?.property_id) ? 'operating' : 'company'
   if (category === 'legal_professional') return (transaction?.propertyId || transaction?.property_id) ? 'operating' : 'review'
   if (['rent', 'other_property_income', 'repairs', 'factors', 'utilities', 'insurance'].includes(category)) return 'operating'
@@ -509,6 +511,16 @@ export const reviewPatchFromDraft = (draft = {}) => {
   }
 }
 
+export const exclusionUndoEntriesFor = (transactions = []) => (transactions || [])
+  .filter((transaction) => performanceTreatmentForTransaction(transaction) !== 'exclude')
+  .map((transaction) => ({
+    transaction,
+    patch: {
+      exclude_from_performance: transaction?.excludeFromPerformance === true || transaction?.exclude_from_performance === true,
+      performance_treatment: transaction?.performanceTreatment || transaction?.performance_treatment || 'auto',
+    },
+  }))
+
 export const transactionWithReviewDraft = (transaction, draft = {}) => ({
   ...transaction,
   ...bankTransactionStatePatch(reviewPatchFromDraft(draft)),
@@ -562,27 +574,70 @@ export const normalizeGoCardlessTransaction = (raw, accountId, status = 'booked'
   return transaction
 }
 
+const transferEvidenceScore = (transaction) => {
+  const category = normalizeBankCategory(transaction?.category)
+  const metadata = transaction?.sourceMetadata || transaction?.source_metadata || {}
+  const haystack = cleanCanonical([
+    transaction?.description, transaction?.counterparty, transaction?.bankCode,
+    metadata.reference, metadata.from, metadata.to, metadata.transactionType,
+  ].filter(Boolean).join(' '))
+  return (transaction?.isTransfer || transaction?.is_transfer || category === 'transfer' ? 4 : 0)
+    + (/\b(savings account|current account|own account|internal transfer|between accounts|fundstransfer)\b/.test(haystack) ? 2 : 0)
+}
+
+const manuallyReviewedAsNonTransfer = (transaction) => (
+  (transaction?.categoryOverridden || transaction?.category_overridden)
+  && !(transaction?.isTransfer || transaction?.is_transfer || normalizeBankCategory(transaction?.category) === 'transfer')
+)
+
 export const detectInternalTransfers = (transactions) => {
-  const result = transactions.map((transaction) => ({ ...transaction }))
-  const matched = new Set()
+  const result = (transactions || []).map((transaction) => ({ ...transaction }))
+  const candidates = []
   for (let left = 0; left < result.length; left += 1) {
-    if (matched.has(left) || result[left].status === 'pending') continue
+    const a = result[left]
+    if (a.status === 'pending' || manuallyReviewedAsNonTransfer(a)) continue
     for (let right = left + 1; right < result.length; right += 1) {
-      if (matched.has(right) || result[right].status === 'pending') continue
-      const a = result[left]
       const b = result[right]
-      const dayGap = Math.abs(new Date(a.bookedAt).getTime() - new Date(b.bookedAt).getTime()) / DAY_MS
-      if (a.accountId !== b.accountId && a.currency === b.currency && dayGap <= 2 && Math.abs(a.amount + b.amount) < 0.005) {
-        a.isTransfer = true
-        b.isTransfer = true
-        a.category = 'transfer'
-        b.category = 'transfer'
-        matched.add(left)
-        matched.add(right)
-        break
-      }
+      if (b.status === 'pending' || manuallyReviewedAsNonTransfer(b)) continue
+      if (!a.accountId || !b.accountId || a.accountId === b.accountId || a.currency !== b.currency) continue
+      if (Math.abs(number(a.amount) + number(b.amount)) >= 0.005) continue
+      const leftTime = new Date(a.bookedAt).getTime()
+      const rightTime = new Date(b.bookedAt).getTime()
+      if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) continue
+      const dayGap = Math.abs(leftTime - rightTime) / DAY_MS
+      const evidence = transferEvidenceScore(a) + transferEvidenceScore(b)
+      const allowedGap = evidence > 0 ? 2 : 1
+      if (dayGap > allowedGap) continue
+      candidates.push({ left, right, score: evidence * 10 + (dayGap === 0 ? 3 : dayGap <= 1 ? 2 : 1), dayGap })
     }
   }
+  const candidatesByIndex = new Map()
+  candidates.forEach((candidate) => {
+    for (const index of [candidate.left, candidate.right]) {
+      const rows = candidatesByIndex.get(index) || []
+      rows.push(candidate)
+      candidatesByIndex.set(index, rows)
+    }
+  })
+  const uniquelyBestFor = (index, candidate) => {
+    const rows = candidatesByIndex.get(index) || []
+    const bestScore = Math.max(...rows.map((row) => row.score))
+    return candidate.score === bestScore && rows.filter((row) => row.score === bestScore).length === 1
+  }
+  candidates.sort((a, b) => b.score - a.score || a.dayGap - b.dayGap || a.left - b.left || a.right - b.right)
+  const matched = new Set()
+  candidates.forEach((candidate) => {
+    const { left, right } = candidate
+    if (matched.has(left) || matched.has(right) || !uniquelyBestFor(left, candidate) || !uniquelyBestFor(right, candidate)) return
+    const a = result[left]
+    const b = result[right]
+    a.isTransfer = true
+    b.isTransfer = true
+    a.category = 'transfer'
+    b.category = 'transfer'
+    matched.add(left)
+    matched.add(right)
+  })
   return result
 }
 

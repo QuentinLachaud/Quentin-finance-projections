@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Check, Sparkles } from 'lucide-react'
+import { ArrowRight, Check, Sparkles, Undo2 } from 'lucide-react'
 import {
-  BANK_CATEGORIES, bankTransactionStatePatch, categoryUsesProperty, performanceTreatmentForTransaction,
+  BANK_CATEGORIES, bankTransactionStatePatch, categoryUsesProperty, exclusionUndoEntriesFor, performanceTreatmentForTransaction,
   reviewDraftForTransaction, reviewPatchFromDraft, similarTransactionsNeedingReviewFor,
   sortTransactionsForReview, transactionNeedsReview, transactionWithReviewDraft,
 } from './banking.js'
@@ -24,6 +24,10 @@ const categoryLabels = new Map([
   ['dla_injected', 'Owner funding / DLA'], ['dla_repaid', 'Owner funding / DLA'],
 ])
 const transactionId = (transaction) => String(transaction?.id || `${transaction?.accountId || 'bank'}:${transaction?.transactionKey || transaction?.canonicalKey || ''}`)
+
+export function BankAnalysisUndo({ count = 1, onUndo }) {
+  return <div className="bank-analysis-undo" role="status"><span>{count === 1 ? 'Transaction excluded from analysis.' : `${count} transactions excluded from analysis.`}</span><button type="button" onClick={onUndo}><Undo2 size={15} /> Undo</button></div>
+}
 
 export function BankTransactionLedger({ rows = [], properties = [], onEdit, onToggleExcluded }) {
   const propertyNames = new Map((properties || []).map((property) => [String(property.id), property.name]))
@@ -53,6 +57,7 @@ export default function BankTransactionReview({ transactions, properties = [], t
   const [draft, setDraft] = useState(null)
   const [applySimilar, setApplySimilar] = useState(true)
   const [skippedIds, setSkippedIds] = useState([])
+  const [exclusionUndo, setExclusionUndo] = useState(null)
 
   const reviewRows = useMemo(() => transactions.filter((transaction) => transactionNeedsReview(transaction, properties)), [transactions, properties])
   const reviewCount = reviewRows.length
@@ -73,7 +78,7 @@ export default function BankTransactionReview({ transactions, properties = [], t
   const propertyRelevant = preview && (categoryUsesProperty(currentDraft?.category) || Boolean(preview.propertyId))
   const showTreatment = previewTreatment === 'review' || showAdvanced
   const quickCategories = active?.amount >= 0
-    ? [['rent', 'Rent'], ['owner_funding', 'Owner funding'], ['tenant_deposit', 'Deposit'], ['other_property_income', 'Other income']]
+    ? [['rent', 'Rent'], ['bank_interest', 'Bank interest'], ['owner_funding', 'Owner funding'], ['tenant_deposit', 'Deposit'], ['other_property_income', 'Other income']]
     : [['mortgage', 'Mortgage'], ['repairs', 'Repair'], ['cash_extraction', 'Cash extraction'], ['legal_professional', 'Legal']]
 
   useEffect(() => {
@@ -96,13 +101,31 @@ export default function BankTransactionReview({ transactions, properties = [], t
   const saveCurrent = async () => {
     if (!active || !currentDraft || needsMore) return
     const patch = reviewPatchFromDraft(currentDraft)
+    const targets = applySimilar && similar.length ? [active, ...similar] : [active]
+    const undoEntries = previewTreatment === 'exclude' ? exclusionUndoEntriesFor(targets) : []
     const result = applySimilar && similar.length
-      ? await onUpdateMany?.([active, ...similar], patch)
+      ? await onUpdateMany?.(targets, patch)
       : await onUpdate?.(active, patch)
     if (result === false) return
+    if (undoEntries.length) setExclusionUndo({ items: undoEntries })
     setActiveReviewId('')
     setDraft(null)
     setSkippedIds((current) => current.filter((id) => id !== activeId))
+  }
+  const undoLastExclusion = async () => {
+    if (!exclusionUndo?.items?.length) return
+    for (const item of exclusionUndo.items) {
+      const result = await onUpdate?.(item.transaction, item.patch)
+      if (result === false) return
+    }
+    setExclusionUndo(null)
+  }
+  const toggleLedgerExcluded = async (transaction) => {
+    const nextExcluded = transaction.excludeFromPerformance !== true
+    const result = await onUpdate?.(transaction, { exclude_from_performance: nextExcluded })
+    if (result === false) return
+    if (nextExcluded) setExclusionUndo({ items: exclusionUndoEntriesFor([transaction]) })
+    else if (exclusionUndo?.items?.some((item) => transactionId(item.transaction) === transactionId(transaction))) setExclusionUndo(null)
   }
   const skipCurrent = () => {
     if (!activeId) return
@@ -122,6 +145,7 @@ export default function BankTransactionReview({ transactions, properties = [], t
       <div><span className="kicker">TRANSACTION REVIEW</span><h2>Review transactions</h2><p>Confirm suggestions, fix exceptions, and move on.</p></div>
       <div className="segmented"><button className={mode === 'review' ? 'active' : ''} onClick={() => switchMode('review')}>Review {reviewCount}</button><button className={mode === 'all' ? 'active' : ''} onClick={() => switchMode('all')}>All</button></div>
     </header>
+    {exclusionUndo?.items?.length > 0 && <BankAnalysisUndo count={exclusionUndo.items.length} onUndo={undoLastExclusion} />}
     <div className="bank-toolbar"><div className="segmented" aria-label="Transaction review order"><button className={sortMode === 'amount' ? 'active' : ''} onClick={() => setSortMode('amount')}>Largest first</button><button className={sortMode === 'newest' ? 'active' : ''} onClick={() => setSortMode('newest')}>Newest</button></div>{active && <button type="button" className="text-button" onClick={() => setShowAdvanced((current) => !current)}>{showAdvanced ? 'Hide advanced' : 'Advanced'}</button>}</div>
 
     {mode === 'review' && !active && reviewCount === 0 && <div className="bank-review-empty"><Check size={18} /><span>All caught up. No transactions need review.</span></div>}
@@ -146,6 +170,6 @@ export default function BankTransactionReview({ transactions, properties = [], t
       {mode === 'review' && reviewQueue.length > 1 && <div className="bank-review-next"><span>Next up</span>{reviewQueue.slice(1, 4).map((transaction) => <div key={transactionId(transaction)}><b>{transaction.description || transaction.counterparty || 'Transaction'}</b><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount)}</strong></div>)}</div>}
     </>}
 
-    {mode === 'all' && !active && <BankTransactionLedger rows={allRows} properties={properties} onEdit={(transaction) => setActiveReviewId(transactionId(transaction))} onToggleExcluded={(transaction) => onUpdate?.(transaction, { exclude_from_performance: !transaction.excludeFromPerformance })} />}
+    {mode === 'all' && !active && <BankTransactionLedger rows={allRows} properties={properties} onEdit={(transaction) => setActiveReviewId(transactionId(transaction))} onToggleExcluded={toggleLedgerExcluded} />}
   </section>
 }

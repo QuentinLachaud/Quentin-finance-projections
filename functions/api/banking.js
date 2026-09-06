@@ -191,6 +191,7 @@ const syncAccount = async ({ externalAccountId, connection, user, env, authoriza
 
 const detectAndPersistTransfers = async (env, authorization) => {
   const rows = await supabaseFetch(env, authorization, 'bank_transactions?select=id,account_id,booked_at,amount,currency,status,is_transfer,category,category_overridden')
+  const original = new Map((rows || []).map((row) => [row.id, row]))
   const detected = detectInternalTransfers((rows || []).map((row) => ({
     id: row.id,
     accountId: row.account_id,
@@ -202,11 +203,15 @@ const detectAndPersistTransfers = async (env, authorization) => {
     category: row.category,
     categoryOverridden: row.category_overridden,
   })))
-  const updates = detected.filter((row) => row.isTransfer && !row.categoryOverridden)
+  const updates = detected.filter((row) => {
+    const previous = original.get(row.id)
+    return row.isTransfer && !row.categoryOverridden && !(previous?.is_transfer === true || previous?.category === 'transfer')
+  })
   await Promise.all(updates.map((row) => supabaseFetch(env, authorization, `bank_transactions?id=eq.${encodeURIComponent(row.id)}`, {
     method: 'PATCH',
     body: JSON.stringify({ is_transfer: true, category: 'transfer' }),
   })))
+  return updates.length
 }
 
 const syncConnection = async ({ connection, user, env, authorization }) => {
@@ -300,6 +305,9 @@ export async function onRequestPost({ request, env }) {
       return json({ link: requisition.link, connectionId })
     }
 
+    if (body.action === 'reconcile-transfers') {
+      return json({ reconciled: await detectAndPersistTransfers(env, authorization) })
+    }
     if (body.action === 'finalize' || body.action === 'sync') {
       const connection = await selectConnection(env, authorization, body.connectionId)
       return json(await syncConnection({ connection, user, env, authorization }))

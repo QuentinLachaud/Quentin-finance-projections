@@ -1,17 +1,35 @@
 import React, { useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileUp, X } from 'lucide-react'
 import { supabase } from './supabase.js'
-import { readTideStatementFile } from './bankStatementImport.js'
+import { inferTideStatementAccountRole, inferTideStatementAccountRoleFromHistory, readTideStatementFile, tideStatementAccountRoleForAccount } from './bankStatementImport.js'
 
 const money = (value) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 2 }).format(Number(value || 0))
 const shortDate = (value) => value ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`)) : '—'
 
-const ensureStatementAccount = async ({ user, connections, accounts, closingBalance, statementTo }) => {
-  const liveTide = accounts.find((account) => account.institutionName?.toLowerCase().includes('tide') && !String(account.externalAccountId || '').startsWith('manual:tide'))
-  if (liveTide) return liveTide.id
+const isTideAccount = (account) => account?.institutionName?.toLowerCase().includes('tide')
+  || String(account?.externalAccountId || '').startsWith('manual:tide')
+
+const updateManualStatementBalance = async (account, closingBalance, statementTo) => {
+  if (!account || !String(account.externalAccountId || '').startsWith('manual:tide')) return
+  if (!Number.isFinite(Number(closingBalance)) || !statementTo) return
+  if (account.balanceUpdatedAt && statementTo < String(account.balanceUpdatedAt).slice(0, 10)) return
+  const { error } = await supabase.from('bank_accounts').update({
+    current_balance: Number(closingBalance),
+    balance_updated_at: `${statementTo}T23:59:59Z`,
+  }).eq('id', account.id)
+  if (error) throw error
+}
+
+const ensureStatementAccount = async ({ user, connections, accounts, role, closingBalance, statementTo, manualConnectionId }) => {
+  if (!['current', 'savings'].includes(role)) throw new Error('Choose whether this statement belongs to the Current or Savings account.')
+  const matching = accounts.find((account) => isTideAccount(account) && tideStatementAccountRoleForAccount(account) === role)
+  if (matching) {
+    await updateManualStatementBalance(matching, closingBalance, statementTo)
+    return { accountId: matching.id, manualConnectionId: manualConnectionId || '' }
+  }
 
   const manualConnection = connections.find((connection) => String(connection.requisition_id || '').startsWith('manual:tide:'))
-  let connectionId = manualConnection?.id
+  let connectionId = manualConnectionId || manualConnection?.id
   if (!connectionId) {
     const { data, error } = await supabase.from('bank_connections').insert({
       user_id: user.id,
@@ -24,30 +42,45 @@ const ensureStatementAccount = async ({ user, connections, accounts, closingBala
     connectionId = data.id
   }
 
-  const existing = accounts.find((account) => account.connectionId === connectionId)
-  if (existing) {
-    if (Number.isFinite(Number(closingBalance)) && statementTo && (!existing.balanceUpdatedAt || statementTo >= String(existing.balanceUpdatedAt).slice(0, 10))) {
-      const { error } = await supabase.from('bank_accounts').update({
-        current_balance: Number(closingBalance),
-        balance_updated_at: `${statementTo}T23:59:59Z`,
-      }).eq('id', existing.id)
-      if (error) throw error
+  const legacyCurrent = role === 'current' ? accounts.find((account) => (
+    account.connectionId === connectionId
+    && String(account.externalAccountId || '').startsWith('manual:tide')
+    && !tideStatementAccountRoleForAccount(account)
+  )) : null
+  if (legacyCurrent) {
+    const patch = { account_type: 'current' }
+    if (legacyCurrent.displayName === 'Tide statement history') patch.display_name = 'Tide Current account'
+    if (Number.isFinite(Number(closingBalance)) && statementTo && (!legacyCurrent.balanceUpdatedAt || statementTo >= String(legacyCurrent.balanceUpdatedAt).slice(0, 10))) {
+      patch.current_balance = Number(closingBalance)
+      patch.balance_updated_at = `${statementTo}T23:59:59Z`
     }
-    return existing.id
+    const { error } = await supabase.from('bank_accounts').update(patch).eq('id', legacyCurrent.id)
+    if (error) throw error
+    return { accountId: legacyCurrent.id, manualConnectionId: connectionId }
   }
 
   const { data, error } = await supabase.from('bank_accounts').insert({
     user_id: user.id,
     connection_id: connectionId,
-    external_account_id: `manual:tide:${user.id}`,
-    display_name: 'Tide statement history',
+    external_account_id: `manual:tide:${role}:${user.id}`,
+    display_name: role === 'savings' ? 'Tide Savings account' : 'Tide Current account',
+    account_type: role,
     currency: 'GBP',
     current_balance: Number.isFinite(Number(closingBalance)) ? Number(closingBalance) : 0,
     balance_updated_at: statementTo ? `${statementTo}T23:59:59Z` : null,
     include_in_cash: false,
   }).select('id').single()
   if (error) throw error
-  return data.id
+  return { accountId: data.id, manualConnectionId: connectionId }
+}
+
+const storedAccountRoleForStatement = async (statement, accounts) => {
+  const allKeys = [...new Set((statement?.transactions || []).map((transaction) => transaction?.transactionKey).filter(Boolean))]
+  const keys = [...new Set([...allKeys.slice(0, 20), ...allKeys.slice(-20)])]
+  if (!keys.length) return ''
+  const { data, error } = await supabase.from('bank_transactions').select('account_id,transaction_key').in('transaction_key', keys)
+  if (error) throw error
+  return inferTideStatementAccountRoleFromHistory(statement, data || [], accounts)
 }
 
 export default function BankStatementImportSheet({ user, connections, accounts, properties = [], onClose, onImported }) {
@@ -56,12 +89,17 @@ export default function BankStatementImportSheet({ user, connections, accounts, 
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
+  const [accountRoles, setAccountRoles] = useState({})
+  const [inferredRoles, setInferredRoles] = useState({})
   const transactionCount = useMemo(() => parsed.reduce((sum, item) => sum + item.transactions.length, 0), [parsed])
+  const missingAccountCount = useMemo(() => parsed.filter((item) => !accountRoles[item.fileHash]).length, [parsed, accountRoles])
 
   const chooseFiles = async (event) => {
     const selected = [...(event.target.files || [])]
     setFiles(selected)
     setParsed([])
+    setAccountRoles({})
+    setInferredRoles({})
     setResult(null)
     setError('')
     if (!selected.length) return
@@ -69,7 +107,12 @@ export default function BankStatementImportSheet({ user, connections, accounts, 
     try {
       const next = []
       for (const file of selected) next.push(await readTideStatementFile(file, properties))
+      const historyRoles = {}
+      for (const statement of next) historyRoles[statement.fileHash] = await storedAccountRoleForStatement(statement, accounts)
+      const inferred = Object.fromEntries(next.map((statement) => [statement.fileHash, historyRoles[statement.fileHash] || inferTideStatementAccountRole(statement, next)]))
       setParsed(next)
+      setInferredRoles(inferred)
+      setAccountRoles(inferred)
       setStatus('ready')
     } catch (readError) {
       setError(readError.message || 'The statement could not be read.')
@@ -81,9 +124,17 @@ export default function BankStatementImportSheet({ user, connections, accounts, 
     setStatus('importing')
     setError('')
     try {
+      if (missingAccountCount) throw new Error('Choose Current account or Savings account for each statement before importing.')
       let imported = 0
       let skipped = 0
-      let statementAccountId = null
+      const accountIdsByRole = new Map()
+      let manualConnectionId = connections.find((connection) => String(connection.requisition_id || '').startsWith('manual:tide:'))?.id || ''
+      const latestByRole = new Map()
+      parsed.forEach((statement) => {
+        const role = accountRoles[statement.fileHash]
+        const current = latestByRole.get(role)
+        if (!current || String(statement.statementTo || '') > String(current.statementTo || '')) latestByRole.set(role, statement)
+      })
       for (const statement of parsed) {
         if (!statement.transactions.length) continue
         const { data: duplicate, error: duplicateError } = await supabase
@@ -94,12 +145,20 @@ export default function BankStatementImportSheet({ user, connections, accounts, 
         if (duplicateError) throw duplicateError
         if (duplicate) { skipped += 1; continue }
 
-        const accountId = statementAccountId || await ensureStatementAccount({
-          user, connections, accounts,
-          closingBalance: statement.closingBalance,
-          statementTo: statement.statementTo,
-        })
-        statementAccountId = accountId
+        const role = accountRoles[statement.fileHash]
+        const latest = latestByRole.get(role) || statement
+        let accountId = accountIdsByRole.get(role)
+        if (!accountId) {
+          const ensured = await ensureStatementAccount({
+            user, connections, accounts, role,
+            closingBalance: latest.closingBalance,
+            statementTo: latest.statementTo,
+            manualConnectionId,
+          })
+          accountId = ensured.accountId
+          manualConnectionId = ensured.manualConnectionId || manualConnectionId
+          accountIdsByRole.set(role, accountId)
+        }
         const { data: importRow, error: importError } = await supabase.from('bank_statement_imports').insert({
           user_id: user.id,
           account_id: accountId,
@@ -142,9 +201,9 @@ export default function BankStatementImportSheet({ user, connections, accounts, 
         }
         imported += statement.transactions.length
       }
-      setResult({ imported, skipped })
+      const reconciliation = await onImported?.()
+      setResult({ imported, skipped, reconciled: Number(reconciliation?.reconciled || 0) })
       setStatus('done')
-      await onImported?.()
     } catch (importError) {
       setError(importError.message || 'The Tide statements could not be imported.')
       setStatus('error')
@@ -159,10 +218,10 @@ export default function BankStatementImportSheet({ user, connections, accounts, 
       {error && <p className="bank-error"><AlertTriangle size={16} />{error}</p>}
       {parsed.length > 0 && <div className="bank-import-preview">
         <div className="bank-import-summary"><span><b>{parsed.length}</b><small>files</small></span><span><b>{transactionCount}</b><small>transactions</small></span><span><b>{parsed.filter((item) => item.warnings.length).length}</b><small>warnings</small></span></div>
-        {parsed.map((statement) => <article key={statement.fileHash}><header><b>{statement.fileName}</b><span>{shortDate(statement.statementFrom)} – {shortDate(statement.statementTo)}</span></header>{statement.warnings.map((warning) => <p key={warning}><AlertTriangle size={14} />{warning}</p>)}<div>{statement.transactions.slice(0, 5).map((transaction) => <span key={`${statement.fileHash}:${transaction.statementIndex}`}><time>{shortDate(transaction.bookedAt)}</time><b>{transaction.description}</b><em className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount)}</em></span>)}</div>{statement.transactions.length > 5 && <small>+{statement.transactions.length - 5} more</small>}</article>)}
+        {parsed.map((statement) => <article key={statement.fileHash}><header><b>{statement.fileName}</b><span>{shortDate(statement.statementFrom)} – {shortDate(statement.statementTo)}</span></header><label className="bank-import-account-choice"><span>Account</span><select aria-label={`Account for ${statement.fileName}`} value={accountRoles[statement.fileHash] || ''} onChange={(event) => setAccountRoles((current) => ({ ...current, [statement.fileHash]: event.target.value }))}><option value="">Choose account</option><option value="current">Current account</option><option value="savings">Savings account</option></select>{inferredRoles[statement.fileHash] && inferredRoles[statement.fileHash] === accountRoles[statement.fileHash] && <small>Detected from statement</small>}</label>{statement.warnings.map((warning) => <p key={warning}><AlertTriangle size={14} />{warning}</p>)}<div>{statement.transactions.slice(0, 5).map((transaction) => <span key={`${statement.fileHash}:${transaction.statementIndex}`}><time>{shortDate(transaction.bookedAt)}</time><b>{transaction.description}</b><em className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount)}</em></span>)}</div>{statement.transactions.length > 5 && <small>+{statement.transactions.length - 5} more</small>}</article>)}
       </div>}
-      {result && <p className="bank-import-success"><CheckCircle2 size={17} />Imported {result.imported} transactions{result.skipped ? ` · ${result.skipped} duplicate file${result.skipped === 1 ? '' : 's'} skipped` : ''}.</p>}
-      <footer><button className="secondary-button" type="button" onClick={onClose}>Close</button><button className="primary-button" type="button" disabled={!transactionCount || status === 'importing' || status === 'reading'} onClick={importStatements}>{status === 'importing' ? 'Importing…' : `Import ${transactionCount || ''} transactions`}</button></footer>
+      {result && <p className="bank-import-success"><CheckCircle2 size={17} />Imported {result.imported} transactions{result.skipped ? ` · ${result.skipped} duplicate file${result.skipped === 1 ? '' : 's'} skipped` : ''}{result.reconciled ? ` · ${result.reconciled} transfer entr${result.reconciled === 1 ? 'y' : 'ies'} matched automatically` : ''}.</p>}
+      <footer><button className="secondary-button" type="button" onClick={onClose}>Close</button><button className="primary-button" type="button" disabled={!transactionCount || missingAccountCount > 0 || status === 'importing' || status === 'reading'} onClick={importStatements}>{status === 'importing' ? 'Importing…' : missingAccountCount ? 'Choose account for each file' : `Import ${transactionCount || ''} transactions`}</button></footer>
     </section>
   </div>
 }

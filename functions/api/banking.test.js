@@ -92,6 +92,25 @@ describe('banking API boundary audit', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('reconciles imported cross-account transfers without requiring GoCardless configuration', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ id: 'user-1' }))
+      .mockResolvedValueOnce(response([
+        { id: 'current-out', account_id: 'current', booked_at: '2026-09-01', amount: -1000, currency: 'GBP', status: 'booked', is_transfer: true, category: 'transfer', category_overridden: false },
+        { id: 'savings-in', account_id: 'savings', booked_at: '2026-09-01', amount: 1000, currency: 'GBP', status: 'booked', is_transfer: false, category: 'other', category_overridden: false },
+      ]))
+      .mockResolvedValueOnce(response({}))
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await onRequestPost({
+      request: authenticatedRequest('https://app.test/api/banking', { action: 'reconcile-transfers' }),
+      env: { ...env, GOCARDLESS_SECRET_ID: '', GOCARDLESS_SECRET_KEY: '' },
+    })
+    expect(result.status).toBe(200)
+    expect(await result.json()).toEqual({ reconciled: 1 })
+    const patchCall = fetchMock.mock.calls.find(([url, options]) => String(url).includes('bank_transactions?id=eq.savings-in') && options?.method === 'PATCH')
+    expect(JSON.parse(patchCall[1].body)).toEqual({ is_transfer: true, category: 'transfer' })
+  })
+
   it('returns 404 for a sync request referencing a connection the user cannot access', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(response({ id: 'user-1' }))
