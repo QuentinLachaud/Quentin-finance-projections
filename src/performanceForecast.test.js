@@ -165,11 +165,11 @@ describe('Performance history + forecast model', () => {
       { id: 'p', bookedAt: '2026-08-04', amount: 999, status: 'pending', category: 'rent' },
     ]
     expect(buildActualBankCashflowSeries({ transactions, scope: 'portfolio' })).toEqual([
-      { date: '2026-07', value: 700 },
-      { date: '2026-08', value: 500 },
+      { date: '2026-07', value: 700, accumulated: 700 },
+      { date: '2026-08', value: 500, accumulated: 1200 },
     ])
     expect(buildActualBankCashflowSeries({ transactions, scope: 'p1' })).toEqual([
-      { date: '2026-07', value: 700 },
+      { date: '2026-07', value: 700, accumulated: 700 },
     ])
   })
 

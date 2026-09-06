@@ -64,16 +64,24 @@ describe('Performance v3 history + forecast integration', () => {
     expect(styles).toContain('touch-action: none')
   })
 
-  it('keeps chart overflow local and all seven series independently toggleable', () => {
+  it('keeps chart overflow local and all eight series independently toggleable across two non-mixed charts', () => {
     for (const token of [
       'assetValue', 'equity', 'debt', 'monthlyCashflow', 'actualBankCashflow',
-      'cashAccumulation', 'monthlyRent', 'performanceRateShockStartMonth',
+      'cashAccumulation', 'actualBankAccumulation', 'monthlyRent', 'performanceRateShockStartMonth',
       'performanceModelOverrides', 'niceCurrencyAxis', 'performanceXAxisTicks',
     ]) expect(forecast).toContain(token)
     expect(ui).toContain('performance-v2-chart-scroll')
     expect(styles).toContain('.performance-v2-chart-scroll')
     expect(styles).toContain('overflow-x: auto')
     expect(ui).toContain('Exclude extractions')
-    expect(ui).toContain('Actual bank cash flow')
+    expect(forecast).toContain("label: 'Actual bank cash flow'")
+    expect(forecast).toContain("label: 'Actual bank accumulated'")
+    expect(ui).toContain("const MONTHLY_SERIES_KEYS = ['monthlyCashflow', 'actualBankCashflow', 'monthlyRent']")
+    expect(ui).toContain("const CAPITAL_SERIES_KEYS = ['assetValue', 'equity', 'debt', 'cashAccumulation', 'actualBankAccumulation']")
+    expect(ui).toContain('visibleSeries={monthlyVisibleSeries}')
+    expect(ui).toContain('visibleSeries={capitalVisibleSeries}')
+    expect(ui).not.toContain('<PerformanceChart model={chartModel} visibleSeries={visibleSeries}')
+    expect(ui).toContain('Monthly performance')
+    expect(ui).toContain('Value & accumulated cash')
   })
 })

@@ -21,12 +21,14 @@ describe('Performance history + forecast UI', () => {
     const html = renderToStaticMarkup(<PerformanceWorkspace properties={[property]} settings={settings} onAssumptionChange={() => {}} />)
     for (const text of [
       'History + forecast', 'Performance', 'Whole portfolio', 'Conservative', 'No voids', 'No repairs/voids',
-      '10Y', 'Portfolio value', 'Equity', 'Model cash flow', 'Actual bank cash flow', 'Cash accumulated',
+      '10Y', 'Monthly performance', 'Value &amp; accumulated cash', 'Portfolio value', 'Equity',
+      'Model cash flow', 'Actual bank cash flow', 'Cash accumulated', 'Actual bank accumulated',
       'Exclude extractions', 'Shows true company cash flow',
     ]) {
       expect(html).toContain(text)
     }
-    expect(html).toContain('Performance chart from recorded history through the selected forecast horizon')
+    expect(html).toContain('Monthly Performance chart from recorded history through the selected forecast horizon')
+    expect(html).toContain('Value and accumulated cash Performance chart from recorded history through the selected forecast horizon')
     expect(html).toContain('Today')
   })
 

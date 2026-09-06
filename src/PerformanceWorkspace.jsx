@@ -32,8 +32,12 @@ const SERIES_CLASS = {
   monthlyCashflow: 'cashflow',
   actualBankCashflow: 'actual-cashflow',
   cashAccumulation: 'cash',
+  actualBankAccumulation: 'actual-accumulation',
   monthlyRent: 'rent',
 }
+
+const MONTHLY_SERIES_KEYS = ['monthlyCashflow', 'actualBankCashflow', 'monthlyRent']
+const CAPITAL_SERIES_KEYS = ['assetValue', 'equity', 'debt', 'cashAccumulation', 'actualBankAccumulation']
 
 const chartWidthFor = (pointCount) => Math.max(980, Math.min(2800, 520 + Math.max(0, pointCount - 1) * 10))
 
@@ -49,11 +53,24 @@ function Segmented({ label, value, options, onChange, className = '' }) {
   </div>
 }
 
-function PerformanceChart({ model, visibleSeries, scope }) {
+
+function MetricBar({ keys, visibleSeries, scope, onToggle }) {
+  const items = PERFORMANCE_SERIES.filter((item) => keys.includes(item.key))
+  return <div className="performance-v2-metric-bar" aria-label="Chart metrics">
+    {items.map((item) => <button
+      key={item.key}
+      type="button"
+      className={`performance-v2-metric series-${SERIES_CLASS[item.key]} ${visibleSeries.includes(item.key) ? 'selected' : ''}`}
+      aria-pressed={visibleSeries.includes(item.key)}
+      onClick={() => onToggle(item.key)}
+    ><i />{scope === 'portfolio' ? item.label : item.propertyLabel}</button>)}
+  </div>
+}
+
+function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performance chart', height = 360 }) {
   const points = model.points || []
   const [activeIndex, setActiveIndex] = useState(model.todayIndex || 0)
   const width = chartWidthFor(points.length)
-  const height = 430
   const pad = { top: 34, right: 94, bottom: 52, left: 94 }
   const plotWidth = width - pad.left - pad.right
   const plotHeight = height - pad.top - pad.bottom
@@ -116,7 +133,7 @@ function PerformanceChart({ model, visibleSeries, scope }) {
         width={width}
         height={height}
         role="img"
-        aria-label="Performance chart from recorded history through the selected forecast horizon"
+        aria-label={ariaLabel}
         onPointerMove={pointerMove}
         onPointerDown={pointerMove}
       >
@@ -249,12 +266,13 @@ export default function PerformanceWorkspace({
     fromMonth: model.startMonth,
     toMonth: model.todayMonth,
   }), [bankData.transactions, scope, model.startMonth, model.todayMonth])
-  const actualBankByMonth = useMemo(() => new Map(actualBankSeries.map((point) => [point.date, point.value])), [actualBankSeries])
+  const actualBankByMonth = useMemo(() => new Map(actualBankSeries.map((point) => [point.date, point])), [actualBankSeries])
   const chartModel = useMemo(() => ({
     ...model,
     points: model.points.map((point) => ({
       ...point,
-      actualBankCashflow: actualBankByMonth.has(point.date) ? actualBankByMonth.get(point.date) : null,
+      actualBankCashflow: actualBankByMonth.get(point.date)?.value ?? null,
+      actualBankAccumulation: actualBankByMonth.get(point.date)?.accumulated ?? null,
     })),
   }), [model, actualBankByMonth])
   const assumptions = resolvePerformanceAssumptions(settings, scope)
@@ -262,11 +280,16 @@ export default function PerformanceWorkspace({
   const visibleUpdates = updates.filter((entry) => entry.kind === updateKind && (scope === 'portfolio' || entry.propertyId === scope))
   const deleteUpdate = updates.find((entry) => entry.id === deleteId) || null
   const isCompanyPortfolio = scope === 'portfolio' && settings.accountType !== 'private'
+  const monthlyVisibleSeries = visibleSeries.filter((key) => MONTHLY_SERIES_KEYS.includes(key))
+  const capitalVisibleSeries = visibleSeries.filter((key) => CAPITAL_SERIES_KEYS.includes(key))
 
   const writeUpdates = (next) => onAssumptionChange?.('performanceUpdates', normalizePerformanceUpdates(next, properties))
-  const toggleSeries = (key) => setVisibleSeries((current) => current.includes(key)
-    ? (current.length === 1 ? current : current.filter((item) => item !== key))
-    : [...current, key])
+  const toggleSeries = (key) => setVisibleSeries((current) => {
+    const group = MONTHLY_SERIES_KEYS.includes(key) ? MONTHLY_SERIES_KEYS : CAPITAL_SERIES_KEYS
+    if (!current.includes(key)) return [...current, key]
+    if (current.filter((item) => group.includes(item)).length <= 1) return current
+    return current.filter((item) => item !== key)
+  })
   const newUpdate = () => setDraft({ ...createPerformanceUpdate({
     kind: updateKind,
     propertyId: scope === 'portfolio' ? (activeProperties[0]?.id || '') : scope,
@@ -389,27 +412,42 @@ export default function PerformanceWorkspace({
       <div><span className="performance-v2-control-label">Horizon</span><Segmented label="Forecast horizon" value={horizonYears} onChange={setHorizonYears} options={[1, 3, 5, 10, 15].map((year) => ({ value: year, label: `${year}Y` }))} className="compact" /></div>
     </div>
 
-    <div className="performance-v2-metric-bar" aria-label="Chart metrics">
-      {PERFORMANCE_SERIES.map((item) => <button
-        key={item.key}
-        type="button"
-        className={`performance-v2-metric series-${SERIES_CLASS[item.key]} ${visibleSeries.includes(item.key) ? 'selected' : ''}`}
-        aria-pressed={visibleSeries.includes(item.key)}
-        onClick={() => toggleSeries(item.key)}
-      ><i />{scope === 'portfolio' ? item.label : item.propertyLabel}</button>)}
-    </div>
-    {!bankData.available && <p className="performance-v2-bank-note">Actual bank cash flow becomes available when Banking has imported or connected transaction data.</p>}
+    {!bankData.available && <p className="performance-v2-bank-note">Actual Banking series become available when Banking has imported or connected transaction data.</p>}
 
-    <article className="performance-v2-chart-card">
-      <div className="performance-v2-chart-head">
-        <div><h2>{scope === 'portfolio' ? 'Portfolio performance' : `${propertyName(scopedProperty)} performance`}</h2><p>{monthLabel(model.startMonth, true)} → {monthLabel(model.forecastEndMonth, true)} · {model.scenario.label} forecast · cash accumulated starts at £0 today</p></div>
-        <label className={`performance-v2-switch ${!isCompanyPortfolio ? 'disabled' : ''}`}>
-          <input type="checkbox" checked={excludeExtractions} disabled={!isCompanyPortfolio} onChange={(event) => setExcludeExtractions(event.target.checked)} />
-          <span aria-hidden="true" /><b>Exclude extractions</b><small>{isCompanyPortfolio ? 'Shows true company cash flow' : 'Portfolio companies only'}</small>
-        </label>
-      </div>
-      <PerformanceChart model={chartModel} visibleSeries={visibleSeries} scope={scope} />
-    </article>
+    <div className="performance-v2-chart-stack">
+      <article className="performance-v2-chart-card performance-v2-chart-card-monthly">
+        <div className="performance-v2-chart-head">
+          <div><span className="performance-v2-control-label">Monthly</span><h2>Monthly performance</h2><p>Model cash flow, literal Banking cash flow and rent · {model.scenario.label} forecast</p></div>
+          <label className={`performance-v2-switch ${!isCompanyPortfolio ? 'disabled' : ''}`}>
+            <input type="checkbox" checked={excludeExtractions} disabled={!isCompanyPortfolio} onChange={(event) => setExcludeExtractions(event.target.checked)} />
+            <span aria-hidden="true" /><b>Exclude extractions</b><small>{isCompanyPortfolio ? 'Shows true company cash flow' : 'Portfolio companies only'}</small>
+          </label>
+        </div>
+        <MetricBar keys={MONTHLY_SERIES_KEYS} visibleSeries={visibleSeries} scope={scope} onToggle={toggleSeries} />
+        <PerformanceChart
+          model={chartModel}
+          visibleSeries={monthlyVisibleSeries}
+          scope={scope}
+          height={325}
+          ariaLabel="Monthly Performance chart from recorded history through the selected forecast horizon"
+        />
+      </article>
+
+      <article className="performance-v2-chart-card performance-v2-chart-card-capital">
+        <div className="performance-v2-chart-head">
+          <div><span className="performance-v2-control-label">Value & cumulative</span><h2>Value & accumulated cash</h2><p>{monthLabel(model.startMonth, true)} → {monthLabel(model.forecastEndMonth, true)} · value, debt, equity and accumulated cash in £</p></div>
+        </div>
+        <MetricBar keys={CAPITAL_SERIES_KEYS} visibleSeries={visibleSeries} scope={scope} onToggle={toggleSeries} />
+        <p className="performance-v2-chart-note">Actual bank accumulated is the running net of included Banking transactions from the first available Banking month and stops at the latest Banking data.</p>
+        <PerformanceChart
+          model={chartModel}
+          visibleSeries={capitalVisibleSeries}
+          scope={scope}
+          height={365}
+          ariaLabel="Value and accumulated cash Performance chart from recorded history through the selected forecast horizon"
+        />
+      </article>
+    </div>
 
     <article className="performance-v2-inputs-card">
       <div className="performance-v2-section-head">

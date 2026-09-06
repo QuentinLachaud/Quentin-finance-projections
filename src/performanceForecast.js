@@ -17,13 +17,14 @@ export const PERFORMANCE_SCENARIOS = [
 ]
 
 export const PERFORMANCE_SERIES = [
-  { key: 'assetValue', label: 'Portfolio value', propertyLabel: 'Property value', axis: 'capital' },
-  { key: 'equity', label: 'Equity', propertyLabel: 'Equity', axis: 'capital' },
-  { key: 'debt', label: 'Mortgage debt', propertyLabel: 'Mortgage debt', axis: 'capital' },
-  { key: 'monthlyCashflow', label: 'Model cash flow', propertyLabel: 'Model cash flow', axis: 'flow' },
-  { key: 'actualBankCashflow', label: 'Actual bank cash flow', propertyLabel: 'Actual bank cash flow', axis: 'flow', actual: true },
-  { key: 'cashAccumulation', label: 'Cash accumulated', propertyLabel: 'Cash accumulated', axis: 'capital' },
-  { key: 'monthlyRent', label: 'Monthly rent', propertyLabel: 'Monthly rent', axis: 'flow' },
+  { key: 'assetValue', label: 'Portfolio value', propertyLabel: 'Property value', axis: 'capital', group: 'capital' },
+  { key: 'equity', label: 'Equity', propertyLabel: 'Equity', axis: 'capital', group: 'capital' },
+  { key: 'debt', label: 'Mortgage debt', propertyLabel: 'Mortgage debt', axis: 'capital', group: 'capital' },
+  { key: 'monthlyCashflow', label: 'Model cash flow', propertyLabel: 'Model cash flow', axis: 'flow', group: 'monthly' },
+  { key: 'actualBankCashflow', label: 'Actual bank cash flow', propertyLabel: 'Actual bank cash flow', axis: 'flow', group: 'monthly', actual: true },
+  { key: 'cashAccumulation', label: 'Cash accumulated', propertyLabel: 'Cash accumulated', axis: 'capital', group: 'capital' },
+  { key: 'actualBankAccumulation', label: 'Actual bank accumulated', propertyLabel: 'Actual bank accumulated', axis: 'capital', group: 'capital', actual: true },
+  { key: 'monthlyRent', label: 'Monthly rent', propertyLabel: 'Monthly rent', axis: 'flow', group: 'monthly' },
 ]
 
 export const DEFAULT_PERFORMANCE_SERIES = ['assetValue', 'equity', 'monthlyCashflow', 'cashAccumulation']
@@ -251,8 +252,11 @@ export const buildActualBankCashflowSeries = ({
   const byMonth = new Map()
   rows.forEach((row) => byMonth.set(row.month, finite(byMonth.get(row.month)) + row.amount))
   const points = []
+  let accumulated = 0
   for (let month = start, guard = 0; month <= end && guard < 600; month = addMonthsKey(month, 1), guard += 1) {
-    points.push({ date: month, value: Math.round((finite(byMonth.get(month)) + Number.EPSILON) * 100) / 100 })
+    const value = Math.round((finite(byMonth.get(month)) + Number.EPSILON) * 100) / 100
+    accumulated = Math.round((accumulated + value + Number.EPSILON) * 100) / 100
+    points.push({ date: month, value, accumulated })
   }
   return points
 }
@@ -383,6 +387,7 @@ export const buildTheoreticalPerformanceProjection = ({
       debt,
       monthlyCashflow,
       actualBankCashflow: null,
+      actualBankAccumulation: null,
       cashAccumulation: offset < 0 ? null : cashAccumulation,
       monthlyRent,
       rateShockApplied: shock,

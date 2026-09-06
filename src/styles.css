@@ -16458,3 +16458,48 @@ button.contractor-tag-chip { cursor: pointer; }
     font-size: .92rem;
   }
 }
+
+/* Performance v4 — split monthly and capital charts */
+.performance-v2 {
+  --perf-actual-accumulation: #46545b;
+}
+.performance-v2 .series-actual-accumulation {
+  color: var(--perf-actual-accumulation);
+}
+.performance-v2-chart-stack {
+  display: grid;
+  gap: 16px;
+}
+.performance-v2-chart-card > .performance-v2-metric-bar {
+  padding: 0 20px 14px;
+}
+.performance-v2-chart-card .performance-v2-chart-head {
+  padding-bottom: 12px;
+}
+.performance-v2-chart-card-capital .performance-v2-chart-head {
+  align-items: flex-start;
+}
+.performance-v2-chart-note {
+  margin: -5px 20px 12px;
+  color: var(--ui-muted);
+  font-size: .82rem;
+  line-height: 1.4;
+}
+.performance-v2-chart-card-monthly .performance-v2-chart {
+  max-height: 325px;
+}
+.performance-v2-chart-card-capital .performance-v2-chart {
+  max-height: 365px;
+}
+@media (max-width: 560px) {
+  .performance-v2-chart-stack {
+    gap: 14px;
+  }
+  .performance-v2-chart-card > .performance-v2-metric-bar {
+    padding-inline: 16px;
+  }
+  .performance-v2-chart-note {
+    margin-inline: 16px;
+    font-size: .8rem;
+  }
+}
