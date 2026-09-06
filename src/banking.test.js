@@ -125,20 +125,26 @@ describe('balance reconstruction and metrics', () => {
     ])
   })
 
-  it('reconstructs analytical balance without excluded or hidden DLA movements while preserving the real current endpoint', () => {
-    const account = [{ id: 'a', currency: 'GBP', currentBalance: 1000, balanceUpdatedAt: '2026-03-31', includeInCash: true }]
+  it('preserves the true opening baseline when excluded or hidden DLA movements are removed instead of inventing a negative start', () => {
+    const account = [{ id: 'a', currency: 'GBP', currentBalance: 6000, balanceUpdatedAt: '2026-03-31', includeInCash: true }]
     const rows = [
       tx('a', '2026-01-10', 20000, { category: 'owner_funding' }),
       tx('a', '2026-01-20', -15000, { category: 'property_acquisition', propertyId: 'p1', excludeFromPerformance: true }),
       tx('a', '2026-02-10', 1000, { category: 'rent', propertyId: 'p1' }),
     ]
     expect(reconstructBalanceSeries(account, rows, { asOf: '2026-03-31', includeExcluded: false, includeOwnerFunding: false })).toEqual([
+      { date: '2026-01-10', balance: 0 },
+      { date: '2026-01-20', balance: 0 },
       { date: '2026-02-10', balance: 1000 },
       { date: '2026-03-31', balance: 1000 },
     ])
-    const withDla = reconstructBalanceSeries(account, rows, { asOf: '2026-03-31', includeExcluded: false, includeOwnerFunding: true })
-    expect(withDla.map((point) => point.date)).toEqual(['2026-01-10', '2026-02-10', '2026-03-31'])
-    expect(withDla.at(-1).balance).toBe(1000)
+    expect(reconstructBalanceSeries(account, rows, { asOf: '2026-03-31', includeExcluded: false, includeOwnerFunding: true })).toEqual([
+      { date: '2026-01-10', balance: 20000 },
+      { date: '2026-01-20', balance: 20000 },
+      { date: '2026-02-10', balance: 21000 },
+      { date: '2026-03-31', balance: 21000 },
+    ])
+    expect(reconstructBalanceSeries(account, rows, { asOf: '2026-03-31', includeExcluded: true, includeOwnerFunding: true }).at(-1).balance).toBe(6000)
   })
 
   it('calculates cash held only from opted-in GBP accounts', () => {

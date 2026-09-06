@@ -682,20 +682,18 @@ export const reconstructBalanceSeries = (accounts, transactions, options = {}) =
   const selectedAccounts = accounts.filter((account) => accountIds.has(account.id))
   const dates = new Set()
   const histories = selectedAccounts.map((account) => {
-    const rows = transactions
-      .filter((transaction) => (
-        transaction.accountId === account.id
-        && transaction.status !== 'pending'
-        && transaction.bookedAt
-        && (options.includeExcluded !== false || !transactionExcludedFromAnalysis(transaction))
-        && (options.includeOwnerFunding !== false || performanceTreatmentForTransaction(transaction) !== 'investor')
-      ))
+    const allRows = transactions
+      .filter((transaction) => transaction.accountId === account.id && transaction.status !== 'pending' && transaction.bookedAt)
       .sort((a, b) => a.bookedAt.localeCompare(b.bookedAt))
-    rows.forEach((transaction) => dates.add(transaction.bookedAt))
+    const rows = allRows.filter((transaction) => (
+      (options.includeExcluded !== false || !transactionExcludedFromAnalysis(transaction))
+      && (options.includeOwnerFunding !== false || performanceTreatmentForTransaction(transaction) !== 'investor')
+    ))
+    allRows.forEach((transaction) => dates.add(transaction.bookedAt))
     const currentDate = isoDate(account.balanceUpdatedAt || options.asOf || new Date().toISOString())
     if (currentDate) dates.add(currentDate)
     return {
-      baseline: number(account.currentBalance) - rows.reduce((sum, transaction) => sum + transaction.amount, 0),
+      baseline: number(account.currentBalance) - allRows.reduce((sum, transaction) => sum + transaction.amount, 0),
       rows,
     }
   })
