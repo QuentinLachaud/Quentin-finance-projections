@@ -150,14 +150,15 @@ const classifyExactTideRow = (transaction, metadata) => {
     && (normaliseText(metadata.to) === 'savings account' || haystack.includes('savings account'))
   if (ownSavingsTransfer) return { category: 'transfer', isTransfer: true }
   if (categoryName === 'director s loan' || /\b(?:director loan|directors loan|dla)\b/.test(haystack)) return { category: 'owner_funding', isTransfer: false }
-  if (/\b(?:safe deposits scotland|safedeposits scotland|safedepositscotland|tenancy deposit|tenant deposit|deposit protection)\b/.test(haystack)) return { category: 'tenant_deposit', isTransfer: false }
-  if (/\b(?:lbtt|additional dwelling supplement|property acquisition|property purchase|purchase completion|completion monies|completion funds)\b/.test(haystack)) return { category: 'property_acquisition', isTransfer: false }
+  if (/\b(?:safe deposits scotland|safedeposits scotland|safedepositscotland|tenancy deposit|tenant deposit|deposit protection|despoit)\b/.test(haystack)) return { category: 'tenant_deposit', isTransfer: false }
+  if (transaction.amount < 0 && /\b(?:lbtt|additional dwelling supplement|property acquisition|property purchase|purchase deposit|purchase costs?|purchase completion|completion monies|completion funds)\b/.test(haystack)) return { category: 'property_acquisition', isTransfer: false }
   if (/\b(?:capital improvement|refurbishment|refurb|renovation|new kitchen|new bathroom|extension)\b/.test(haystack)) return { category: 'capital_improvement', isTransfer: false }
   if (/\b(?:paragon|tmw|the mortgage works|mortgage)\b/.test(haystack)) return { category: 'mortgage', isTransfer: false }
   if (transaction.amount > 0 && (categoryName === 'bank interest paid' || /\b(?:interest earned|interest received|credit interest|savings interest)\b/.test(haystack))) return { category: 'bank_interest', isTransfer: false }
   if (categoryName === 'bank interest paid') return { category: 'bank_admin_fees', isTransfer: false }
   if (categoryName === 'rent' || (categoryName === 'income' && transaction.amount > 0) || /\brent\b/.test(haystack)) return { category: 'rent', isTransfer: false }
   if (categoryName === 'taxes' || /\b(?:hmrc|corporation tax|income tax|vat|council tax)\b/.test(haystack)) return { category: 'tax_property_duties', isTransfer: false }
+  if (transactionType === 'cardpaymentout' && /\btrivial benefit\b/.test(normaliseText(metadata.tag1))) return { category: 'cash_extraction', isTransfer: false }
   if (/\b(?:salary|payroll|wages)\b/.test(haystack)) return { category: 'payroll', isTransfer: false }
   if (/\b(?:speirs gumley|factor|property management|service charge)\b/.test(haystack)) return { category: 'factors', isTransfer: false }
   if (/\b(?:contractor|repair|maintenance|plumb|electrician|joiner|roofer|screwfix|toolstation|gas safety|eicr|pat)\b/.test(haystack)) return { category: 'repairs', isTransfer: false }

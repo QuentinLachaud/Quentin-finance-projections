@@ -146,7 +146,7 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
     ])
     const mappedAccounts = accountRows.map(mapAccount)
     const accountNames = new Map(mappedAccounts.map((account) => [account.id, `${account.institutionName} · ${account.displayName}`]))
-    const mappedTransactions = deduplicateTransactions(detectInternalTransfers(transactionRows.map((row) => mapTransaction(row, accountNames))))
+    const mappedTransactions = detectInternalTransfers(deduplicateTransactions(transactionRows.map((row) => mapTransaction(row, accountNames))))
     setConnections(connectionRows)
     setAccounts(mappedAccounts)
     setTransactions(mappedTransactions)
@@ -172,7 +172,10 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
           await apiRequest('', { action: 'finalize', connectionId: callbackConnection })
           window.history.replaceState({}, '', window.location.pathname)
         }
-        if (active) await loadData()
+        if (active) {
+          await apiRequest('', { action: 'reconcile-transfers' }).catch(() => null)
+          await loadData()
+        }
       } catch (requestError) {
         if (active) { setError(requestError.message); setStatus(requestError.code === 'not_configured' ? 'not-configured' : 'error') }
       }
@@ -311,8 +314,8 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
       `Company free cash flow: ${currency(cashSummary.companyFreeCashFlow)}`,
       `Net owner/DLA funding: ${currency(cashSummary.ownerFundingNet)}`,
       `Cash extraction: ${currency(cashSummary.cashExtractionNet)}`,
-      `Analysed net movement (excluded transactions and internal transfers ignored): ${currency(cashSummary.netBankMovement)}`,
-      `Raw bank movement (excluded transactions included): ${currency(cashSummary.rawBankMovement)}`,
+      `Analysed net movement (excluded ignored; only balanced internal transfers removed): ${currency(cashSummary.netBankMovement)}`,
+      `Raw statement movement (all booked rows included): ${currency(cashSummary.rawBankMovement)}`,
       `12 month average true inflow: ${currency(metrics.averages.twelveMonth.inflow)}`,
       `12 month average true outflow: ${currency(metrics.averages.twelveMonth.outflow)}`,
       `Lowest balance: ${currency(metrics.lowestBalance)}   Highest balance: ${currency(metrics.highestBalance)}`,
@@ -356,7 +359,7 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
 
       <BankSummary reportingBalance={reportingBalance} reportingAccountCount={reportingIds.length} cashSummary={cashSummary} />
 
-      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history <span className="bank-analysis-badge">{reportingBalanceAvailable ? 'Analysis-adjusted' : 'Relative movement'}</span></h2><p>{reportingBalanceAvailable ? 'Opening bank balance is preserved. Excluded transactions and internal transfers are ignored; DLA movements follow the toggle.' : 'This Tide statement export contains no balance column, so the opening balance is unknown. The chart starts at £0 and shows cumulative included movements; excluded transactions and internal transfers are ignored, and DLA follows the toggle.'}</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Toggle owner funding / DLA movements in this analysis-adjusted balance. Excluded transactions and internal transfers always remain hidden."><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
+      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history <span className="bank-analysis-badge">{reportingBalanceAvailable ? 'Analysis-adjusted' : 'Relative movement'}</span></h2><p>{reportingBalanceAvailable ? 'Opening bank balance is preserved. Excluded transactions and confirmed internal-transfer pairs are ignored; DLA movements follow the toggle.' : 'This Tide statement export contains no balance column, so the opening balance is unknown. The chart starts at £0 and shows cumulative included movements; excluded transactions and confirmed internal-transfer pairs are ignored, and DLA follows the toggle.'}</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Toggle owner funding / DLA movements in this analysis-adjusted balance. Excluded transactions and confirmed internal-transfer pairs always remain hidden."><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
 
       <section className="panel bank-chart-panel bank-cashflow-panel"><header><div><h2>Business cash flow</h2><p>Money generated by the business. Owner funding, cash extraction, internal transfers and anything still awaiting review are excluded.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Money in</span><span className="outflow">Money out</span><span className="net">Net business cash</span></div><CashFlowChart rows={cashFlow} /></section>
 

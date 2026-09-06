@@ -44,13 +44,14 @@ describe('Banking balance-truth regression', () => {
       asOf: '2026-09-01',
     })
     expect(series[0]).toEqual({ date: '2025-02-06', balance: 0 })
-    expect(series.find((point) => point.date === '2025-02-11')?.balance).toBe(0)
-    expect(series.at(-1)).toEqual({ date: '2025-02-12', balance: 1500 })
-    expect(Math.min(...series.map((point) => point.balance))).toBe(0)
+    expect(series.find((point) => point.date === '2025-02-11')?.balance).toBe(-1000)
+    expect(series.at(-1)).toEqual({ date: '2025-02-12', balance: 500 })
+    expect(Math.min(...series.map((point) => point.balance))).toBe(-1000)
   })
 
-  it('treats automatic internal transfers as excluded analysis movements', () => {
-    expect(transactionExcludedFromAnalysis(tx('2026-01-01', -500, { category: 'transfer', isTransfer: true }))).toBe(true)
+  it('distinguishes confirmed transfer pairs from unmatched transfer movement', () => {
+    expect(transactionExcludedFromAnalysis(tx('2026-01-01', -500, { category: 'transfer', isTransfer: true }))).toBe(false)
+    expect(transactionExcludedFromAnalysis(tx('2026-01-01', -500, { category: 'transfer', isTransfer: true, transferConfirmed: true }))).toBe(true)
     expect(transactionExcludedFromAnalysis(tx('2026-01-01', -500, { performanceTreatment: 'exclude' }))).toBe(true)
     expect(transactionExcludedFromAnalysis(tx('2026-01-01', 1500, { category: 'rent' }))).toBe(false)
   })

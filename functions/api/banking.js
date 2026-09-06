@@ -1,4 +1,4 @@
-import { detectInternalTransfers, normalizeGoCardlessTransaction } from '../../src/banking.js'
+import { categoryUsesProperty, detectInternalTransfers, normalizeGoCardlessTransaction } from '../../src/banking.js'
 
 const GOCARDLESS_ROOT = 'https://bankaccountdata.gocardless.com/api/v2'
 const PREFERRED_BANKS = ['Tide', 'Monzo', 'Revolut', 'Chase']
@@ -190,7 +190,11 @@ const syncAccount = async ({ externalAccountId, connection, user, env, authoriza
 }
 
 const detectAndPersistTransfers = async (env, authorization) => {
-  const rows = await supabaseFetch(env, authorization, 'bank_transactions?select=id,account_id,booked_at,amount,currency,status,is_transfer,category,category_overridden')
+  const rows = await supabaseFetch(
+    env,
+    authorization,
+    'bank_transactions?select=id,account_id,booked_at,amount,currency,description,counterparty,bank_code,status,is_transfer,category,category_overridden,source_type,import_id,property_id,performance_treatment,exclude_from_performance,source_metadata',
+  )
   const original = new Map((rows || []).map((row) => [row.id, row]))
   const detected = detectInternalTransfers((rows || []).map((row) => ({
     id: row.id,
@@ -198,18 +202,41 @@ const detectAndPersistTransfers = async (env, authorization) => {
     bookedAt: row.booked_at,
     amount: Number(row.amount),
     currency: row.currency,
+    description: row.description || '',
+    counterparty: row.counterparty || '',
+    bankCode: row.bank_code || '',
     status: row.status,
     isTransfer: row.is_transfer,
     category: row.category,
     categoryOverridden: row.category_overridden,
+    sourceType: row.source_type,
+    importId: row.import_id,
+    propertyId: row.property_id || '',
+    performanceTreatment: row.performance_treatment || 'auto',
+    excludeFromPerformance: row.exclude_from_performance === true,
+    sourceMetadata: row.source_metadata || {},
   })))
-  const updates = detected.filter((row) => {
+
+  const updates = []
+  detected.forEach((row) => {
     const previous = original.get(row.id)
-    return row.isTransfer && !row.categoryOverridden && !(previous?.is_transfer === true || previous?.category === 'transfer')
+    if (!previous) return
+    let patch = null
+    if (String(row.transferMatch || '').startsWith('tide:')) {
+      patch = { is_transfer: true, category: 'transfer', category_overridden: false, property_id: null, performance_treatment: 'auto' }
+    } else if (row.sourceFactCorrection) {
+      patch = { is_transfer: false, category: row.category, category_overridden: false, performance_treatment: 'auto' }
+      if (!categoryUsesProperty(row.category)) patch.property_id = null
+    } else if (row.transferConfirmed && !row.categoryOverridden && !(previous.is_transfer === true || previous.category === 'transfer')) {
+      patch = { is_transfer: true, category: 'transfer' }
+    }
+    if (!patch) return
+    const changed = Object.entries(patch).some(([key, value]) => (previous[key] ?? null) !== (value ?? null))
+    if (changed) updates.push({ id: row.id, patch })
   })
-  await Promise.all(updates.map((row) => supabaseFetch(env, authorization, `bank_transactions?id=eq.${encodeURIComponent(row.id)}`, {
+  await Promise.all(updates.map(({ id, patch }) => supabaseFetch(env, authorization, `bank_transactions?id=eq.${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    body: JSON.stringify({ is_transfer: true, category: 'transfer' }),
+    body: JSON.stringify(patch),
   })))
   return updates.length
 }

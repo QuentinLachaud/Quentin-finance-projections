@@ -32,8 +32,8 @@ const LEGACY_BANK_CATEGORIES = {
 export const normalizeBankCategory = (value) => LEGACY_BANK_CATEGORIES[value] || value || 'other'
 
 const CATEGORY_RULES = [
-  ['tenant_deposit', /\b(safe\s*deposits?\s*scotland|safedepositscotland|tenan(?:t|cy) deposit|deposit protection|deposit scheme)\b/i],
-  ['property_acquisition', /\b(lbtt|additional dwelling supplement|property acquisition|property purchase|purchase completion|completion monies|completion funds)\b/i],
+  ['tenant_deposit', /\b(safe\s*deposits?\s*scotland|safedepositscotland|tenan(?:t|cy) deposit|deposit protection|deposit scheme|despoit)\b/i],
+  ['property_acquisition', /\b(lbtt|additional dwelling supplement|property acquisition|property purchase|purchase deposit|purchase costs?|purchase completion|completion monies|completion funds)\b/i],
   ['capital_improvement', /\b(capital improvement|refurb(?:ishment)?|renovation|new kitchen|new bathroom|extension)\b/i],
   ['cash_extraction', /\b(cash extraction|owner extraction|owner draw|distribution|dividend)\b/i],
   ['rent', /\b(rent|tenan(?:t|cy)|letting|airbnb|booking\.com)\b/i],
@@ -320,7 +320,12 @@ export const transactionNeedsReview = (transaction, properties = []) => {
 export const reconciliationTransactionsForBucket = (transactions = [], bucket = 'net') => (transactions || []).filter((transaction) => {
   if (transaction?.status === 'pending') return false
   const category = normalizeBankCategory(transaction?.category)
-  if (transaction?.isTransfer || transaction?.is_transfer || category === 'transfer') return false
+  const transferLike = transaction?.isTransfer || transaction?.is_transfer || category === 'transfer'
+  if (transferLike) {
+    const unresolved = transaction?.transferConfirmed === false
+    if (bucket === 'net' || bucket === 'other') return unresolved
+    return false
+  }
   const treatment = performanceTreatmentForTransaction(transaction)
   if (bucket === 'excluded') return treatment === 'exclude'
   if (treatment === 'exclude') return false
@@ -365,6 +370,10 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
     reviewCount: 0,
     internalTransferCount: 0,
     internalTransferAbsolute: 0,
+    internalTransferNet: 0,
+    unreconciledTransferCount: 0,
+    unreconciledTransferAbsolute: 0,
+    unreconciledTransferNet: 0,
     excludedCount: 0,
     excludedNet: 0,
     excludedAbsolute: 0,
@@ -373,12 +382,21 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
   rows.forEach((transaction) => {
     const amount = number(transaction.amount)
     const treatment = performanceTreatmentForTransaction(transaction)
-    if (transaction.isTransfer || transaction.is_transfer || normalizeBankCategory(transaction.category) === 'transfer') {
-      totals.internalTransferCount += 1
-      totals.internalTransferAbsolute += Math.abs(amount)
+    // Raw means raw: every booked ledger row participates. Balanced internal transfers cancel without special arithmetic.
+    totals.rawBankMovement += amount
+    const transferLike = transaction.isTransfer || transaction.is_transfer || normalizeBankCategory(transaction.category) === 'transfer'
+    if (transferLike) {
+      if (transaction.transferConfirmed === true) {
+        totals.internalTransferCount += 1
+        totals.internalTransferAbsolute += Math.abs(amount)
+        totals.internalTransferNet += amount
+      } else {
+        totals.unreconciledTransferCount += 1
+        totals.unreconciledTransferAbsolute += Math.abs(amount)
+        totals.unreconciledTransferNet += amount
+      }
       return
     }
-    totals.rawBankMovement += amount
     if (treatment === 'operating') totals.operatingCashFlow += amount
     else if (treatment === 'company') totals.companyOnlyCashFlow += amount
     else if (treatment === 'financing') totals.financingCashFlow += amount
@@ -410,12 +428,17 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
   })
   const companyFreeCashFlow = totals.operatingCashFlow + totals.companyOnlyCashFlow + totals.financingCashFlow
   const netDlaFunding = totals.dlaInjected - totals.dlaRepaid
+  // A confirmed pair is ignored only when both legs are present in the selected scope. One-sided/boundary movement is retained.
+  const confirmedTransferBoundaryNet = Math.abs(totals.internalTransferNet) < 0.005 ? 0 : totals.internalTransferNet
+  const transferAdjustmentNet = totals.unreconciledTransferNet + confirmedTransferBoundaryNet
   const netBankMovement = companyFreeCashFlow + totals.ownerFundingNet + totals.cashExtractionNet + totals.capitalMovementNet
-    + totals.liabilityMovementNet + totals.reviewNet
+    + totals.liabilityMovementNet + totals.reviewNet + transferAdjustmentNet
   return Object.fromEntries(Object.entries({
     ...totals,
     companyFreeCashFlow,
     netDlaFunding,
+    confirmedTransferBoundaryNet,
+    transferAdjustmentNet,
     netBankMovement,
   }).map(([key, value]) => [key, typeof value === 'number' ? Number(value.toFixed(2)) : value]))
 }
@@ -574,9 +597,54 @@ export const normalizeGoCardlessTransaction = (raw, accountId, status = 'booked'
   return transaction
 }
 
+const normalizedSourceTransactionType = (transaction) => cleanCanonical(
+  (transaction?.sourceMetadata || transaction?.source_metadata || {}).transactionType || '',
+).replace(/\s+/g, '')
+const normalizedTideParty = (value) => cleanCanonical(value)
+const stripTideApostrophe = (value) => String(value ?? '').trim().replace(/^'/, '')
+const TIDE_OPAQUE_ID = /^[a-z0-9]{24,80}$/i
+
+const tideMetadata = (transaction) => transaction?.sourceMetadata || transaction?.source_metadata || {}
+const tideTransferOutToSavings = (transaction) => {
+  const metadata = tideMetadata(transaction)
+  return number(transaction?.amount) < 0
+    && normalizedSourceTransactionType(transaction) === 'fundstransferout'
+    && normalizedTideParty(metadata.to) === 'savings account'
+}
+
+export const tideInternalTransferIdentity = (transaction) => {
+  const metadata = tideMetadata(transaction)
+  const providerId = stripTideApostrophe(metadata.tideTransactionId)
+  if (providerId && tideTransferOutToSavings(transaction)) return providerId.toLowerCase()
+  if (providerId && number(transaction?.amount) > 0
+    && normalizedSourceTransactionType(transaction) === 'fundstransferin'
+    && /\bcurrent account\b/.test(normalizedTideParty(metadata.from))) return providerId.toLowerCase()
+  if (number(transaction?.amount) <= 0) return ''
+  const descriptionId = stripTideApostrophe(transaction?.description)
+  return TIDE_OPAQUE_ID.test(descriptionId) ? descriptionId.toLowerCase() : ''
+}
+
+export const highConfidenceTideSourceCategory = (transaction) => {
+  const metadata = tideMetadata(transaction)
+  const haystack = cleanCanonical([
+    transaction?.description, transaction?.counterparty, metadata.description, metadata.reference,
+    metadata.from, metadata.to,
+  ].filter(Boolean).join(' '))
+  const tag = cleanCanonical(metadata.tag1)
+  const type = normalizedSourceTransactionType(transaction)
+  if (/\b(?:safe deposits scotland|safedeposits scotland|safedepositscotland|tenan(?:t|cy) deposit|deposit protection|deposit scheme|despoit)\b/.test(haystack)) return 'tenant_deposit'
+  if (number(transaction?.amount) < 0 && /\b(?:purchase deposit|purchase costs?|property acquisition|property purchase|purchase completion|completion monies|completion funds|lbtt|additional dwelling supplement)\b/.test(haystack)) return 'property_acquisition'
+  if (type === 'cardpaymentout' && /\btrivial benefit\b/.test(tag)) return 'cash_extraction'
+  if (type === 'cardpaymentout' && (transaction?.isTransfer || transaction?.is_transfer || normalizeBankCategory(transaction?.category) === 'transfer')) {
+    const inferred = classifyTransaction({ ...transaction, isTransfer: false, is_transfer: false, category: 'other' })
+    return inferred === 'transfer' ? 'other' : inferred
+  }
+  return ''
+}
+
 const transferEvidenceScore = (transaction) => {
   const category = normalizeBankCategory(transaction?.category)
-  const metadata = transaction?.sourceMetadata || transaction?.source_metadata || {}
+  const metadata = tideMetadata(transaction)
   const haystack = cleanCanonical([
     transaction?.description, transaction?.counterparty, transaction?.bankCode,
     metadata.reference, metadata.from, metadata.to, metadata.transactionType,
@@ -590,21 +658,73 @@ const manuallyReviewedAsNonTransfer = (transaction) => (
   && !(transaction?.isTransfer || transaction?.is_transfer || normalizeBankCategory(transaction?.category) === 'transfer')
 )
 
+const amountsCancel = (left, right) => Math.abs(number(left?.amount) + number(right?.amount)) < 0.005
+const sameCurrency = (left, right) => String(left?.currency || 'GBP').toUpperCase() === String(right?.currency || 'GBP').toUpperCase()
+const transferDayGap = (left, right) => {
+  const leftTime = new Date(left?.bookedAt || left?.booked_at).getTime()
+  const rightTime = new Date(right?.bookedAt || right?.booked_at).getTime()
+  return Number.isFinite(leftTime) && Number.isFinite(rightTime) ? Math.abs(leftTime - rightTime) / DAY_MS : Number.POSITIVE_INFINITY
+}
+
 export const detectInternalTransfers = (transactions) => {
-  const result = (transactions || []).map((transaction) => ({ ...transaction }))
+  const result = (transactions || []).map((transaction) => ({
+    ...transaction,
+    transferConfirmed: false,
+    transferMatch: '',
+    sourceFactCorrection: false,
+  }))
+
+  // Source facts are stronger than a stale/manual Transfer label. Correct only facts that are intrinsically unambiguous.
+  result.forEach((row) => {
+    const sourceCategory = highConfidenceTideSourceCategory(row)
+    if (!sourceCategory) return
+    const wasTransfer = row.isTransfer || row.is_transfer || normalizeBankCategory(row.category) === 'transfer'
+    if (normalizeBankCategory(row.category) !== sourceCategory || wasTransfer) {
+      row.category = sourceCategory
+      row.isTransfer = false
+      row.sourceFactCorrection = true
+    }
+  })
+
+  // Tide's Current CSV exposes the provider transaction ID on FundsTransferOut rows, while the Saver CSV may expose
+  // that same ID as the quoted description. This is deterministic and remains valid for legacy imports that share account_id.
+  const byProviderId = new Map()
+  result.forEach((row, index) => {
+    const identity = tideInternalTransferIdentity(row)
+    if (!identity) return
+    const group = byProviderId.get(identity) || []
+    group.push(index)
+    byProviderId.set(identity, group)
+  })
+  const matched = new Set()
+  byProviderId.forEach((indices, identity) => {
+    const debits = indices.filter((index) => tideTransferOutToSavings(result[index]))
+    const credits = indices.filter((index) => number(result[index]?.amount) > 0)
+    if (debits.length !== 1 || credits.length !== 1) return
+    const left = result[debits[0]]
+    const right = result[credits[0]]
+    if (!amountsCancel(left, right) || !sameCurrency(left, right) || transferDayGap(left, right) > 2) return
+    for (const index of [debits[0], credits[0]]) {
+      const row = result[index]
+      row.category = 'transfer'
+      row.isTransfer = true
+      row.transferConfirmed = true
+      row.transferMatch = `tide:${identity}`
+      matched.add(index)
+    }
+  })
+
+  // Fallback for banks/providers without a durable shared ID: only unambiguous equal-and-opposite cross-account pairs.
   const candidates = []
   for (let left = 0; left < result.length; left += 1) {
     const a = result[left]
-    if (a.status === 'pending' || manuallyReviewedAsNonTransfer(a)) continue
+    if (matched.has(left) || a.status === 'pending' || manuallyReviewedAsNonTransfer(a)) continue
     for (let right = left + 1; right < result.length; right += 1) {
       const b = result[right]
-      if (b.status === 'pending' || manuallyReviewedAsNonTransfer(b)) continue
-      if (!a.accountId || !b.accountId || a.accountId === b.accountId || a.currency !== b.currency) continue
-      if (Math.abs(number(a.amount) + number(b.amount)) >= 0.005) continue
-      const leftTime = new Date(a.bookedAt).getTime()
-      const rightTime = new Date(b.bookedAt).getTime()
-      if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) continue
-      const dayGap = Math.abs(leftTime - rightTime) / DAY_MS
+      if (matched.has(right) || b.status === 'pending' || manuallyReviewedAsNonTransfer(b)) continue
+      if (!a.accountId || !b.accountId || a.accountId === b.accountId || !sameCurrency(a, b)) continue
+      if (!amountsCancel(a, b)) continue
+      const dayGap = transferDayGap(a, b)
       const evidence = transferEvidenceScore(a) + transferEvidenceScore(b)
       const allowedGap = evidence > 0 ? 2 : 1
       if (dayGap > allowedGap) continue
@@ -625,7 +745,6 @@ export const detectInternalTransfers = (transactions) => {
     return candidate.score === bestScore && rows.filter((row) => row.score === bestScore).length === 1
   }
   candidates.sort((a, b) => b.score - a.score || a.dayGap - b.dayGap || a.left - b.left || a.right - b.right)
-  const matched = new Set()
   candidates.forEach((candidate) => {
     const { left, right } = candidate
     if (matched.has(left) || matched.has(right) || !uniquelyBestFor(left, candidate) || !uniquelyBestFor(right, candidate)) return
@@ -635,6 +754,10 @@ export const detectInternalTransfers = (transactions) => {
     b.isTransfer = true
     a.category = 'transfer'
     b.category = 'transfer'
+    a.transferConfirmed = true
+    b.transferConfirmed = true
+    a.transferMatch = 'heuristic'
+    b.transferMatch = 'heuristic'
     matched.add(left)
     matched.add(right)
   })
@@ -726,7 +849,14 @@ export const calculateBankMetrics = (transactions, balanceSeries = [], options =
   }
 }
 
-export const transactionExcludedFromAnalysis = (transaction) => performanceTreatmentForTransaction(transaction) === 'exclude'
+export const transactionExcludedFromAnalysis = (transaction) => {
+  if (transaction?.excludeFromPerformance || transaction?.exclude_from_performance) return true
+  const override = transaction?.performanceTreatment || transaction?.performance_treatment || 'auto'
+  if (override === 'exclude') return true
+  const category = normalizeBankCategory(transaction?.category)
+  if (transaction?.isTransfer || transaction?.is_transfer || category === 'transfer') return transaction?.transferConfirmed === true
+  return performanceTreatmentForTransaction(transaction) === 'exclude'
+}
 
 const optionalNumber = (value) => (
   value == null || value === '' || !Number.isFinite(Number(value))

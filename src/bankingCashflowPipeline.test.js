@@ -40,19 +40,24 @@ describe('true cash-flow pipeline', () => {
     expect(trueCashFlowTransactions(rows).map((row) => row.category)).toEqual(['rent', 'mortgage', 'tax_property_duties'])
   })
 
-  it('excludes internal transfers and isolates unresolved movement instead of calling it true cash flow', () => {
+  it('excludes balanced confirmed transfers but retains one-sided transfer movement as a fail-safe', () => {
     const summary = summarizeCashFlowPipeline([
       tx({ amount: 1000, category: 'rent', propertyId: 'p1' }),
-      tx({ amount: -7500, category: 'transfer', isTransfer: true }),
+      tx({ amount: -7500, category: 'transfer', isTransfer: true, transferConfirmed: true }),
+      tx({ amount: 7500, category: 'transfer', isTransfer: true, transferConfirmed: true }),
+      tx({ amount: -300, category: 'transfer', isTransfer: true, transferConfirmed: false }),
       tx({ amount: -2500, category: 'other' }),
     ])
     expect(summary.companyFreeCashFlow).toBe(1000)
-    expect(summary.internalTransferCount).toBe(1)
-    expect(summary.internalTransferAbsolute).toBe(7500)
+    expect(summary.internalTransferCount).toBe(2)
+    expect(summary.internalTransferAbsolute).toBe(15000)
+    expect(summary.internalTransferNet).toBe(0)
+    expect(summary.unreconciledTransferNet).toBe(-300)
     expect(summary.reviewNet).toBe(-2500)
     expect(summary.reviewAbsolute).toBe(2500)
     expect(summary.reviewCount).toBe(1)
-    expect(summary.netBankMovement).toBe(-1500)
+    expect(summary.rawBankMovement).toBe(-1800)
+    expect(summary.netBankMovement).toBe(-1800)
   })
 
   it('keeps excluded movement auditable while removing it from analysed net bank movement', () => {

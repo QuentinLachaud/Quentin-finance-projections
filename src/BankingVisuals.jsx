@@ -119,13 +119,13 @@ export function ReconciliationTransactionList({ title, transactions = [], proper
 export function CashFlowReconciliation({ cashSummary, transactions = [], properties = [], onToggleExcluded }) {
   const [activeBucket, setActiveBucket] = useState('')
   const otherMovement = Number(cashSummary.capitalMovementNet || 0) + Number(cashSummary.liabilityMovementNet || 0)
-    + Number(cashSummary.reviewNet || 0)
+    + Number(cashSummary.reviewNet || 0) + Number(cashSummary.transferAdjustmentNet || 0)
   const cards = [
     { key: 'business', label: 'Business cash generated', value: cashSummary.companyFreeCashFlow, note: 'Operations + company-level cash + financing' },
     { key: 'owner', label: 'Owner funding', value: cashSummary.ownerFundingNet, note: 'DLA injected minus DLA repaid' },
     { key: 'extraction', label: 'Cash extracted', value: cashSummary.cashExtractionNet, note: 'Payroll and owner distributions' },
     { key: 'other', label: 'Other bank movement', value: otherMovement, note: `${cashSummary.reviewCount} to review · capital & deposits` },
-    { key: 'net', label: 'Net bank movement', value: cashSummary.netBankMovement, note: 'Selected period · excluded & transfers ignored', total: true },
+    { key: 'net', label: 'Net bank movement', value: cashSummary.netBankMovement, note: 'Selected period · excluded ignored · only balanced transfers removed', total: true },
   ].map((card) => ({ ...card, rows: reconciliationTransactionsForBucket(transactions, card.key) }))
   const activeCard = cards.find((card) => card.key === activeBucket) || null
   const activeRows = activeCard ? [...activeCard.rows].sort((left, right) => String(right.bookedAt || '').localeCompare(String(left.bookedAt || '')) || Math.abs(Number(right.amount || 0)) - Math.abs(Number(left.amount || 0))) : []
@@ -139,7 +139,8 @@ export function CashFlowReconciliation({ cashSummary, transactions = [], propert
     ['Tenant deposits', cashSummary.liabilityMovementNet, `${cashSummary.liabilityMovementCount || 0} deposit movement${cashSummary.liabilityMovementCount === 1 ? '' : 's'} · not income or expense`],
     ['Needs review', cashSummary.reviewNet, `${cashSummary.reviewCount} transaction${cashSummary.reviewCount === 1 ? '' : 's'} awaiting classification`],
     ['Excluded from analysis', cashSummary.excludedNet, `${cashSummary.excludedCount} explicitly excluded transaction${cashSummary.excludedCount === 1 ? '' : 's'}`],
-    ['Raw bank movement', cashSummary.rawBankMovement, 'Includes excluded rows; internal transfers ignored'],
+    ['Raw statement movement', cashSummary.rawBankMovement, 'All booked rows included · matched transfers cancel naturally'],
+    ['Unreconciled transfer movement', cashSummary.transferAdjustmentNet || 0, `${cashSummary.unreconciledTransferCount || 0} unmatched transfer entr${cashSummary.unreconciledTransferCount === 1 ? 'y' : 'ies'} · retained rather than silently ignored`],
   ]
   return <section className="panel bank-reconciliation" aria-label="Cash flow reconciliation">
     <header><div><h2>How bank movement is explained</h2><p>Click a card to inspect its transactions. Excluded rows stay stored but disappear from analysis.</p></div></header>
@@ -155,6 +156,6 @@ export function CashFlowReconciliation({ cashSummary, transactions = [], propert
       <header><div><span>TRANSACTIONS</span><h3>{activeCard.label}</h3><p>{activeRows.length} transaction{activeRows.length === 1 ? '' : 's'} contributing to this card in the selected period.</p></div><button type="button" className="text-button" onClick={() => setActiveBucket('')}>Close</button></header>
       <ReconciliationTransactionList title={activeCard.label} transactions={activeRows} properties={properties} onToggleExcluded={onToggleExcluded} />
     </section>}
-    <details className="bank-reconcile-details"><summary>Show detailed breakdown</summary><div>{breakdown.map(([label, value, note]) => <div className="bank-reconcile-row" key={label}><span><b>{label}</b><small>{note}</small></span><strong className={amountTone(value)}>{currency(value)}</strong></div>)}<div className="bank-reconcile-row muted"><span><b>Internal transfers ignored</b><small>{cashSummary.internalTransferCount} transfer{cashSummary.internalTransferCount === 1 ? '' : 's'} excluded from movement</small></span><strong>{currency(cashSummary.internalTransferAbsolute)}</strong></div></div></details>
+    <details className="bank-reconcile-details"><summary>Show detailed breakdown</summary><div>{breakdown.map(([label, value, note]) => <div className="bank-reconcile-row" key={label}><span><b>{label}</b><small>{note}</small></span><strong className={amountTone(value)}>{currency(value)}</strong></div>)}<div className="bank-reconcile-row muted"><span><b>Confirmed internal transfers</b><small>{Math.floor((cashSummary.internalTransferCount || 0) / 2)} matched pair{Math.floor((cashSummary.internalTransferCount || 0) / 2) === 1 ? '' : 's'} · net {currency(cashSummary.internalTransferNet || 0)}</small></span><strong>{currency((cashSummary.internalTransferAbsolute || 0) / 2)}</strong></div></div></details>
   </section>
 }

@@ -37,6 +37,19 @@ describe('Tide statement import', () => {
     expect(result.transactions[1]).toMatchObject({ category: 'tenant_deposit', isTransfer: false, amount: -1000 })
   })
 
+  it('uses source facts for deposit typos, acquisition payments and tagged trivial benefits before broad Tide categories', () => {
+    const csv = [
+      actualHeaders,
+      "2025-10-05 12:00:00,'deposit-in,MONRO NC ref: DESPOIT,DESPOIT,MONRO NC,,1000.00,,Income,FasterPaymentIn,Cleared,,",
+      "2025-08-27 12:00:00,'purchase-out,J TERREY CONSULTING LIMITED ref: Purchase Deposit,Purchase Deposit,,J TERREY CONSULTING LIMITED,,32000.00,Transfers,FasterPaymentOut,Cleared,Owner,",
+      "2026-07-21 14:00:00,'benefit-out,AMAZON UK Marketplace,,,AMAZON UK Marketplace,,50.00,Stock,CardPaymentOut,Cleared,Owner,Trivial benefit",
+    ].join('\n')
+    const result = parseTideCsv(csv)
+    expect(result.transactions[0]).toMatchObject({ category: 'tenant_deposit', isTransfer: false, amount: 1000 })
+    expect(result.transactions[1]).toMatchObject({ category: 'property_acquisition', isTransfer: false, amount: -32000 })
+    expect(result.transactions[2]).toMatchObject({ category: 'cash_extraction', isTransfer: false, amount: -50 })
+  })
+
   it('separates DLA funding and preserves the original Tide audit metadata', () => {
     const csv = [
       actualHeaders,
