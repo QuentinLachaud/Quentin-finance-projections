@@ -88,10 +88,10 @@ export function BalanceChart({ points = [] }) {
   </>
 }
 
-export function BankSummary({ reportingBalance, reportingAccountCount, cashSummary }) {
+export function BankSummary({ reportingBalance, reportingAccountCount, cashSummary, balanceDerived = false }) {
   const balanceAvailable = reportingBalance != null && Number.isFinite(Number(reportingBalance))
   return <section className="bank-summary-grid" aria-label="Banking summary">
-    <article className="bank-summary-card primary"><span>Cash balance</span><strong>{balanceAvailable ? currency(reportingBalance) : '—'}</strong><small>{balanceAvailable ? `${reportingAccountCount} selected GBP account${reportingAccountCount === 1 ? '' : 's'}` : 'Current balance unavailable from imported statement'}</small></article>
+    <article className="bank-summary-card primary"><span>Cash balance</span><strong>{balanceAvailable ? currency(reportingBalance) : '—'}</strong><small>{balanceAvailable ? `${balanceDerived ? 'Latest imported balance · ' : ''}${reportingAccountCount} selected GBP account${reportingAccountCount === 1 ? '' : 's'}` : 'Current balance unavailable from imported statement'}</small></article>
     <article className={`bank-summary-card ${amountTone(cashSummary.companyFreeCashFlow)}`}><span>Business cash generated</span><strong>{currency(cashSummary.companyFreeCashFlow)}</strong><small>Selected period · owner funding & extraction excluded</small></article>
     <article className={`bank-summary-card ${cashSummary.reviewCount ? 'attention' : ''}`}><span>Needs review</span><strong>{cashSummary.reviewCount}</strong><small>{cashSummary.reviewCount ? `${currency(cashSummary.reviewAbsolute)} awaiting classification` : 'All transactions classified'}</small></article>
   </section>

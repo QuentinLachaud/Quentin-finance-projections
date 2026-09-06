@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { supabase } from './supabase.js'
 import {
-  aggregateCashFlow, authoritativeAccountBalance, calculateBankMetrics, cashHeldFromAccounts,
+  aggregateCashFlow, authoritativeAccountBalance, calculateBankMetrics, latestAccountBalance, latestCashHeldFromAccounts,
   bankTransactionStatePatch, deduplicateTransactions, detectInternalTransfers, mapStoredBankTransaction, reconstructBalanceSeries, reportingAccountIds,
   summarizeCashFlowPipeline, transactionsToCsv, trueCashFlowTransactions,
 } from './banking.js'
@@ -156,7 +156,7 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
       if (included.length && !valid.some((id) => included.includes(id))) return included
       return valid.length ? valid : (included.length ? included : mappedAccounts.map((account) => account.id))
     })
-    const cashHeld = cashHeldFromAccounts(mappedAccounts)
+    const cashHeld = latestCashHeldFromAccounts(mappedAccounts, mappedTransactions)
     if (mappedAccounts.some((account) => account.includeInCash)) onCashHeldChange(cashHeld)
     setStatus('ready')
   }
@@ -227,7 +227,7 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
     if (updateError) { setError(updateError.message); return }
     const next = accounts.map((candidate) => candidate.id === account.id ? { ...candidate, includeInCash } : candidate)
     setAccounts(next)
-    onCashHeldChange(cashHeldFromAccounts(next))
+    onCashHeldChange(latestCashHeldFromAccounts(next, transactions))
   }
 
   const updateTransactionMeta = async (transaction, patch) => {
@@ -297,11 +297,17 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
   const cashFlow = useMemo(() => aggregateCashFlow(trueCashTransactions, { period, accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, period, reportingIds, fromDate])
   const metrics = useMemo(() => calculateBankMetrics(trueCashTransactions, visibleBalanceSeries, { accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, visibleBalanceSeries, reportingIds, fromDate])
   const cashSummary = useMemo(() => summarizeCashFlowPipeline(transactions, { accountIds: reportingIds, from: fromDate || undefined }), [transactions, reportingIds, fromDate])
-  const reportingBalanceValues = reportingSelected.map((account) => authoritativeAccountBalance(account, transactions))
+  const authoritativeBalanceValues = reportingSelected.map((account) => authoritativeAccountBalance(account, transactions))
+  const reportingBalanceAuthoritative = authoritativeBalanceValues.every((value) => value != null)
+  const reportingBalanceValues = reportingSelected.map((account) => latestAccountBalance(account, transactions))
   const reportingBalanceAvailable = reportingBalanceValues.every((value) => value != null)
   const reportingBalance = reportingBalanceAvailable
     ? reportingBalanceValues.reduce((total, value) => total + value, 0)
     : null
+  const accountDisplayBalances = useMemo(() => new Map(accounts.map((account) => [
+    account.id,
+    latestAccountBalance(account, transactions),
+  ])), [accounts, transactions])
 
   const exportCsv = () => downloadFile(`bank-transactions-${new Date().toISOString().slice(0, 10)}.csv`, transactionsToCsv(filteredTransactions), 'text/csv;charset=utf-8')
   const exportPdf = async () => {
@@ -353,13 +359,13 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
     {showConnect && <section className="panel bank-picker"><header><div><span className="kicker">AVAILABLE UK INSTITUTIONS</span><h2>Choose a bank</h2><p>Tide, Monzo, Revolut and Chase are prioritised when returned by GoCardless; all other supported UK providers remain searchable.</p></div><label><Search size={16} /><input aria-label="Search banks" placeholder="Search banks" value={search} onChange={(event) => setSearch(event.target.value)} /></label></header><div className="bank-picker-grid">{filteredInstitutions.map((institution) => <button key={institution.id} onClick={() => connect(institution.id)} disabled={status === 'connecting'}>{institution.logo ? <img src={institution.logo} alt="" /> : <Landmark />}<span><b>{institution.name}</b><small>Up to {Math.min(730, institution.transactionDays)} days history</small></span>{institution.preferred && <em>Priority</em>}<ExternalLink size={14} /></button>)}</div>{!institutions.length && status !== 'not-configured' && <div className="bank-empty-chart"><RefreshCw /><span>Loading live institution availability…</span></div>}</section>}
 
     {accounts.length > 0 && <>
-      <section className="bank-account-grid">{accounts.map((account) => <article className={`panel bank-account ${selectedAccountIds.includes(account.id) ? 'selected' : ''}`} key={account.id}><header><label><input type="checkbox" checked={selectedAccountIds.includes(account.id)} onChange={() => setSelectedAccountIds((current) => current.includes(account.id) ? current.filter((id) => id !== account.id) : [...current, account.id])} /><i />{account.institutionLogo ? <img src={account.institutionLogo} alt="" /> : <Building2 />}</label><button className="icon-button" aria-label={`Disconnect ${account.institutionName}`} onClick={() => deleteConnection(connections.find((connection) => connection.id === account.connectionId))}><Trash2 size={15} /></button></header><span>{account.institutionName}</span><h3>{account.displayName}</h3><strong>{money(account.currentBalance, account.currency)}</strong><small>{account.currency} · {account.ibanLast4 ? `ending ${account.ibanLast4}` : 'account details protected'}</small><footer><label className="switch-label"><input type="checkbox" checked={account.includeInCash} onChange={() => toggleAccount(account)} /><i /><span>Include in cash held</span></label></footer></article>)}</section>
+      <section className="bank-account-grid">{accounts.map((account) => <article className={`panel bank-account ${selectedAccountIds.includes(account.id) ? 'selected' : ''}`} key={account.id}><header><label><input type="checkbox" checked={selectedAccountIds.includes(account.id)} onChange={() => setSelectedAccountIds((current) => current.includes(account.id) ? current.filter((id) => id !== account.id) : [...current, account.id])} /><i />{account.institutionLogo ? <img src={account.institutionLogo} alt="" /> : <Building2 />}</label><button className="icon-button" aria-label={`Disconnect ${account.institutionName}`} onClick={() => deleteConnection(connections.find((connection) => connection.id === account.connectionId))}><Trash2 size={15} /></button></header><span>{account.institutionName}</span><h3>{account.displayName}</h3><strong>{accountDisplayBalances.get(account.id) == null ? '—' : money(accountDisplayBalances.get(account.id), account.currency)}</strong><small>{account.currency} · {account.ibanLast4 ? `ending ${account.ibanLast4}` : 'account details protected'}</small><footer><label className="switch-label"><input type="checkbox" checked={account.includeInCash} onChange={() => toggleAccount(account)} /><i /><span>Include in cash held</span></label></footer></article>)}</section>
 
       <div className="bank-data-controls" aria-label="Banking period and exports"><div><span>Period</span><div className="segmented">{[['3', '3M'], ['6', '6M'], ['12', '12M'], ['all', 'All']].map(([value, label]) => <button className={range === value ? 'active' : ''} key={value} onClick={() => setRange(value)}>{label}</button>)}</div></div><div className="bank-exports"><button className="secondary-button small" onClick={exportCsv}><Download size={14} /> CSV</button><button className="secondary-button small" onClick={exportPdf}><FileText size={14} /> PDF</button></div></div>
 
-      <BankSummary reportingBalance={reportingBalance} reportingAccountCount={reportingIds.length} cashSummary={cashSummary} />
+      <BankSummary reportingBalance={reportingBalance} reportingAccountCount={reportingIds.length} cashSummary={cashSummary} balanceDerived={reportingBalanceAvailable && !reportingBalanceAuthoritative} />
 
-      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history <span className="bank-analysis-badge">{reportingBalanceAvailable ? 'Analysis-adjusted' : 'Relative movement'}</span></h2><p>{reportingBalanceAvailable ? 'Opening bank balance is preserved. Excluded transactions and confirmed internal-transfer pairs are ignored; DLA movements follow the toggle.' : 'This Tide statement export contains no balance column, so the opening balance is unknown. The chart starts at £0 and shows cumulative included movements; excluded transactions and confirmed internal-transfer pairs are ignored, and DLA follows the toggle.'}</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Toggle owner funding / DLA movements in this analysis-adjusted balance. Excluded transactions and confirmed internal-transfer pairs always remain hidden."><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
+      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history <span className="bank-analysis-badge">{reportingBalanceAuthoritative ? 'Analysis-adjusted' : 'Relative movement'}</span></h2><p>{reportingBalanceAuthoritative ? 'Opening bank balance is preserved. Excluded transactions and confirmed internal-transfer pairs are ignored; DLA movements follow the toggle.' : 'This Tide statement export contains no balance column, so the opening balance is unknown. The chart starts at £0 and shows cumulative included movements; excluded transactions and confirmed internal-transfer pairs are ignored, and DLA follows the toggle.'}</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Toggle owner funding / DLA movements in this analysis-adjusted balance. Excluded transactions and confirmed internal-transfer pairs always remain hidden."><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
 
       <section className="panel bank-chart-panel bank-cashflow-panel"><header><div><h2>Business cash flow</h2><p>Money generated by the business. Owner funding, cash extraction, internal transfers and anything still awaiting review are excluded.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Money in</span><span className="outflow">Money out</span><span className="net">Net business cash</span></div><CashFlowChart rows={cashFlow} /></section>
 

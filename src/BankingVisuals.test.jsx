@@ -42,6 +42,12 @@ describe('Banking less-is-more visuals', () => {
     expect(html).toContain('bank-balance-mobile')
   })
 
+  it('labels a derived latest imported cash balance clearly', () => {
+    const html = renderToStaticMarkup(<BankSummary reportingBalance={13792.22} reportingAccountCount={2} cashSummary={cashSummary} balanceDerived />)
+    expect(html).toContain('£13,792')
+    expect(html).toContain('Latest imported balance · 2 selected GBP accounts')
+  })
+
   it('does not present a missing imported-statement balance as a real £0 cash balance', () => {
     const html = renderToStaticMarkup(<BankSummary reportingBalance={null} reportingAccountCount={1} cashSummary={cashSummary} />)
     expect(html).toContain('Cash balance')

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  authoritativeAccountBalance, reconstructBalanceSeries, transactionExcludedFromAnalysis,
+  authoritativeAccountBalance, latestAccountBalance, latestCashHeldFromAccounts, reconstructBalanceSeries, transactionExcludedFromAnalysis,
 } from './banking.js'
 import { readFileSync } from 'node:fs'
 
@@ -18,6 +18,27 @@ const tx = (bookedAt, amount, extra = {}) => ({
 })
 
 describe('Banking balance-truth regression', () => {
+  it('uses latest booked imported movement for unanchored manual Tide cash balance without changing analysis semantics', () => {
+    const current = { id: 'current', externalAccountId: 'manual:tide:current:user', currency: 'GBP', currentBalance: 0, includeInCash: true }
+    const savings = { id: 'savings', externalAccountId: 'manual:tide:savings:user', currency: 'GBP', currentBalance: 0, includeInCash: true }
+    const rows = [
+      { ...tx('2026-01-01', 1000, { category: 'owner_funding', excludeFromPerformance: true }), accountId: 'current' },
+      { ...tx('2026-01-02', -378.07, { category: 'property_acquisition', excludeFromPerformance: true }), accountId: 'current' },
+      { ...tx('2026-01-03', 99, { status: 'pending' }), accountId: 'current' },
+      { ...tx('2026-01-01', 13170.29, { category: 'owner_funding', excludeFromPerformance: true }), accountId: 'savings' },
+    ]
+    expect(authoritativeAccountBalance(current, rows)).toBeNull()
+    expect(latestAccountBalance(current, rows)).toBe(621.93)
+    expect(latestAccountBalance(savings, rows)).toBe(13170.29)
+    expect(latestCashHeldFromAccounts([current, savings], rows)).toBe(13792.22)
+  })
+
+  it('keeps authoritative balance ahead of cumulative imported movement', () => {
+    const live = { id: 'live', externalAccountId: 'gocardless-live', currency: 'GBP', currentBalance: 4321.09, includeInCash: true }
+    const rows = [{ ...tx('2026-01-01', 9999), accountId: 'live' }]
+    expect(latestAccountBalance(live, rows)).toBe(4321.09)
+  })
+
   it('does not back-solve the legacy manual Tide £0 placeholder into a negative opening balance', () => {
     const account = [{
       id: 'tide',

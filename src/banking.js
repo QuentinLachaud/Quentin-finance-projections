@@ -896,6 +896,25 @@ export const accountBalanceIsAuthoritative = (account, transactions = []) => (
   authoritativeAccountBalance(account, transactions) != null
 )
 
+export const latestAccountBalance = (account, transactions = []) => {
+  const authoritative = authoritativeAccountBalance(account, transactions)
+  if (authoritative != null) return authoritative
+  if (!isManualTideStatementAccount(account)) return null
+  const accountId = String(account?.id || '')
+  const rows = (transactions || []).filter((transaction) => (
+    String(transaction?.accountId || transaction?.account_id || '') === accountId
+    && transaction?.status !== 'pending'
+    && (transaction?.bookedAt || transaction?.booked_at)
+  ))
+  if (!rows.length) return null
+  return Number(rows.reduce((sum, transaction) => sum + number(transaction?.amount), 0).toFixed(2))
+}
+
+export const latestCashHeldFromAccounts = (accounts = [], transactions = []) => Number((accounts || [])
+  .filter((account) => account.includeInCash !== false && String(account.currency || '').toUpperCase() === 'GBP')
+  .reduce((total, account) => total + (latestAccountBalance(account, transactions) ?? 0), 0)
+  .toFixed(2))
+
 export const reconstructBalanceSeries = (accounts, transactions, options = {}) => {
   const accountIds = new Set(options.accountIds || accounts.filter((account) => account.includeInCash !== false).map((account) => account.id))
   const selectedAccounts = accounts.filter((account) => accountIds.has(account.id))
