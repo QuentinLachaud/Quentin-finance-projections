@@ -89,18 +89,20 @@ const classifyExactTideRow = (transaction, metadata) => {
   const ownSavingsTransfer = transactionType === 'fundstransferout'
     && (normaliseText(metadata.to) === 'savings account' || haystack.includes('savings account'))
   if (ownSavingsTransfer) return { category: 'transfer', isTransfer: true }
-  if (categoryName === 'director s loan' || /\b(?:director loan|directors loan|dla)\b/.test(haystack)) {
-    return { category: transaction.amount >= 0 ? 'dla_injected' : 'dla_repaid', isTransfer: false }
-  }
+  if (categoryName === 'director s loan' || /\b(?:director loan|directors loan|dla)\b/.test(haystack)) return { category: 'owner_funding', isTransfer: false }
+  if (/\b(?:safe deposits scotland|safedeposits scotland|safedepositscotland|tenancy deposit|tenant deposit|deposit protection)\b/.test(haystack)) return { category: 'tenant_deposit', isTransfer: false }
+  if (/\b(?:lbtt|additional dwelling supplement|property acquisition|property purchase|purchase completion|completion monies|completion funds)\b/.test(haystack)) return { category: 'property_acquisition', isTransfer: false }
+  if (/\b(?:capital improvement|refurbishment|refurb|renovation|new kitchen|new bathroom|extension)\b/.test(haystack)) return { category: 'capital_improvement', isTransfer: false }
   if (categoryName === 'bank interest paid' || /\b(?:paragon|tmw|the mortgage works|mortgage)\b/.test(haystack)) return { category: 'mortgage', isTransfer: false }
   if (categoryName === 'rent' || (categoryName === 'income' && transaction.amount > 0) || /\brent\b/.test(haystack)) return { category: 'rent', isTransfer: false }
-  if (categoryName === 'taxes' || /\b(?:hmrc|corporation tax|income tax|vat|council tax)\b/.test(haystack)) return { category: 'tax', isTransfer: false }
-  if (/\b(?:salary|payroll|wages)\b/.test(haystack)) return { category: 'salary', isTransfer: false }
+  if (categoryName === 'taxes' || /\b(?:hmrc|corporation tax|income tax|vat|council tax)\b/.test(haystack)) return { category: 'tax_property_duties', isTransfer: false }
+  if (/\b(?:salary|payroll|wages)\b/.test(haystack)) return { category: 'payroll', isTransfer: false }
   if (/\b(?:speirs gumley|factor|property management|service charge)\b/.test(haystack)) return { category: 'factors', isTransfer: false }
-  if (/\b(?:repair|maintenance|plumb|electrician|joiner|roofer|screwfix|toolstation|gas safety|eicr|pat)\b/.test(haystack)) return { category: 'repairs', isTransfer: false }
+  if (/\b(?:contractor|repair|maintenance|plumb|electrician|joiner|roofer|screwfix|toolstation|gas safety|eicr|pat)\b/.test(haystack)) return { category: 'repairs', isTransfer: false }
   if (categoryName === 'phone and internet' || /\b(?:electricity|energy|gas|water|broadband|internet|phone|utility|scottish power|octopus|edf)\b/.test(haystack)) return { category: 'utilities', isTransfer: false }
   if (/\b(?:insurance|insurer|premium|aviva|direct line)\b/.test(haystack)) return { category: 'insurance', isTransfer: false }
-  if (categoryName === 'bank fees' || categoryName === 'professional fees' || transactionType === 'fee') return { category: 'fees', isTransfer: false }
+  if (categoryName === 'professional fees' || /\b(?:solicitor|legal fee|legal services|conveyancing|accountant|accountancy)\b/.test(haystack)) return { category: 'legal_professional', isTransfer: false }
+  if (categoryName === 'bank fees' || transactionType === 'fee') return { category: 'bank_admin_fees', isTransfer: false }
   // Tide's broad "Transfers" category includes real external payments/deposits.
   // Only the evidenced Current -> Savings FundsTransferOut rows above are internal transfers.
   if (categoryName === 'transfers') return { category: 'other', isTransfer: false }

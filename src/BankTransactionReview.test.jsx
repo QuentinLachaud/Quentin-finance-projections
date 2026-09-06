@@ -24,7 +24,7 @@ describe('BankTransactionReview focused inbox UX', () => {
 
   it('requires no review for already classified DLA and transfer rows', () => {
     const html = renderToStaticMarkup(<BankTransactionReview transactions={[
-      row('dla', 10000, 'Director loan', { category: 'dla_injected' }),
+      row('dla', 10000, 'Director loan', { category: 'owner_funding' }),
       row('transfer', -5000, 'Savings account', { category: 'transfer', isTransfer: true }),
     ]} properties={[]} onUpdate={() => true} onUpdateMany={() => true} />)
     expect(html).toContain('All caught up. No transactions need review.')
@@ -48,7 +48,19 @@ describe('BankTransactionReview focused inbox UX', () => {
       { id: 'p1', name: 'BTL1', lender: 'Paragon' }, { id: 'p2', name: 'BTL2', lender: 'The Mortgage Works' },
     ]} onUpdate={() => true} onUpdateMany={() => true} />)
     expect(source.propertyId).toBe('')
-    expect(html).toContain('Suggested from transaction details')
+    expect(html).toContain('Suggested · Transaction details match')
     expect(html).toContain('value="p1" selected=""')
+  })
+
+  it('prefills rent and property from tenant identity plus expected rent without mutating the transaction', () => {
+    const source = row('rent', 1100, 'Joaquim de Faria ref:', { counterparty: 'Joaquim de Faria' })
+    const html = renderToStaticMarkup(<BankTransactionReview transactions={[source]} properties={[
+      { id: 'p1', name: 'BTL1', rent: 1650 }, { id: 'p2', name: 'BTL2', rent: 1100 },
+    ]} tenants={[{ id: 't2', propertyId: 'p2', name: 'Joaquim de Faria', moveIn: '2026-01-01' }]} onUpdate={() => true} onUpdateMany={() => true} />)
+    expect(source.category).toBe('other')
+    expect(source.propertyId).toBe('')
+    expect(html).toContain('value="rent" selected=""')
+    expect(html).toContain('value="p2" selected=""')
+    expect(html).toContain('Suggested · Tenant + rent match')
   })
 })

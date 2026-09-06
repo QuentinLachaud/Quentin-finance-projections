@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  aggregateCashFlow, calculateBankMetrics, cashHeldFromAccounts, classifyTransaction,
-  detectInternalTransfers, normalizeGoCardlessTransaction, reconstructBalanceSeries, reportingAccountIds, transactionsToCsv,
+  aggregateCashFlow, BANK_CATEGORIES, calculateBankMetrics, cashHeldFromAccounts, classifyTransaction,
+  detectInternalTransfers, normalizeGoCardlessTransaction, reconstructBalanceSeries, reportingAccountIds,
+  suggestTransactionAssignment, transactionsToCsv,
 } from './banking.js'
 
 const tx = (accountId, bookedAt, amount, extra = {}) => ({
@@ -10,11 +11,48 @@ const tx = (accountId, bookedAt, amount, extra = {}) => ({
 
 describe('bank transaction normalisation and classification', () => {
   it.each([
-    ['Monthly rent Flat 2', 'rent'], ['THE MORTGAGE WORKS', 'mortgage'], ['HMRC corporation tax', 'tax'],
-    ['PAYROLL SALARY', 'salary'], ['Newton Property Factors', 'factors'],
+    ['Monthly rent Flat 2', 'rent'], ['THE MORTGAGE WORKS', 'mortgage'], ['HMRC corporation tax', 'tax_property_duties'],
+    ['PAYROLL SALARY', 'payroll'], ['Newton Property Factors', 'factors'],
     ['Emergency plumber repair', 'repairs'], ['Octopus Energy', 'utilities'], ['Landlord insurance premium', 'insurance'],
-    ['Internal transfer to savings', 'transfer'], ['Unrecognised shop', 'other'],
+    ['SafeDeposits Scotland ref DAN1211284', 'tenant_deposit'], ['LBTT Additional Dwelling Supplement', 'property_acquisition'],
+    ['Solicitor legal fee', 'legal_professional'], ['Capital improvement refurbishment', 'capital_improvement'],
+    ['Bank account fee', 'bank_admin_fees'], ['Internal transfer to savings', 'transfer'], ['Unrecognised shop', 'other'],
   ])('classifies %s as %s', (description, expected) => expect(classifyTransaction({ description })).toBe(expected))
+
+  it('uses a compact landlord-relevant category set with no directional DLA duplicates', () => {
+    expect(BANK_CATEGORIES.map(([value]) => value)).toEqual([
+      'rent', 'other_property_income', 'mortgage', 'repairs', 'capital_improvement', 'factors', 'insurance', 'utilities',
+      'legal_professional', 'tax_property_duties', 'property_acquisition', 'tenant_deposit', 'payroll', 'bank_admin_fees',
+      'owner_funding', 'cash_extraction', 'transfer', 'other',
+    ])
+  })
+
+  it('uses one owner-funding category regardless of DLA direction', () => {
+    expect(classifyTransaction({ amount: 25000, description: 'DLA deposit' })).toBe('owner_funding')
+    expect(classifyTransaction({ amount: -3000, description: 'Directors loan repayment' })).toBe('owner_funding')
+  })
+
+  it('infers rent/property only when tenant or rent evidence is uniquely strong', () => {
+    const properties = [
+      { id: 'p1', name: 'BTL1', rent: 1650 },
+      { id: 'p2', name: 'BTL2', rent: 1100 },
+    ]
+    const tenants = [
+      { id: 't1', propertyId: 'p1', name: 'Alice Tenant', moveIn: '2026-01-01' },
+      { id: 't2', propertyId: 'p2', name: 'Joaquim de Faria', moveIn: '2026-02-01' },
+    ]
+    expect(suggestTransactionAssignment({ amount: 1100, bookedAt: '2026-08-16', category: 'other', counterparty: 'Joaquim de Faria' }, properties, tenants)).toMatchObject({ category: 'rent', propertyId: 'p2', reason: 'Tenant + rent match' })
+    expect(suggestTransactionAssignment({ amount: 1650, bookedAt: '2026-08-16', category: 'other', counterparty: '' }, properties, tenants)).toMatchObject({ category: 'rent', propertyId: 'p1', reason: 'Expected rent match' })
+    const ambiguous = [{ ...properties[0], rent: 1100 }, properties[1]]
+    expect(suggestTransactionAssignment({ amount: 1100, bookedAt: '2026-08-16', category: 'other' }, ambiguous, tenants).propertyId).toBe('')
+  })
+
+  it('prefers a recorded move-in deposit over rent and can infer SafeDeposits property by deposit value', () => {
+    const properties = [{ id: 'p1', name: 'BTL1', rent: 1100 }]
+    const tenants = [{ id: 't1', propertyId: 'p1', name: 'Jane Smith', moveIn: '2026-08-01', depositHeld: '£1,100' }]
+    expect(suggestTransactionAssignment({ amount: 1100, bookedAt: '2026-08-01', category: 'other', counterparty: 'Jane Smith' }, properties, tenants)).toMatchObject({ category: 'tenant_deposit', propertyId: 'p1' })
+    expect(suggestTransactionAssignment({ amount: -1100, bookedAt: '2026-08-03', category: 'tenant_deposit', counterparty: 'SafeDeposits Scotland' }, properties, tenants)).toMatchObject({ category: 'tenant_deposit', propertyId: 'p1' })
+  })
 
   it('normalises signed amounts and creates a stable fallback identity', () => {
     const raw = {

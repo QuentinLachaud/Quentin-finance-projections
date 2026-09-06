@@ -691,8 +691,9 @@ export const buildPerformanceModel = ({
   const actualCashEntries = events.filter((event) => ['expense', 'bank'].includes(event.sourceType)).length
   const canonicalBank = performanceBankRows(bankTransactions).filter((transaction) => performanceTreatmentForTransaction(transaction) !== 'exclude')
   const companyCash = cashHeldFromAccounts(bankAccounts)
-  const dlaInjected = canonicalBank.filter((transaction) => transaction.category === 'dla_injected').reduce((sum, transaction) => sum + Math.max(0, finite(transaction.amount)), 0)
-  const dlaRepaid = canonicalBank.filter((transaction) => transaction.category === 'dla_repaid').reduce((sum, transaction) => sum + Math.abs(Math.min(0, finite(transaction.amount))), 0)
+  const ownerFunding = canonicalBank.filter((transaction) => ['owner_funding', 'dla_injected', 'dla_repaid'].includes(transaction.category))
+  const dlaInjected = ownerFunding.reduce((sum, transaction) => sum + Math.max(0, finite(transaction.amount)), 0)
+  const dlaRepaid = ownerFunding.reduce((sum, transaction) => sum + Math.abs(Math.min(0, finite(transaction.amount))), 0)
   const netDlaFunding = dlaInjected - dlaRepaid
   const bankBackedCashEntries = events.filter((event) => event.sourceType === 'bank').length
   const bankReviewCount = canonicalBank.filter((transaction) => performanceTreatmentForTransaction(transaction) === 'review').length

@@ -88,18 +88,22 @@ export function BalanceChart({ points = [] }) {
 export function BankSummary({ reportingBalance, reportingAccountCount, cashSummary }) {
   return <section className="bank-summary-grid" aria-label="Banking summary">
     <article className="bank-summary-card primary"><span>Cash balance</span><strong>{currency(reportingBalance)}</strong><small>{reportingAccountCount} selected GBP account{reportingAccountCount === 1 ? '' : 's'}</small></article>
-    <article className={`bank-summary-card ${amountTone(cashSummary.companyFreeCashFlow)}`}><span>Business cash generated</span><strong>{currency(cashSummary.companyFreeCashFlow)}</strong><small>Selected period · owner funding excluded</small></article>
+    <article className={`bank-summary-card ${amountTone(cashSummary.companyFreeCashFlow)}`}><span>Business cash generated</span><strong>{currency(cashSummary.companyFreeCashFlow)}</strong><small>Selected period · owner funding & extraction excluded</small></article>
     <article className={`bank-summary-card ${cashSummary.reviewCount ? 'attention' : ''}`}><span>Needs review</span><strong>{cashSummary.reviewCount}</strong><small>{cashSummary.reviewCount ? `${currency(cashSummary.reviewAbsolute)} awaiting classification` : 'All transactions classified'}</small></article>
   </section>
 }
 
 export function CashFlowReconciliation({ cashSummary }) {
-  const otherMovement = Number(cashSummary.reviewNet || 0) + Number(cashSummary.excludedNet || 0)
+  const otherMovement = Number(cashSummary.capitalMovementNet || 0) + Number(cashSummary.liabilityMovementNet || 0)
+    + Number(cashSummary.reviewNet || 0) + Number(cashSummary.excludedNet || 0)
   const breakdown = [
     ['Property operations', cashSummary.operatingCashFlow, 'Rent and property running costs'],
-    ['Company-level cash', cashSummary.companyOnlyCashFlow, 'Tax, salary and other company-level movements'],
+    ['Company-level cash', cashSummary.companyOnlyCashFlow, 'Bank/admin fees and company taxes'],
+    ['Cash extracted', cashSummary.cashExtractionNet, `${cashSummary.cashExtractionCount || 0} extraction or payroll movement${cashSummary.cashExtractionCount === 1 ? '' : 's'} · outside business-generated cash`],
     ['Financing', cashSummary.financingCashFlow, 'Mortgage and financing movements'],
-    ['Owner / DLA funding', cashSummary.ownerFundingNet, 'DLA injections minus repayments'],
+    ['Owner / DLA funding', cashSummary.ownerFundingNet, 'Owner funding in minus repayments out'],
+    ['Capital / acquisition', cashSummary.capitalMovementNet, `${cashSummary.capitalMovementCount || 0} purchase or capital movement${cashSummary.capitalMovementCount === 1 ? '' : 's'}`],
+    ['Tenant deposits', cashSummary.liabilityMovementNet, `${cashSummary.liabilityMovementCount || 0} deposit movement${cashSummary.liabilityMovementCount === 1 ? '' : 's'} · not income or expense`],
     ['Needs review', cashSummary.reviewNet, `${cashSummary.reviewCount} transaction${cashSummary.reviewCount === 1 ? '' : 's'} awaiting classification`],
     ['Excluded from analysis', cashSummary.excludedNet, `${cashSummary.excludedCount} explicitly excluded transaction${cashSummary.excludedCount === 1 ? '' : 's'}`],
   ]
@@ -109,6 +113,8 @@ export function CashFlowReconciliation({ cashSummary }) {
       <article><span>Business cash generated</span><strong className={amountTone(cashSummary.companyFreeCashFlow)}>{currency(cashSummary.companyFreeCashFlow)}</strong><small>Operations + company-level cash + financing</small></article>
       <i aria-hidden="true">+</i>
       <article><span>Owner funding</span><strong className={amountTone(cashSummary.ownerFundingNet)}>{currency(cashSummary.ownerFundingNet)}</strong><small>DLA injected minus DLA repaid</small></article>
+      <i aria-hidden="true">+</i>
+      <article><span>Cash extracted</span><strong className={amountTone(cashSummary.cashExtractionNet)}>{currency(cashSummary.cashExtractionNet)}</strong><small>Payroll and owner distributions</small></article>
       <i aria-hidden="true">+</i>
       <article><span>Other bank movement</span><strong className={amountTone(otherMovement)}>{currency(otherMovement)}</strong><small>{cashSummary.reviewCount} to review · {cashSummary.excludedCount} excluded</small></article>
       <i aria-hidden="true">=</i>

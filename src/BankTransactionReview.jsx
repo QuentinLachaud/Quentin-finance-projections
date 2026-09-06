@@ -1,24 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Check, EyeOff, Sparkles } from 'lucide-react'
 import {
-  BANK_CATEGORIES, bankTransactionStatePatch, performanceTreatmentForTransaction,
+  BANK_CATEGORIES, bankTransactionStatePatch, categoryUsesProperty, performanceTreatmentForTransaction,
   reviewDraftForTransaction, reviewPatchFromDraft, similarTransactionsNeedingReviewFor,
   sortTransactionsForReview, transactionNeedsReview, transactionWithReviewDraft,
 } from './banking.js'
 
 const money = (value) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 2 }).format(Number(value || 0))
 const treatmentLabels = {
-  operating: 'Property cash',
-  financing: 'Financing',
-  company: 'Company only',
-  investor: 'DLA / owner funding',
-  exclude: 'Excluded',
+  operating: 'Property operating',
+  financing: 'Mortgage / financing',
+  company: 'Company overhead',
+  investor: 'Owner funding / DLA',
+  extraction: 'Cash extraction',
+  capital: 'Capital / acquisition',
+  liability: 'Tenant deposit / liability',
+  exclude: 'Ignored from analysis',
   review: 'Needs review',
 }
-const categoryLabels = new Map(BANK_CATEGORIES)
+const categoryLabels = new Map([
+  ...BANK_CATEGORIES,
+  ['tax', 'Tax & property duties'], ['salary', 'Payroll'], ['fees', 'Bank & admin fees'],
+  ['dla_injected', 'Owner funding / DLA'], ['dla_repaid', 'Owner funding / DLA'],
+])
 const transactionId = (transaction) => String(transaction?.id || `${transaction?.accountId || 'bank'}:${transaction?.transactionKey || transaction?.canonicalKey || ''}`)
 
-export default function BankTransactionReview({ transactions, properties = [], onUpdate, onUpdateMany }) {
+export default function BankTransactionReview({ transactions, properties = [], tenants = [], onUpdate, onUpdateMany }) {
   const [mode, setMode] = useState('review')
   const [sortMode, setSortMode] = useState('amount')
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -37,18 +44,21 @@ export default function BankTransactionReview({ transactions, properties = [], o
     return mode === 'review' ? reviewQueue[0] || null : null
   }, [activeReviewId, mode, reviewQueue, transactions])
   const activeId = active ? transactionId(active) : ''
-  const baselineDraft = useMemo(() => active ? reviewDraftForTransaction(active, properties) : null, [active, properties])
+  const baselineDraft = useMemo(() => active ? reviewDraftForTransaction(active, properties, tenants, transactions) : null, [active, properties, tenants, transactions])
   const currentDraft = draft?.transactionId === activeId ? draft : (baselineDraft ? { transactionId: activeId, ...baselineDraft } : null)
   const preview = active && currentDraft ? transactionWithReviewDraft(active, currentDraft) : active
   const previewTreatment = preview ? performanceTreatmentForTransaction(preview) : 'review'
   const needsMore = preview ? transactionNeedsReview(preview, properties) : false
   const similar = useMemo(() => active ? similarTransactionsNeedingReviewFor(active, transactions, properties) : [], [active, transactions, properties])
-  const propertyRelevant = preview && (['operating', 'financing'].includes(previewTreatment) || Boolean(preview.propertyId))
+  const propertyRelevant = preview && (categoryUsesProperty(currentDraft?.category) || Boolean(preview.propertyId))
   const showTreatment = previewTreatment === 'review' || showAdvanced
+  const quickCategories = active?.amount >= 0
+    ? [['rent', 'Rent'], ['owner_funding', 'Owner funding'], ['tenant_deposit', 'Deposit'], ['other_property_income', 'Other income']]
+    : [['mortgage', 'Mortgage'], ['repairs', 'Repair'], ['cash_extraction', 'Cash extraction'], ['legal_professional', 'Legal']]
 
   useEffect(() => {
     if (!active) { setDraft(null); return }
-    setDraft({ transactionId: activeId, ...reviewDraftForTransaction(active, properties) })
+    setDraft({ transactionId: activeId, ...reviewDraftForTransaction(active, properties, tenants, transactions) })
     setApplySimilar(true)
   }, [activeId])
 
@@ -89,7 +99,7 @@ export default function BankTransactionReview({ transactions, properties = [], o
 
   return <section className="panel bank-review-panel">
     <header>
-      <div><span className="kicker">TRANSACTION REVIEW</span><h2>Review transactions</h2><p>Make actuals trustworthy one decision at a time. Exact duplicate statement rows are hidden before they reach this queue.</p></div>
+      <div><span className="kicker">TRANSACTION REVIEW</span><h2>Review transactions</h2><p>Make actuals trustworthy one decision at a time. Obvious tenant, rent and property matches are prefilled for confirmation.</p></div>
       <div className="segmented"><button className={mode === 'review' ? 'active' : ''} onClick={() => switchMode('review')}>Review {reviewCount}</button><button className={mode === 'all' ? 'active' : ''} onClick={() => switchMode('all')}>All</button></div>
     </header>
     <div className="bank-toolbar"><div className="segmented" aria-label="Transaction review order"><button className={sortMode === 'amount' ? 'active' : ''} onClick={() => setSortMode('amount')}>Largest first</button><button className={sortMode === 'newest' ? 'active' : ''} onClick={() => setSortMode('newest')}>Newest</button></div><button type="button" className="text-button" onClick={() => setShowAdvanced((current) => !current)}>{showAdvanced ? 'Hide advanced' : 'Advanced'}</button></div>
@@ -101,13 +111,15 @@ export default function BankTransactionReview({ transactions, properties = [], o
       <div className="bank-review-progress"><span><b>{reviewCount}</b> need attention</span>{mode === 'review' && <small>{Math.max(0, reviewQueue.length - 1)} after this one{skippedIds.length ? ` · ${skippedIds.length} skipped` : ''}</small>}{mode === 'all' && <button type="button" className="text-button" onClick={cancelEdit}>Back to all</button>}</div>
       <article className="bank-review-focus">
         <div className="bank-review-main"><span><b>{active.description || active.counterparty || 'Transaction'}</b><small>{active.bookedAt} · {active.accountName || 'Bank account'}{active.counterparty ? ` · ${active.counterparty}` : ''}</small></span><strong className={active.amount >= 0 ? 'positive' : 'negative'}>{money(active.amount)}</strong></div>
+        {baselineDraft?.suggestionReason && !active.categoryOverridden && <div className="bank-review-smart-suggestion"><Sparkles size={14} /><span><b>Suggested for you</b><small>{baselineDraft.suggestionReason}</small></span></div>}
+        <div className="bank-review-quick-categories" aria-label="Quick categories">{quickCategories.map(([value, label]) => <button type="button" key={value} className={currentDraft.category === value ? 'active' : ''} onClick={() => updateDraft({ category: value })}>{label}</button>)}</div>
         <div className="bank-review-fields">
           <label><span>Category</span><select value={currentDraft.category} onChange={(event) => updateDraft({ category: event.target.value })}>{BANK_CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          {propertyRelevant && <label><span>Property</span><select value={currentDraft.propertyId || ''} onChange={(event) => updateDraft({ propertyId: event.target.value })}><option value="">Choose property</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select>{baselineDraft?.propertyId && !active.propertyId && currentDraft.propertyId === baselineDraft.propertyId && <small>Suggested from transaction details</small>}</label>}
-          {showTreatment && <label><span>Cash-flow treatment</span><select value={currentDraft.performanceTreatment || 'auto'} onChange={(event) => updateDraft({ performanceTreatment: event.target.value })}><option value="auto">Auto · {treatmentLabels[performanceTreatmentForTransaction({ ...active, ...bankTransactionStatePatch(reviewPatchFromDraft({ ...currentDraft, performanceTreatment: 'auto' })) })] || 'Needs review'}</option><option value="operating">Property cash</option><option value="company">Company only</option><option value="investor">DLA / owner funding</option><option value="exclude">Exclude</option></select></label>}
+          {propertyRelevant && <label><span>Property</span><select value={currentDraft.propertyId || ''} onChange={(event) => updateDraft({ propertyId: event.target.value })}><option value="">Choose property</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select>{baselineDraft?.propertyId && !active.propertyId && currentDraft.propertyId === baselineDraft.propertyId && <small>Suggested · {baselineDraft.suggestionReason || 'Transaction details match'}</small>}</label>}
+          {showTreatment && <label><span>Cash-flow treatment</span><select value={currentDraft.performanceTreatment || 'auto'} onChange={(event) => updateDraft({ performanceTreatment: event.target.value })}><option value="auto">Auto · {treatmentLabels[performanceTreatmentForTransaction({ ...active, ...bankTransactionStatePatch(reviewPatchFromDraft({ ...currentDraft, performanceTreatment: 'auto' })) })] || 'Needs review'}</option><option value="operating">Property operating</option><option value="financing">Mortgage / financing</option><option value="company">Company overhead</option><option value="investor">Owner funding / DLA</option><option value="extraction">Cash extraction</option><option value="capital">Capital / acquisition</option><option value="liability">Tenant deposit / liability</option><option value="exclude">Ignore from analysis</option></select></label>}
           {showAdvanced && <button type="button" className={currentDraft.excludeFromPerformance ? 'bank-exclude active' : 'bank-exclude'} onClick={() => updateDraft({ excludeFromPerformance: !currentDraft.excludeFromPerformance })}><EyeOff size={14} />{currentDraft.excludeFromPerformance ? 'Excluded from Performance' : 'Exclude from Performance'}</button>}
         </div>
-        {needsMore && <p className="bank-review-hint">{['operating', 'financing'].includes(previewTreatment) ? 'Choose the property before saving.' : 'Choose how this transaction affects cash flow before saving.'}</p>}
+        {needsMore && <p className="bank-review-hint">{['operating', 'financing', 'capital', 'liability'].includes(previewTreatment) ? 'Choose the property before saving.' : 'Choose how this transaction affects cash flow before saving.'}</p>}
         {similar.length > 0 && <label className="bank-review-batch"><input type="checkbox" checked={applySimilar} onChange={(event) => setApplySimilar(event.target.checked)} /><i /><span><b><Sparkles size={14} /> Also apply to {similar.length} matching transaction{similar.length === 1 ? '' : 's'}</b><small>Exact counterparty match · unresolved rows only</small></span></label>}
         <footer className="bank-review-actions"><button type="button" className="secondary-button" onClick={mode === 'review' ? skipCurrent : cancelEdit}>{mode === 'review' ? 'Skip' : 'Cancel'}</button><button type="button" className="primary-button" disabled={needsMore} onClick={saveCurrent}>{mode === 'review' ? <>Save & next <ArrowRight size={15} /></> : 'Save changes'}</button></footer>
       </article>

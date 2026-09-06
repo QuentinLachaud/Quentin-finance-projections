@@ -2,34 +2,53 @@ const DAY_MS = 86_400_000
 
 export const BANK_CATEGORIES = [
   ['rent', 'Rent'],
+  ['other_property_income', 'Other property income'],
   ['mortgage', 'Mortgage'],
-  ['tax', 'Tax'],
-  ['salary', 'Salary'],
-  ['factors', 'Factors & management'],
-  ['dla_injected', 'DLA injected'],
-  ['dla_repaid', 'DLA repaid'],
   ['repairs', 'Repairs & maintenance'],
-  ['utilities', 'Utilities'],
+  ['capital_improvement', 'Capital improvement'],
+  ['factors', 'Factors & management'],
   ['insurance', 'Insurance'],
-  ['fees', 'Bank fees'],
-  ['transfer', 'Transfer'],
+  ['utilities', 'Utilities'],
+  ['legal_professional', 'Legal & professional'],
+  ['tax_property_duties', 'Tax & property duties'],
+  ['property_acquisition', 'Property acquisition'],
+  ['tenant_deposit', 'Tenant deposit'],
+  ['payroll', 'Payroll'],
+  ['bank_admin_fees', 'Bank & admin fees'],
+  ['owner_funding', 'Owner funding / DLA'],
+  ['cash_extraction', 'Cash extraction'],
+  ['transfer', 'Internal transfer'],
   ['other', 'Other'],
 ]
 
+const LEGACY_BANK_CATEGORIES = {
+  tax: 'tax_property_duties',
+  salary: 'payroll',
+  fees: 'bank_admin_fees',
+  dla_injected: 'owner_funding',
+  dla_repaid: 'owner_funding',
+}
+export const normalizeBankCategory = (value) => LEGACY_BANK_CATEGORIES[value] || value || 'other'
+
 const CATEGORY_RULES = [
+  ['tenant_deposit', /\b(safe\s*deposits?\s*scotland|safedepositscotland|tenan(?:t|cy) deposit|deposit protection|deposit scheme)\b/i],
+  ['property_acquisition', /\b(lbtt|additional dwelling supplement|property acquisition|property purchase|purchase completion|completion monies|completion funds)\b/i],
+  ['capital_improvement', /\b(capital improvement|refurb(?:ishment)?|renovation|new kitchen|new bathroom|extension)\b/i],
+  ['cash_extraction', /\b(cash extraction|owner extraction|owner draw|distribution|dividend)\b/i],
   ['rent', /\b(rent|tenan(?:t|cy)|letting|airbnb|booking\.com)\b/i],
   ['mortgage', /\b(mortgage|the mortgage works|tmw|paragon|precise mortgages?|landbay)\b/i],
-  ['tax', /\b(hmrc|revenue\s*(?:and|&)\s*customs|corporation tax|income tax|council tax|self assessment|vat)\b/i],
-  ['salary', /\b(salary|payroll|wages?|payroll payment)\b/i],
+  ['tax_property_duties', /\b(hmrc|revenue\s*(?:and|&)\s*customs|corporation tax|income tax|council tax|self assessment|vat)\b/i],
+  ['payroll', /\b(salary|payroll|wages?|payroll payment)\b/i],
   ['factors', /\b(factor(?:ing|s)?|property management|residential management|service charge)\b/i],
-  ['repairs', /\b(repair|maintenance|plumb(?:er|ing)|electrician|joiner|roofer|screwfix|toolstation|b&q)\b/i],
+  ['repairs', /\b(contractor|repair|maintenance|plumb(?:er|ing)|electrician|joiner|roofer|screwfix|toolstation|b&q|gas safety|eicr|pat)\b/i],
   ['utilities', /\b(electric(?:ity)?|energy|gas|water|broadband|internet|utility|scottish power|octopus|edf|virgin media)\b/i],
   ['insurance', /\b(insurance|insurer|policy premium|aviva|direct line|landlord insurance)\b/i],
-  ['fees', /\b(bank fee|account fee|service fee|overdraft fee|interest charge)\b/i],
+  ['legal_professional', /\b(solicitor|legal fee|legal services|conveyanc(?:e|ing)|accountant|accountancy)\b/i],
+  ['bank_admin_fees', /\b(bank fee|account fee|overdraft fee|interest charge|bank charge)\b/i],
   ['transfer', /\b(internal transfer|own account|between accounts|savings transfer|cash transfer|monzo pot|revolut vault)\b/i],
 ]
 
-const DLA_PATTERN = /\b(directors?'? loan|shareholder loan|loan (?:from|to) director|director advance)\b/i
+const DLA_PATTERN = /\b(dla|directors?'? loan|shareholder loan|loan (?:from|to) director|director advance)\b/i
 const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0
 const isoDate = (value) => value ? String(value).slice(0, 10) : ''
 const monthKey = (value) => isoDate(value).slice(0, 7)
@@ -53,7 +72,7 @@ export const classifyTransaction = (transaction) => {
     transaction.remittanceInformationUnstructured,
     transaction.additionalInformation,
   )
-  if (DLA_PATTERN.test(haystack)) return number(transaction.amount) >= 0 ? 'dla_injected' : 'dla_repaid'
+  if (DLA_PATTERN.test(haystack)) return 'owner_funding'
   return CATEGORY_RULES.find(([, pattern]) => pattern.test(haystack))?.[0] || 'other'
 }
 
@@ -82,7 +101,7 @@ export const mapStoredBankTransaction = (row, accountNames = new Map()) => {
     bankCode: row.bank_code || '',
     status: row.status || 'booked',
     balanceAfter: row.balance_after == null ? null : Number(row.balance_after),
-    category: row.category || 'other',
+    category: normalizeBankCategory(row.category || 'other'),
     isTransfer: row.is_transfer === true,
     categoryOverridden: row.category_overridden === true,
     sourceType: row.source_type || 'gocardless',
@@ -149,11 +168,17 @@ export const performanceTreatmentForTransaction = (transaction) => {
   if (transaction?.excludeFromPerformance || transaction?.exclude_from_performance) return 'exclude'
   const override = transaction?.performanceTreatment || transaction?.performance_treatment || 'auto'
   if (override !== 'auto') return override
-  if (transaction?.isTransfer || transaction?.is_transfer || transaction?.category === 'transfer') return 'exclude'
-  if (['dla_injected', 'dla_repaid'].includes(transaction?.category)) return 'investor'
-  if (['tax', 'salary'].includes(transaction?.category)) return 'company'
-  if (transaction?.category === 'mortgage') return 'financing'
-  if (['rent', 'repairs', 'factors', 'utilities', 'insurance', 'fees'].includes(transaction?.category)) return 'operating'
+  const category = normalizeBankCategory(transaction?.category)
+  if (transaction?.isTransfer || transaction?.is_transfer || category === 'transfer') return 'exclude'
+  if (category === 'owner_funding') return 'investor'
+  if (['cash_extraction', 'payroll'].includes(category)) return 'extraction'
+  if (['property_acquisition', 'capital_improvement'].includes(category)) return 'capital'
+  if (category === 'tenant_deposit') return 'liability'
+  if (category === 'mortgage') return 'financing'
+  if (category === 'bank_admin_fees') return 'company'
+  if (category === 'tax_property_duties') return (transaction?.propertyId || transaction?.property_id) ? 'operating' : 'company'
+  if (category === 'legal_professional') return (transaction?.propertyId || transaction?.property_id) ? 'operating' : 'review'
+  if (['rent', 'other_property_income', 'repairs', 'factors', 'utilities', 'insurance'].includes(category)) return 'operating'
   return 'review'
 }
 
@@ -170,10 +195,122 @@ export const suggestPropertyId = (transaction, properties = []) => {
   return matches.length && (matches.length === 1 || matches[0].score > matches[1].score) ? String(matches[0].property.id || '') : ''
 }
 
+const PROPERTY_LINKED_CATEGORIES = new Set([
+  'rent', 'other_property_income', 'mortgage', 'repairs', 'capital_improvement', 'factors', 'insurance', 'utilities',
+  'legal_professional', 'tax_property_duties', 'property_acquisition', 'tenant_deposit',
+])
+export const categoryUsesProperty = (category) => PROPERTY_LINKED_CATEGORIES.has(normalizeBankCategory(category))
+
+const numericTextValue = (value) => {
+  const match = String(value ?? '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/)
+  return match ? Number(match[0]) : NaN
+}
+const closeMoney = (actual, expected) => Number.isFinite(Number(expected))
+  && Math.abs(Number(actual) - Number(expected)) <= Math.max(1, Math.abs(Number(expected)) * 0.005)
+const daysBetween = (left, right) => {
+  const a = Date.parse(`${isoDate(left)}T12:00:00Z`)
+  const b = Date.parse(`${isoDate(right)}T12:00:00Z`)
+  return Number.isFinite(a) && Number.isFinite(b) ? Math.abs(a - b) / DAY_MS : Number.POSITIVE_INFINITY
+}
+const tenantActiveAt = (tenant, bookedAt) => {
+  const date = isoDate(bookedAt)
+  if (!date) return true
+  const moveIn = isoDate(tenant?.moveIn || tenant?.tenantMoveIn)
+  const moveOut = isoDate(tenant?.moveOut || tenant?.tenantMoveOut)
+  return (!moveIn || moveIn <= date) && (!moveOut || date <= moveOut)
+}
+const tenantNameMatches = (name, haystack) => {
+  const normalized = cleanCanonical(name)
+  if (normalized.length < 4) return false
+  if (haystack.includes(normalized)) return true
+  const tokens = normalized.split(' ').filter((token) => token.length >= 3)
+  return tokens.length >= 2 && tokens.every((token) => haystack.includes(token))
+}
+const inferenceTenants = (properties = [], tenants = []) => {
+  const rows = [
+    ...(Array.isArray(tenants) ? tenants : []),
+    ...(properties || []).filter((property) => property?.tenantName).map((property) => ({
+      id: `property-tenant:${property.id}`,
+      propertyId: property.id,
+      name: property.tenantName,
+      moveIn: property.tenantMoveIn,
+      moveOut: property.tenantMoveOut,
+      depositHeld: property.depositHeld,
+    })),
+  ]
+  const seen = new Set()
+  return rows.filter((tenant) => {
+    const key = `${tenant?.propertyId || ''}|${cleanCanonical(tenant?.name)}|${isoDate(tenant?.moveIn)}`
+    if (!tenant?.propertyId || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+export const suggestTransactionAssignment = (transaction, properties = [], tenants = []) => {
+  const amount = number(transaction?.amount)
+  const category = normalizeBankCategory(transaction?.category)
+  const metadata = transaction?.sourceMetadata || transaction?.source_metadata || {}
+  const haystack = cleanCanonical([
+    transaction?.description, transaction?.counterparty, metadata.reference, metadata.from, metadata.to,
+  ].filter(Boolean).join(' '))
+  const byProperty = new Map((properties || []).map((property) => [String(property?.id || ''), property]))
+  const tenantRows = inferenceTenants(properties, tenants).filter((tenant) => byProperty.has(String(tenant.propertyId)))
+  const candidates = tenantRows.map((tenant) => {
+    const property = byProperty.get(String(tenant.propertyId))
+    const expectedRent = Number(property?.rent)
+    const deposit = numericTextValue(tenant?.depositHeld)
+    return {
+      tenant,
+      property,
+      propertyId: String(property?.id || ''),
+      nameMatch: tenantNameMatches(tenant?.name, haystack),
+      rentMatch: closeMoney(amount, expectedRent),
+      depositMatch: closeMoney(Math.abs(amount), Math.abs(deposit)),
+      active: tenantActiveAt(tenant, transaction?.bookedAt || transaction?.booked_at),
+      nearMoveIn: daysBetween(transaction?.bookedAt || transaction?.booked_at, tenant?.moveIn) <= 45,
+    }
+  })
+  const explicitDeposit = category === 'tenant_deposit'
+    || /\b(safe\s*deposits?\s*scotland|safedepositscotland|tenan(?:t|cy) deposit|deposit protection|deposit scheme)\b/.test(haystack)
+
+  const depositCandidates = candidates.filter((candidate) => (
+    (candidate.nameMatch && candidate.depositMatch && candidate.nearMoveIn)
+    || (explicitDeposit && candidate.nameMatch)
+    || (explicitDeposit && candidate.depositMatch)
+  ))
+  const depositPropertyIds = [...new Set(depositCandidates.map((candidate) => candidate.propertyId))]
+  if (depositPropertyIds.length === 1 && (explicitDeposit || amount > 0)) {
+    const chosen = depositCandidates.find((candidate) => candidate.propertyId === depositPropertyIds[0])
+    return {
+      category: 'tenant_deposit',
+      propertyId: depositPropertyIds[0],
+      reason: chosen?.nameMatch ? 'Tenant + deposit match' : 'Deposit amount + tenancy match',
+    }
+  }
+
+  if (amount <= 0) return { category, propertyId: '', reason: '' }
+  const active = candidates.filter((candidate) => candidate.active)
+  const tenantRent = active.filter((candidate) => candidate.nameMatch && candidate.rentMatch)
+  const tenantRentIds = [...new Set(tenantRent.map((candidate) => candidate.propertyId))]
+  if (tenantRentIds.length === 1) return { category: 'rent', propertyId: tenantRentIds[0], reason: 'Tenant + rent match' }
+
+  const rentMatches = (properties || []).filter((property) => closeMoney(amount, Number(property?.rent)))
+    .filter((property) => active.some((candidate) => candidate.propertyId === String(property.id)))
+  if (rentMatches.length === 1) return { category: 'rent', propertyId: String(rentMatches[0].id || ''), reason: 'Expected rent match' }
+
+  if (category === 'rent') {
+    const tenantOnly = active.filter((candidate) => candidate.nameMatch)
+    const tenantOnlyIds = [...new Set(tenantOnly.map((candidate) => candidate.propertyId))]
+    if (tenantOnlyIds.length === 1) return { category: 'rent', propertyId: tenantOnlyIds[0], reason: 'Tenant match' }
+  }
+  return { category, propertyId: '', reason: '' }
+}
+
 export const transactionNeedsReview = (transaction, properties = []) => {
   const treatment = performanceTreatmentForTransaction(transaction)
   if (treatment === 'review') return true
-  if (['operating', 'financing'].includes(treatment) && !transaction?.propertyId && !transaction?.property_id) return true
+  if (['operating', 'financing', 'capital', 'liability'].includes(treatment) && !transaction?.propertyId && !transaction?.property_id) return true
   return false
 }
 
@@ -198,6 +335,15 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
     ownerFundingNet: 0,
     dlaInjected: 0,
     dlaRepaid: 0,
+    cashExtractionNet: 0,
+    cashExtractionAbsolute: 0,
+    cashExtractionCount: 0,
+    capitalMovementNet: 0,
+    capitalMovementAbsolute: 0,
+    capitalMovementCount: 0,
+    liabilityMovementNet: 0,
+    liabilityMovementAbsolute: 0,
+    liabilityMovementCount: 0,
     reviewNet: 0,
     reviewAbsolute: 0,
     reviewCount: 0,
@@ -210,7 +356,7 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
   rows.forEach((transaction) => {
     const amount = number(transaction.amount)
     const treatment = performanceTreatmentForTransaction(transaction)
-    if (transaction.isTransfer || transaction.is_transfer || transaction.category === 'transfer') {
+    if (transaction.isTransfer || transaction.is_transfer || normalizeBankCategory(transaction.category) === 'transfer') {
       totals.internalTransferCount += 1
       totals.internalTransferAbsolute += Math.abs(amount)
       return
@@ -220,8 +366,20 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
     else if (treatment === 'financing') totals.financingCashFlow += amount
     else if (treatment === 'investor') {
       totals.ownerFundingNet += amount
-      if (transaction.category === 'dla_injected') totals.dlaInjected += Math.max(0, amount)
-      if (transaction.category === 'dla_repaid') totals.dlaRepaid += Math.max(0, -amount)
+      if (amount >= 0) totals.dlaInjected += amount
+      else totals.dlaRepaid += Math.abs(amount)
+    } else if (treatment === 'extraction') {
+      totals.cashExtractionNet += amount
+      totals.cashExtractionAbsolute += Math.abs(amount)
+      totals.cashExtractionCount += 1
+    } else if (treatment === 'capital') {
+      totals.capitalMovementNet += amount
+      totals.capitalMovementAbsolute += Math.abs(amount)
+      totals.capitalMovementCount += 1
+    } else if (treatment === 'liability') {
+      totals.liabilityMovementNet += amount
+      totals.liabilityMovementAbsolute += Math.abs(amount)
+      totals.liabilityMovementCount += 1
     } else if (treatment === 'review') {
       totals.reviewNet += amount
       totals.reviewAbsolute += Math.abs(amount)
@@ -234,7 +392,8 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
   })
   const companyFreeCashFlow = totals.operatingCashFlow + totals.companyOnlyCashFlow + totals.financingCashFlow
   const netDlaFunding = totals.dlaInjected - totals.dlaRepaid
-  const netBankMovement = companyFreeCashFlow + totals.ownerFundingNet + totals.reviewNet + totals.excludedNet
+  const netBankMovement = companyFreeCashFlow + totals.ownerFundingNet + totals.cashExtractionNet + totals.capitalMovementNet
+    + totals.liabilityMovementNet + totals.reviewNet + totals.excludedNet
   return Object.fromEntries(Object.entries({
     ...totals,
     companyFreeCashFlow,
@@ -269,16 +428,16 @@ export const similarTransactionsNeedingReviewFor = (transaction, transactions = 
   similarTransactionsFor(transaction, transactions).filter((candidate) => transactionNeedsReview(candidate, properties))
 
 export const reviewPropagationPatch = (transaction) => ({
-  category: transaction?.category || 'other',
+  category: normalizeBankCategory(transaction?.category),
   category_overridden: true,
-  is_transfer: transaction?.category === 'transfer' || transaction?.isTransfer === true || transaction?.is_transfer === true,
+  is_transfer: normalizeBankCategory(transaction?.category) === 'transfer' || transaction?.isTransfer === true || transaction?.is_transfer === true,
   property_id: transaction?.propertyId || transaction?.property_id || null,
   performance_treatment: transaction?.performanceTreatment || transaction?.performance_treatment || 'auto',
   exclude_from_performance: transaction?.excludeFromPerformance === true || transaction?.exclude_from_performance === true,
 })
 
 export const bankTransactionStatePatch = (patch = {}) => ({
-  ...(Object.hasOwn(patch, 'category') ? { category: patch.category } : {}),
+  ...(Object.hasOwn(patch, 'category') ? { category: normalizeBankCategory(patch.category) } : {}),
   ...(Object.hasOwn(patch, 'is_transfer') ? { isTransfer: patch.is_transfer } : {}),
   ...(Object.hasOwn(patch, 'category_overridden') ? { categoryOverridden: patch.category_overridden } : {}),
   ...(Object.hasOwn(patch, 'property_id') ? { propertyId: patch.property_id || '' } : {}),
@@ -286,21 +445,53 @@ export const bankTransactionStatePatch = (patch = {}) => ({
   ...(Object.hasOwn(patch, 'exclude_from_performance') ? { excludeFromPerformance: patch.exclude_from_performance } : {}),
 })
 
-export const reviewDraftForTransaction = (transaction, properties = []) => ({
-  category: transaction?.category || 'other',
-  propertyId: transaction?.propertyId || transaction?.property_id || suggestPropertyId(transaction, properties) || '',
-  performanceTreatment: transaction?.performanceTreatment || transaction?.performance_treatment || 'auto',
-  excludeFromPerformance: transaction?.excludeFromPerformance === true || transaction?.exclude_from_performance === true,
-})
+const reviewedSimilarSuggestion = (transaction, transactions = []) => {
+  const peers = similarTransactionsFor(transaction, transactions).filter((candidate) => (
+    candidate?.categoryOverridden || candidate?.category_overridden
+    || (candidate?.performanceTreatment || candidate?.performance_treatment || 'auto') !== 'auto'
+  ))
+  if (!peers.length) return null
+  const states = peers.map((candidate) => ({
+    category: normalizeBankCategory(candidate?.category),
+    propertyId: candidate?.propertyId || candidate?.property_id || '',
+    performanceTreatment: candidate?.performanceTreatment || candidate?.performance_treatment || 'auto',
+  }))
+  const first = states[0]
+  return states.every((state) => state.category === first.category
+    && state.propertyId === first.propertyId
+    && state.performanceTreatment === first.performanceTreatment) ? first : null
+}
 
-export const reviewPatchFromDraft = (draft = {}) => ({
-  category: draft.category || 'other',
-  category_overridden: true,
-  is_transfer: draft.category === 'transfer',
-  property_id: draft.propertyId || null,
-  performance_treatment: draft.performanceTreatment || 'auto',
-  exclude_from_performance: draft.excludeFromPerformance === true,
-})
+export const reviewDraftForTransaction = (transaction, properties = [], tenants = [], transactions = []) => {
+  const category = normalizeBankCategory(transaction?.category)
+  const historical = reviewedSimilarSuggestion(transaction, transactions)
+  const inferred = suggestTransactionAssignment({ ...transaction, category }, properties, tenants)
+  const existingPropertyId = transaction?.propertyId || transaction?.property_id || ''
+  const inferredPropertyId = historical?.propertyId || inferred.propertyId || ''
+  const textSuggestion = existingPropertyId || inferredPropertyId ? '' : suggestPropertyId({ ...transaction, category }, properties)
+  const inferredCategory = !transaction?.categoryOverridden && !transaction?.category_overridden
+    ? normalizeBankCategory(historical?.category || inferred.category || category)
+    : category
+  return {
+    category: inferredCategory,
+    propertyId: existingPropertyId || inferredPropertyId || textSuggestion || '',
+    performanceTreatment: transaction?.performanceTreatment || transaction?.performance_treatment || historical?.performanceTreatment || 'auto',
+    excludeFromPerformance: transaction?.excludeFromPerformance === true || transaction?.exclude_from_performance === true,
+    suggestionReason: existingPropertyId ? '' : (historical ? 'Previous matching transaction' : (inferred.propertyId ? inferred.reason : (textSuggestion ? 'Transaction details match' : ''))),
+  }
+}
+
+export const reviewPatchFromDraft = (draft = {}) => {
+  const category = normalizeBankCategory(draft.category)
+  return {
+    category,
+    category_overridden: true,
+    is_transfer: category === 'transfer',
+    property_id: draft.propertyId || null,
+    performance_treatment: draft.performanceTreatment || 'auto',
+    exclude_from_performance: draft.excludeFromPerformance === true,
+  }
+}
 
 export const transactionWithReviewDraft = (transaction, draft = {}) => ({
   ...transaction,
@@ -486,6 +677,18 @@ export const reconstructBalanceSeries = (accounts, transactions, options = {}) =
       .filter((transaction) => transaction.bookedAt <= date)
       .reduce((sum, transaction) => sum + transaction.amount, 0), 0).toFixed(2)),
   }))
+}
+
+export const balanceSeriesWithoutOwnerFundingDates = (balanceSeries = [], transactions = [], accountIds = []) => {
+  const selected = accountIds?.length ? new Set(accountIds) : null
+  const hiddenDates = new Set((transactions || [])
+    .filter((transaction) => (!selected || selected.has(transaction.accountId)) && performanceTreatmentForTransaction(transaction) === 'investor')
+    .map((transaction) => isoDate(transaction.bookedAt || transaction.booked_at))
+    .filter(Boolean))
+  if (!hiddenDates.size) return balanceSeries
+  const latestDate = balanceSeries.at(-1)?.date
+  const filtered = (balanceSeries || []).filter((point) => point.date === latestDate || !hiddenDates.has(point.date))
+  return filtered.length >= 2 ? filtered : balanceSeries
 }
 
 export const cashHeldFromAccounts = (accounts) => Number(accounts

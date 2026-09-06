@@ -22,8 +22,8 @@ describe('banking and Performance integrity', () => {
   it('separates DLA direction from property operating cash', () => {
     const injection = bank({ amount: 5000, description: 'Directors loan', category: classifyTransaction({ amount: 5000, description: 'Directors loan' }) })
     const repayment = bank({ amount: -1200, description: 'Directors loan repayment', category: classifyTransaction({ amount: -1200, description: 'Directors loan repayment' }) })
-    expect(injection.category).toBe('dla_injected')
-    expect(repayment.category).toBe('dla_repaid')
+    expect(injection.category).toBe('owner_funding')
+    expect(repayment.category).toBe('owner_funding')
     expect(performanceTreatmentForTransaction(injection)).toBe('investor')
     expect(performanceTreatmentForTransaction(repayment)).toBe('investor')
   })
@@ -53,10 +53,11 @@ describe('banking and Performance integrity', () => {
   it('maps statement import identity so overlap dedupe is available outside the Banking workspace', () => {
     const mapped = mapStoredBankTransaction({
       id: 'row', account_id: 'a', transaction_key: 'tx', booked_at: '2026-02-01', amount: '-12.50',
-      currency: 'GBP', description: 'Fee', source_type: 'tide_statement', import_id: 'statement-123',
+      currency: 'GBP', description: 'Fee', category: 'dla_injected', source_type: 'tide_statement', import_id: 'statement-123',
       source_metadata: { reference: 'abc' },
     })
     expect(mapped.importId).toBe('statement-123')
+    expect(mapped.category).toBe('owner_funding')
     expect(mapped.sourceMetadata.reference).toBe('abc')
   })
 
@@ -70,8 +71,8 @@ describe('banking and Performance integrity', () => {
     const transactions = [
       bank({ id: 'rent-bank', bookedAt: '2025-06-01', amount: 6000, description: 'Rent BTL1', category: 'rent', propertyId: 'p1' }),
       bank({ id: 'repair-bank', bookedAt: '2025-07-01', amount: -750, description: 'Repair BTL1', category: 'repairs', propertyId: 'p1' }),
-      bank({ id: 'dla-in', bookedAt: '2025-05-01', amount: 5000, description: 'Director loan', category: 'dla_injected' }),
-      bank({ id: 'dla-out', bookedAt: '2025-08-01', amount: -1000, description: 'Director loan repayment', category: 'dla_repaid' }),
+      bank({ id: 'dla-in', bookedAt: '2025-05-01', amount: 5000, description: 'Director loan', category: 'owner_funding' }),
+      bank({ id: 'dla-out', bookedAt: '2025-08-01', amount: -1000, description: 'Director loan repayment', category: 'owner_funding' }),
     ]
     const expenses = [
       { id: 'rent-doc', date: '2025-06-01', property: 'BTL1', amount: 6000, description: 'Rent' },

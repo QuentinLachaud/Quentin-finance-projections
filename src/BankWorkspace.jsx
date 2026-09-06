@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { supabase } from './supabase.js'
 import {
-  aggregateCashFlow, BANK_CATEGORIES, calculateBankMetrics, cashHeldFromAccounts,
+  aggregateCashFlow, BANK_CATEGORIES, balanceSeriesWithoutOwnerFundingDates, calculateBankMetrics, cashHeldFromAccounts,
   bankTransactionStatePatch, deduplicateTransactions, detectInternalTransfers, mapStoredBankTransaction, reconstructBalanceSeries, reportingAccountIds,
   summarizeCashFlowPipeline, transactionsToCsv, trueCashFlowTransactions,
 } from './banking.js'
@@ -80,7 +80,8 @@ const downloadFile = (name, contents, type) => {
   URL.revokeObjectURL(url)
 }
 
-function CashFlowChart({ rows }) {
+export function CashFlowChart({ rows }) {
+  const [hoveredPeriod, setHoveredPeriod] = useState('')
   if (!rows.length) return <div className="bank-empty-chart"><WalletCards /><span>No cash flow in this range.</span></div>
   const width = Math.max(760, rows.length * 76)
   const height = 300
@@ -91,6 +92,11 @@ function CashFlowChart({ rows }) {
   const step = (width - pad * 2) / rows.length
   const netPoints = rows.map((row, index) => `${pad + step * (index + .5)},${mid - row.net * scale}`).join(' ')
   const mobileRows = rows.slice(-12).reverse()
+  const hoveredIndex = rows.findIndex((row) => row.period === hoveredPeriod)
+  const hovered = hoveredIndex >= 0 ? rows[hoveredIndex] : null
+  const hoveredCentre = hovered ? pad + step * (hoveredIndex + .5) : 0
+  const tooltipWidth = 184
+  const tooltipX = hovered ? Math.max(pad, Math.min(width - pad - tooltipWidth, hoveredCentre - tooltipWidth / 2)) : 0
 
   return <>
     <div className="bank-chart-desktop bank-chart-scroll">
@@ -98,29 +104,26 @@ function CashFlowChart({ rows }) {
         <line x1={pad} y1={mid} x2={width - pad} y2={mid} className="axis" />
         {rows.map((row, index) => {
           const centre = pad + step * (index + .5)
+          const periodLabel = formatCashPeriod(row.period)
           return <g key={row.period}>
-            <rect x={centre - 19} y={mid - row.inflow * scale} width="17" height={row.inflow * scale} rx="3" className="inflow-bar"><title>{row.period} inflow {currency(row.inflow)}</title></rect>
-            <rect x={centre + 2} y={mid} width="17" height={row.outflow * scale} rx="3" className="outflow-bar"><title>{row.period} outflow {currency(row.outflow)}</title></rect>
-            <text x={centre} y={height - 18} textAnchor="middle">{formatCashPeriod(row.period)}</text>
+            <rect x={centre - 19} y={mid - row.inflow * scale} width="17" height={row.inflow * scale} rx="3" className="inflow-bar" />
+            <rect x={centre + 2} y={mid} width="17" height={row.outflow * scale} rx="3" className="outflow-bar" />
+            <text x={centre} y={height - 18} textAnchor="middle">{periodLabel}</text>
+            <rect className="bank-cashflow-hit-area" x={centre - step / 2} y="12" width={step} height={height - 42} tabIndex="0" aria-label={`${periodLabel}: Money in ${currency(row.inflow)}, Money out ${currency(row.outflow)}, Net business cash ${currency(row.net)}`} onPointerEnter={() => setHoveredPeriod(row.period)} onPointerLeave={() => setHoveredPeriod('')} onFocus={() => setHoveredPeriod(row.period)} onBlur={() => setHoveredPeriod('')} />
           </g>
         })}
         <polyline points={netPoints} className="net-line" />
-        {rows.map((row, index) => <circle key={`net-${row.period}`} cx={pad + step * (index + .5)} cy={mid - row.net * scale} r="3.5" className="net-dot"><title>{row.period} net {currency(row.net)}</title></circle>)}
+        {rows.map((row, index) => <circle key={`net-${row.period}`} cx={pad + step * (index + .5)} cy={mid - row.net * scale} r="3.5" className="net-dot" />)}
+        {hovered && <g className="bank-cashflow-tooltip" pointerEvents="none"><line x1={hoveredCentre} y1="28" x2={hoveredCentre} y2={height - 38} className="bank-cashflow-hover-guide" /><g transform={`translate(${tooltipX},18)`}><rect width={tooltipWidth} height="78" rx="12" /><text x="12" y="20" className="period">{formatCashPeriod(hovered.period)}</text><text x="12" y="39">Money in <tspan x="172" textAnchor="end">{currency(hovered.inflow)}</tspan></text><text x="12" y="56">Money out <tspan x="172" textAnchor="end">{currency(hovered.outflow)}</tspan></text><text x="12" y="72" className="net">Net <tspan x="172" textAnchor="end">{currency(hovered.net)}</tspan></text></g></g>}
       </svg>
     </div>
     <div className="bank-cashflow-mobile" aria-label="Mobile cash flow periods">
-      {mobileRows.map((row) => <article key={row.period}>
-        <div className="bank-mobile-period"><b>{formatCashPeriod(row.period)}</b><span className={row.net >= 0 ? 'positive' : 'negative'}>{currency(row.net)} net</span></div>
-        <div className="bank-mobile-flow-values">
-          <span><ArrowUpRight size={14} /> In <b>{currency(row.inflow)}</b></span>
-          <span><ArrowDownRight size={14} /> Out <b>{currency(row.outflow)}</b></span>
-        </div>
-      </article>)}
+      {mobileRows.map((row) => <article key={row.period}><div className="bank-mobile-period"><b>{formatCashPeriod(row.period)}</b><span className={row.net >= 0 ? 'positive' : 'negative'}>{currency(row.net)} net</span></div><div className="bank-mobile-flow-values"><span><ArrowUpRight size={14} /> In <b>{currency(row.inflow)}</b></span><span><ArrowDownRight size={14} /> Out <b>{currency(row.outflow)}</b></span></div></article>)}
     </div>
   </>
 }
 
-export default function BankWorkspace({ user, properties = [], onCashHeldChange }) {
+export default function BankWorkspace({ user, properties = [], tenants = [], onCashHeldChange }) {
   const [connections, setConnections] = useState([])
   const [accounts, setAccounts] = useState([])
   const [transactions, setTransactions] = useState([])
@@ -133,6 +136,7 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
   const [range, setRange] = useState('12')
   const [selectedAccountIds, setSelectedAccountIds] = useState([])
   const [showStatementImport, setShowStatementImport] = useState(false)
+  const [includeDlaInBalance, setIncludeDlaInBalance] = useState(false)
 
   const loadData = async () => {
     const [connectionRows, accountRows, transactionRows] = await Promise.all([
@@ -282,7 +286,11 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
   }, [range])
   const filteredTransactions = useMemo(() => transactions.filter((transaction) => selectedAccountIds.includes(transaction.accountId) && (!fromDate || transaction.bookedAt >= fromDate)), [transactions, selectedAccountIds, fromDate])
   const balanceSeries = useMemo(() => reconstructBalanceSeries(reportingSelected, transactions, { accountIds: reportingIds }), [reportingSelected, transactions, reportingIds])
-  const visibleBalanceSeries = useMemo(() => fromDate ? balanceSeries.filter((point) => point.date >= fromDate) : balanceSeries, [balanceSeries, fromDate])
+  const rangedBalanceSeries = useMemo(() => fromDate ? balanceSeries.filter((point) => point.date >= fromDate) : balanceSeries, [balanceSeries, fromDate])
+  const visibleBalanceSeries = useMemo(() => includeDlaInBalance
+    ? rangedBalanceSeries
+    : balanceSeriesWithoutOwnerFundingDates(rangedBalanceSeries, transactions, reportingIds),
+  [includeDlaInBalance, rangedBalanceSeries, transactions, reportingIds])
   const trueCashTransactions = useMemo(() => trueCashFlowTransactions(transactions), [transactions])
   const cashFlow = useMemo(() => aggregateCashFlow(trueCashTransactions, { period, accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, period, reportingIds, fromDate])
   const metrics = useMemo(() => calculateBankMetrics(trueCashTransactions, visibleBalanceSeries, { accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, visibleBalanceSeries, reportingIds, fromDate])
@@ -299,6 +307,7 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
       `Property operating cash flow: ${currency(cashSummary.operatingCashFlow)}`,
       `Company free cash flow: ${currency(cashSummary.companyFreeCashFlow)}`,
       `Net owner/DLA funding: ${currency(cashSummary.ownerFundingNet)}`,
+      `Cash extraction: ${currency(cashSummary.cashExtractionNet)}`,
       `Net bank movement (internal transfers excluded): ${currency(cashSummary.netBankMovement)}`,
       `12 month average true inflow: ${currency(metrics.averages.twelveMonth.inflow)}`,
       `12 month average true outflow: ${currency(metrics.averages.twelveMonth.outflow)}`,
@@ -335,13 +344,13 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
 
       <BankSummary reportingBalance={reportingBalance} reportingAccountCount={reportingIds.length} cashSummary={cashSummary} />
 
-      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history</h2><p>Combined balance of the selected GBP accounts.</p></div><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></header><BalanceChart points={visibleBalanceSeries} /></section>
+      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history</h2><p>Combined balance of the selected GBP accounts.</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Hide temporary owner-funding movement dates while keeping the real current balance unchanged"><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
 
-      <section className="panel bank-chart-panel bank-cashflow-panel"><header><div><h2>Business cash flow</h2><p>Money generated by the business. Owner funding, internal transfers and anything still awaiting review are excluded.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Money in</span><span className="outflow">Money out</span><span className="net">Net business cash</span></div><CashFlowChart rows={cashFlow} /></section>
+      <section className="panel bank-chart-panel bank-cashflow-panel"><header><div><h2>Business cash flow</h2><p>Money generated by the business. Owner funding, cash extraction, internal transfers and anything still awaiting review are excluded.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Money in</span><span className="outflow">Money out</span><span className="net">Net business cash</span></div><CashFlowChart rows={cashFlow} /></section>
 
       <CashFlowReconciliation cashSummary={cashSummary} />
 
-      <BankTransactionReview transactions={filteredTransactions} properties={properties} onUpdate={updateTransactionMeta} onUpdateMany={updateTransactionsMeta} />
+      <BankTransactionReview transactions={filteredTransactions} properties={properties} tenants={tenants} onUpdate={updateTransactionMeta} onUpdateMany={updateTransactionsMeta} />
 
       <section className="panel bank-transactions"><header><div><h2>Transactions</h2><p>Review or correct a category when needed.</p></div></header><div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <tr key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{transaction.description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</td></tr>)}</tbody></table></div><div className="bank-transaction-mobile-list">{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <article className="bank-mobile-transaction" key={`mobile-${transaction.id}`}><div className="bank-mobile-transaction-head"><div><b>{transaction.description || transaction.counterparty || 'Transaction'}</b><small>{shortDate(transaction.bookedAt)} · {transaction.counterparty || transaction.accountName}</small></div><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</strong></div><div className="bank-mobile-transaction-meta"><span>{transaction.accountName}</span><select aria-label={`Mobile category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div></article>)}</div></section>
     </>}

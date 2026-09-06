@@ -16,6 +16,10 @@ const cashSummary = {
   financingCashFlow: -1200,
   companyFreeCashFlow: 1600,
   ownerFundingNet: 5000,
+  capitalMovementNet: -25000,
+  capitalMovementCount: 1,
+  liabilityMovementNet: 0,
+  liabilityMovementCount: 2,
   reviewNet: -200,
   reviewAbsolute: 200,
   reviewCount: 1,
@@ -23,7 +27,7 @@ const cashSummary = {
   excludedCount: 1,
   internalTransferCount: 2,
   internalTransferAbsolute: 9000,
-  netBankMovement: 6300,
+  netBankMovement: -18700,
 }
 
 describe('Banking less-is-more visuals', () => {
@@ -44,6 +48,8 @@ describe('Banking less-is-more visuals', () => {
     expect(html).toContain('Other bank movement')
     expect(html).toContain('Net bank movement')
     expect(html).toContain('Show detailed breakdown')
+    expect(html).toContain('Capital / acquisition')
+    expect(html).toContain('Tenant deposits')
     expect(html).toContain('Internal transfers ignored')
   })
 })

@@ -2489,7 +2489,7 @@ function PortfolioApp({ user }) {
 
           {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
 
-          {section === 'Banking' && <BankWorkspace user={user} properties={includedCalculated} onCashHeldChange={updateConnectedCashHeld} />}
+          {section === 'Banking' && <BankWorkspace user={user} properties={includedCalculated} tenants={includedTenants} onCashHeldChange={updateConnectedCashHeld} />}
 
           {section === 'Projections' && <>
             <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>

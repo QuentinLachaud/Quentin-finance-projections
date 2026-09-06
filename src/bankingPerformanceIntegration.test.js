@@ -22,6 +22,10 @@ describe('Banking + Performance integrity integration', () => {
     expect(migration).toContain("add column if not exists property_id")
     expect(migration).toContain("add column if not exists performance_treatment")
     expect(migration).toContain("add column if not exists exclude_from_performance")
+    const treatmentMigration = read('supabase/migrations/20260906115800_bank_transaction_treatments.sql')
+    expect(treatmentMigration).toContain("'capital'")
+    expect(treatmentMigration).toContain("'liability'")
+    expect(treatmentMigration).toContain("'extraction'")
   })
 
   it('supports Tide CSV/PDF import, review, cross-source dedupe and bank-backed Performance', () => {

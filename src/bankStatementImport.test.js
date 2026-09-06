@@ -34,7 +34,7 @@ describe('Tide statement import', () => {
     ].join('\n')
     const result = parseTideCsv(csv)
     expect(result.transactions[0]).toMatchObject({ category: 'transfer', isTransfer: true, amount: -1000 })
-    expect(result.transactions[1]).toMatchObject({ category: 'other', isTransfer: false, amount: -1000 })
+    expect(result.transactions[1]).toMatchObject({ category: 'tenant_deposit', isTransfer: false, amount: -1000 })
   })
 
   it('separates DLA funding and preserves the original Tide audit metadata', () => {
@@ -43,7 +43,7 @@ describe('Tide statement import', () => {
       "2025-08-27 14:02:03,'dla-id,QUENTIN LACHAUD ref: DLA DEPOSIT,DLA DEPOSIT,QUENTIN LACHAUD,,25000.00,,Director's Loan,FasterPaymentIn,Cleared,,",
     ].join('\n')
     const result = parseTideCsv(csv)
-    expect(result.transactions[0]).toMatchObject({ category: 'dla_injected', amount: 25000 })
+    expect(result.transactions[0]).toMatchObject({ category: 'owner_funding', amount: 25000 })
     expect(result.transactions[0].sourceMetadata).toMatchObject({
       tideTransactionId: 'dla-id',
       reference: 'DLA DEPOSIT',

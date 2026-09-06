@@ -12,13 +12,16 @@ const tx = (overrides = {}) => ({
 })
 
 describe('true cash-flow pipeline', () => {
-  it('keeps DLA in bank movement and owner funding but out of generated company cash flow', () => {
+  it('keeps owner funding, capital purchases and tenant deposits out of business-generated cash while reconciling real bank movement', () => {
     const rows = [
       tx({ amount: 3000, category: 'rent', propertyId: 'p1' }),
       tx({ amount: -900, category: 'mortgage', propertyId: 'p1' }),
-      tx({ amount: -100, category: 'tax' }),
-      tx({ amount: 5000, category: 'dla_injected' }),
-      tx({ amount: -1200, category: 'dla_repaid' }),
+      tx({ amount: -100, category: 'tax_property_duties' }),
+      tx({ amount: 5000, category: 'owner_funding' }),
+      tx({ amount: -1200, category: 'owner_funding' }),
+      tx({ amount: -50000, category: 'property_acquisition', propertyId: 'p2' }),
+      tx({ amount: 1100, category: 'tenant_deposit', propertyId: 'p1' }),
+      tx({ amount: -1100, category: 'tenant_deposit', propertyId: 'p1' }),
     ]
     const summary = summarizeCashFlowPipeline(rows)
     expect(summary.operatingCashFlow).toBe(3000)
@@ -29,8 +32,12 @@ describe('true cash-flow pipeline', () => {
     expect(summary.dlaRepaid).toBe(1200)
     expect(summary.netDlaFunding).toBe(3800)
     expect(summary.ownerFundingNet).toBe(3800)
-    expect(summary.netBankMovement).toBe(5800)
-    expect(trueCashFlowTransactions(rows).map((row) => row.category)).toEqual(['rent', 'mortgage', 'tax'])
+    expect(summary.capitalMovementNet).toBe(-50000)
+    expect(summary.capitalMovementCount).toBe(1)
+    expect(summary.liabilityMovementNet).toBe(0)
+    expect(summary.liabilityMovementCount).toBe(2)
+    expect(summary.netBankMovement).toBe(-44200)
+    expect(trueCashFlowTransactions(rows).map((row) => row.category)).toEqual(['rent', 'mortgage', 'tax_property_duties'])
   })
 
   it('excludes internal transfers and isolates unresolved movement instead of calling it true cash flow', () => {
