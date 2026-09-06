@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 const read = (relative) => readFileSync(new URL(relative, import.meta.url), 'utf8')
 const app = read('./App.jsx')
 const bank = read('./BankWorkspace.jsx')
+const bankVisuals = read('./BankingVisuals.jsx')
 const expenses = read('./ExpensesWorkspace.jsx')
 const credentials = read('./CredentialsWorkspace.jsx')
 const styles = read('./styles.css')
@@ -19,7 +20,7 @@ describe('mobile-native workspace regression audit', () => {
   })
 
   it('uses dedicated mobile Banking balance, cash-flow and transaction views', () => {
-    expect(bank).toContain('bank-balance-mobile')
+    expect(bankVisuals).toContain('bank-balance-mobile')
     expect(bank).toContain('bank-cashflow-mobile')
     expect(bank).toContain('bank-transaction-mobile-list')
     expect(styles).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.bank-chart-desktop[\s\S]*?display:\s*none/)

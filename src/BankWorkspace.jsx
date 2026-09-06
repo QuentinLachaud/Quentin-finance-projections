@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Building2, Check, Download, ExternalLink,
-  FileText, Landmark, Link2, RefreshCw, Search, ShieldCheck, Trash2, TrendingUp, WalletCards,
+  FileText, Landmark, Link2, RefreshCw, Search, ShieldCheck, Trash2, WalletCards,
 } from 'lucide-react'
 import { supabase } from './supabase.js'
 import {
@@ -12,6 +12,8 @@ import {
 import { currency, shortDate } from './calculations.js'
 import BankStatementImportSheet from './BankStatementImportSheet.jsx'
 import BankTransactionReview from './BankTransactionReview.jsx'
+import { BalanceChart, BankSummary, CashFlowReconciliation } from './BankingVisuals.jsx'
+import { formatCashPeriod } from './bankingChart.js'
 
 const money = (value, currencyCode = 'GBP') => new Intl.NumberFormat('en-GB', {
   style: 'currency', currency: currencyCode || 'GBP', maximumFractionDigits: 2,
@@ -78,65 +80,6 @@ const downloadFile = (name, contents, type) => {
   URL.revokeObjectURL(url)
 }
 
-function BalanceChart({ points }) {
-  if (points.length < 2) return <div className="bank-empty-chart"><TrendingUp /><span>Balance history will build after transactions are synced.</span></div>
-
-  const desktopWidth = 900
-  const desktopHeight = 270
-  const desktopPad = 34
-  const balances = points.map((point) => point.balance)
-  const minimum = Math.min(...balances)
-  const maximum = Math.max(...balances)
-  const spread = Math.max(1, maximum - minimum)
-  const desktopCoordinates = points.map((point, index) => ({
-    ...point,
-    x: desktopPad + index / Math.max(1, points.length - 1) * (desktopWidth - desktopPad * 2),
-    y: desktopPad + (maximum - point.balance) / spread * (desktopHeight - desktopPad * 2),
-  }))
-  const desktopLine = desktopCoordinates.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
-  const desktopArea = `${desktopLine} L${desktopCoordinates.at(-1).x},${desktopHeight - desktopPad} L${desktopCoordinates[0].x},${desktopHeight - desktopPad} Z`
-
-  const mobileWidth = 320
-  const mobileHeight = 132
-  const mobilePad = 12
-  const sampled = points.length > 36
-    ? points.filter((_, index) => index % Math.ceil(points.length / 36) === 0 || index === points.length - 1)
-    : points
-  const mobileCoordinates = sampled.map((point, index) => ({
-    ...point,
-    x: mobilePad + index / Math.max(1, sampled.length - 1) * (mobileWidth - mobilePad * 2),
-    y: mobilePad + (maximum - point.balance) / spread * (mobileHeight - mobilePad * 2 - 18),
-  }))
-  const mobileLine = mobileCoordinates.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
-
-  return <>
-    <div className="bank-chart-desktop bank-chart-scroll">
-      <svg className="balance-chart" viewBox={`0 0 ${desktopWidth} ${desktopHeight}`} role="img" aria-label="Connected bank balance over time">
-        <defs><linearGradient id="balance-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3f9b76" stopOpacity=".28" /><stop offset="1" stopColor="#3f9b76" stopOpacity=".02" /></linearGradient></defs>
-        <line x1={desktopPad} y1={desktopHeight - desktopPad} x2={desktopWidth - desktopPad} y2={desktopHeight - desktopPad} className="axis" />
-        <path d={desktopArea} fill="url(#balance-area)" />
-        <path d={desktopLine} className="balance-line" />
-        <text x={desktopPad} y={22}>{currency(maximum)}</text>
-        <text x={desktopPad} y={desktopHeight - 10}>{shortDate(points[0].date)}</text>
-        <text x={desktopWidth - desktopPad} y={desktopHeight - 10} textAnchor="end">{shortDate(points.at(-1).date)}</text>
-        <text x={desktopWidth - desktopPad} y={22} textAnchor="end">Latest {currency(points.at(-1).balance)}</text>
-      </svg>
-    </div>
-    <div className="bank-balance-mobile">
-      <div className="bank-mobile-chart-head">
-        <div><span>Current balance</span><strong>{currency(points.at(-1).balance)}</strong></div>
-        <div><span>Range</span><b>{currency(minimum)} – {currency(maximum)}</b></div>
-      </div>
-      <svg viewBox={`0 0 ${mobileWidth} ${mobileHeight}`} role="img" aria-label="Mobile connected bank balance trend">
-        <path d={mobileLine} className="balance-line" />
-        <circle cx={mobileCoordinates.at(-1).x} cy={mobileCoordinates.at(-1).y} r="4" className="bank-mobile-latest-dot" />
-        <text x={mobilePad} y={mobileHeight - 4}>{shortDate(points[0].date)}</text>
-        <text x={mobileWidth - mobilePad} y={mobileHeight - 4} textAnchor="end">{shortDate(points.at(-1).date)}</text>
-      </svg>
-    </div>
-  </>
-}
-
 function CashFlowChart({ rows }) {
   if (!rows.length) return <div className="bank-empty-chart"><WalletCards /><span>No cash flow in this range.</span></div>
   const width = Math.max(760, rows.length * 76)
@@ -158,7 +101,7 @@ function CashFlowChart({ rows }) {
           return <g key={row.period}>
             <rect x={centre - 19} y={mid - row.inflow * scale} width="17" height={row.inflow * scale} rx="3" className="inflow-bar"><title>{row.period} inflow {currency(row.inflow)}</title></rect>
             <rect x={centre + 2} y={mid} width="17" height={row.outflow * scale} rx="3" className="outflow-bar"><title>{row.period} outflow {currency(row.outflow)}</title></rect>
-            <text x={centre} y={height - 18} textAnchor="middle">{row.period}</text>
+            <text x={centre} y={height - 18} textAnchor="middle">{formatCashPeriod(row.period)}</text>
           </g>
         })}
         <polyline points={netPoints} className="net-line" />
@@ -167,7 +110,7 @@ function CashFlowChart({ rows }) {
     </div>
     <div className="bank-cashflow-mobile" aria-label="Mobile cash flow periods">
       {mobileRows.map((row) => <article key={row.period}>
-        <div className="bank-mobile-period"><b>{row.period}</b><span className={row.net >= 0 ? 'positive' : 'negative'}>{currency(row.net)} net</span></div>
+        <div className="bank-mobile-period"><b>{formatCashPeriod(row.period)}</b><span className={row.net >= 0 ? 'positive' : 'negative'}>{currency(row.net)} net</span></div>
         <div className="bank-mobile-flow-values">
           <span><ArrowUpRight size={14} /> In <b>{currency(row.inflow)}</b></span>
           <span><ArrowDownRight size={14} /> Out <b>{currency(row.outflow)}</b></span>
@@ -175,10 +118,6 @@ function CashFlowChart({ rows }) {
       </article>)}
     </div>
   </>
-}
-
-function BankMetric({ label, value, note, tone }) {
-  return <article className={`bank-metric ${tone || ''}`}><span>{label}</span><strong>{value}</strong>{note && <small>{note}</small>}</article>
 }
 
 export default function BankWorkspace({ user, properties = [], onCashHeldChange }) {
@@ -383,7 +322,7 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
   if (status === 'loading' || status === 'syncing') return <div className="app-inline-loading"><RefreshCw /><b>{status === 'syncing' ? 'Securely syncing bank data…' : 'Loading connected accounts…'}</b></div>
 
   return <div className="bank-workspace">
-    <section className="panel bank-command-bar"><header><div className="bank-command-context"><ShieldCheck size={16} /><span>Bank-hosted consent · credentials never pass through BTL Portfolio.</span></div><div className="bank-command-actions"><button className="secondary-button small" onClick={syncAll} disabled={!connections.length || status === 'syncing'}><RefreshCw size={15} /> Sync</button><button className="secondary-button small" onClick={() => setShowStatementImport(true)}><FileText size={15} /> Import Tide statement</button><button className="primary-button small" onClick={openConnect}><Link2 size={15} /> Connect account</button></div></header>{error && <p className="bank-error"><AlertTriangle size={16} />{error}</p>}{status === 'not-configured' && <div className="bank-setup-note"><AlertTriangle /><span><b>One-time GoCardless setup required</b><small>The secure server integration is ready. Add Bank Account Data user secrets to Cloudflare to enable live bank selection.</small></span></div>}</section>
+    <section className="panel bank-command-bar"><header><div className="bank-command-context"><ShieldCheck size={16} /><span>Secure bank connection</span></div><div className="bank-command-actions"><button className="secondary-button small" onClick={syncAll} disabled={!connections.length || status === 'syncing'}><RefreshCw size={15} /> Sync</button><button className="secondary-button small" onClick={() => setShowStatementImport(true)}><FileText size={15} /> Import Tide statement</button><button className="primary-button small" onClick={openConnect}><Link2 size={15} /> Connect account</button></div></header>{error && <p className="bank-error"><AlertTriangle size={16} />{error}</p>}{status === 'not-configured' && <div className="bank-setup-note"><AlertTriangle /><span><b>One-time GoCardless setup required</b><small>The secure server integration is ready. Add Bank Account Data user secrets to Cloudflare to enable live bank selection.</small></span></div>}</section>
 
     {showStatementImport && <BankStatementImportSheet user={user} connections={connections} accounts={accounts} properties={properties} onClose={() => setShowStatementImport(false)} onImported={loadData} />}
 
@@ -392,21 +331,19 @@ export default function BankWorkspace({ user, properties = [], onCashHeldChange 
     {accounts.length > 0 && <>
       <section className="bank-account-grid">{accounts.map((account) => <article className={`panel bank-account ${selectedAccountIds.includes(account.id) ? 'selected' : ''}`} key={account.id}><header><label><input type="checkbox" checked={selectedAccountIds.includes(account.id)} onChange={() => setSelectedAccountIds((current) => current.includes(account.id) ? current.filter((id) => id !== account.id) : [...current, account.id])} /><i />{account.institutionLogo ? <img src={account.institutionLogo} alt="" /> : <Building2 />}</label><button className="icon-button" aria-label={`Disconnect ${account.institutionName}`} onClick={() => deleteConnection(connections.find((connection) => connection.id === account.connectionId))}><Trash2 size={15} /></button></header><span>{account.institutionName}</span><h3>{account.displayName}</h3><strong>{money(account.currentBalance, account.currency)}</strong><small>{account.currency} · {account.ibanLast4 ? `ending ${account.ibanLast4}` : 'account details protected'}</small><footer><label className="switch-label"><input type="checkbox" checked={account.includeInCash} onChange={() => toggleAccount(account)} /><i /><span>Include in cash held</span></label></footer></article>)}</section>
 
-      <section className="bank-metrics-grid"><BankMetric label="Connected GBP balance" value={currency(reportingBalance)} note={`${reportingIds.length} selected GBP account${reportingIds.length === 1 ? '' : 's'} · non-GBP excluded`} tone="dark" /><BankMetric label="Property operating cashflow" value={currency(cashSummary.operatingCashFlow)} note="Rent and property running costs only" tone={cashSummary.operatingCashFlow >= 0 ? 'positive' : 'negative'} /><BankMetric label="Company free cashflow" value={currency(cashSummary.companyFreeCashFlow)} note="Operating + company costs + financing · DLA excluded" tone={cashSummary.companyFreeCashFlow >= 0 ? 'positive' : 'negative'} /><BankMetric label="Net owner funding" value={currency(cashSummary.ownerFundingNet)} note={`DLA injected ${currency(cashSummary.dlaInjected)} · repaid ${currency(cashSummary.dlaRepaid)}`} /><BankMetric label="Net bank movement" value={currency(cashSummary.netBankMovement)} note="Company cash + owner funding + unresolved · internal transfers excluded" tone={cashSummary.netBankMovement >= 0 ? 'positive' : 'negative'} /><BankMetric label="Needs review" value={String(cashSummary.reviewCount)} note={cashSummary.reviewCount ? `${currency(cashSummary.reviewAbsolute)} absolute movement · ${currency(cashSummary.reviewNet)} net` : 'Nothing unresolved in this range'} /></section>
+      <div className="bank-data-controls" aria-label="Banking period and exports"><div><span>Period</span><div className="segmented">{[['3', '3M'], ['6', '6M'], ['12', '12M'], ['all', 'All']].map(([value, label]) => <button className={range === value ? 'active' : ''} key={value} onClick={() => setRange(value)}>{label}</button>)}</div></div><div className="bank-exports"><button className="secondary-button small" onClick={exportCsv}><Download size={14} /> CSV</button><button className="secondary-button small" onClick={exportPdf}><FileText size={14} /> PDF</button></div></div>
 
-      <section className="panel bank-toolbar"><div className="segmented">{[['3', '3M'], ['6', '6M'], ['12', '12M'], ['all', 'All']].map(([value, label]) => <button className={range === value ? 'active' : ''} key={value} onClick={() => setRange(value)}>{label}</button>)}</div><div className="bank-exports"><button className="secondary-button small" onClick={exportCsv}><Download size={14} /> CSV</button><button className="secondary-button small" onClick={exportPdf}><FileText size={14} /> PDF</button></div></section>
+      <BankSummary reportingBalance={reportingBalance} reportingAccountCount={reportingIds.length} cashSummary={cashSummary} />
 
-      <section className="panel bank-chart-panel"><header><div><span className="kicker">BALANCE HISTORY</span><h2>Cash balance over time</h2></div><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></header><BalanceChart points={visibleBalanceSeries} /></section>
+      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history</h2><p>Combined balance of the selected GBP accounts.</p></div><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></header><BalanceChart points={visibleBalanceSeries} /></section>
 
-      <section className="panel bank-chart-panel"><header><div><span className="kicker">TRUE COMPANY CASH FLOW</span><h2>Generated cash, without DLA distortion</h2><p>Includes operating, company-only and financing movements. Owner funding, internal transfers and unresolved rows stay out until classified.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">True inflow</span><span className="outflow">True outflow</span><span className="net">Company free cashflow</span></div><CashFlowChart rows={cashFlow} /></section>
+      <section className="panel bank-chart-panel bank-cashflow-panel"><header><div><h2>Business cash flow</h2><p>Money generated by the business. Owner funding, internal transfers and anything still awaiting review are excluded.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Money in</span><span className="outflow">Money out</span><span className="net">Net business cash</span></div><CashFlowChart rows={cashFlow} /></section>
 
-      <section className="panel bank-chart-panel" aria-label="Cash flow reconciliation"><header><div><span className="kicker">CASH-FLOW RECONCILIATION</span><h2>Why bank movement differs from generated cash</h2><p>DLA is real bank movement but not business-generated cash. Internal transfers remain neutral.</p></div></header><div className="bank-average-grid"><article className="panel"><span>Property operating</span><div><p><b>{currency(cashSummary.operatingCashFlow)}</b></p></div></article><article className="panel"><span>Company-only</span><div><p><b>{currency(cashSummary.companyOnlyCashFlow)}</b></p></div></article><article className="panel"><span>Financing</span><div><p><b>{currency(cashSummary.financingCashFlow)}</b></p></div></article><article className="panel"><span>Owner / DLA funding</span><div><p><b>{currency(cashSummary.ownerFundingNet)}</b></p></div></article><article className="panel"><span>Unresolved</span><div><p><b>{currency(cashSummary.reviewNet)}</b></p><small>{cashSummary.reviewCount} to review</small></div></article><article className="panel"><span>Excluded / non-economic</span><div><p><b>{currency(cashSummary.excludedNet)}</b></p><small>{cashSummary.excludedCount} excluded</small></div></article></div><p className="performance-chart-note"><b>Company free cashflow</b> = operating + company-only + financing. <b>Net bank movement</b> then adds owner/DLA funding, unresolved and explicitly excluded bank movement. {cashSummary.internalTransferCount} internal transfer{cashSummary.internalTransferCount === 1 ? '' : 's'} excluded.</p></section>
-
-      <section className="bank-average-grid">{[['3 month', metrics.averages.threeMonth], ['6 month', metrics.averages.sixMonth], ['12 month', metrics.averages.twelveMonth]].map(([label, average]) => <article className="panel" key={label}><span>{label} average</span><div><p><ArrowUpRight /> Inflow <b>{currency(average.inflow)}</b></p><p><ArrowDownRight /> Outflow <b>{currency(average.outflow)}</b></p><p className={average.net >= 0 ? 'positive' : 'negative'}><TrendingUp /> Net <b>{currency(average.net)}</b></p></div></article>)}</section>
+      <CashFlowReconciliation cashSummary={cashSummary} />
 
       <BankTransactionReview transactions={filteredTransactions} properties={properties} onUpdate={updateTransactionMeta} onUpdateMany={updateTransactionsMeta} />
 
-      <section className="panel bank-transactions"><header><div><span className="kicker">AUTOMATIC CLASSIFICATION</span><h2>Transactions</h2><p>Rules classify rent, mortgages, tax, salary, factors, director loans and common property costs. You can correct any result.</p></div></header><div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <tr key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{transaction.description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</td></tr>)}</tbody></table></div><div className="bank-transaction-mobile-list">{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <article className="bank-mobile-transaction" key={`mobile-${transaction.id}`}><div className="bank-mobile-transaction-head"><div><b>{transaction.description || transaction.counterparty || 'Transaction'}</b><small>{shortDate(transaction.bookedAt)} · {transaction.counterparty || transaction.accountName}</small></div><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</strong></div><div className="bank-mobile-transaction-meta"><span>{transaction.accountName}</span><select aria-label={`Mobile category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div></article>)}</div></section>
+      <section className="panel bank-transactions"><header><div><h2>Transactions</h2><p>Review or correct a category when needed.</p></div></header><div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <tr key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{transaction.description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</td></tr>)}</tbody></table></div><div className="bank-transaction-mobile-list">{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => <article className="bank-mobile-transaction" key={`mobile-${transaction.id}`}><div className="bank-mobile-transaction-head"><div><b>{transaction.description || transaction.counterparty || 'Transaction'}</b><small>{shortDate(transaction.bookedAt)} · {transaction.counterparty || transaction.accountName}</small></div><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</strong></div><div className="bank-mobile-transaction-meta"><span>{transaction.accountName}</span><select aria-label={`Mobile category for ${transaction.description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div></article>)}</div></section>
     </>}
 
     {!accounts.length && status === 'ready' && !showConnect && <section className="panel bank-empty-state"><WalletCards /><h2>Connect the account that receives your property income</h2><p>Its opted-in GBP balances will update the portfolio’s cash-held figure. You can connect and compare multiple accounts.</p><button className="primary-button" onClick={openConnect}><Link2 size={16} /> Choose a bank</button></section>}
