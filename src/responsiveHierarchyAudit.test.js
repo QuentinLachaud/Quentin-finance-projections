@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 const read = (relative) => readFileSync(new URL(relative, import.meta.url), 'utf8')
 const app = read('./App.jsx')
 const bank = read('./BankWorkspace.jsx')
+const bankReview = read('./BankTransactionReview.jsx')
 const bankVisuals = read('./BankingVisuals.jsx')
 const expenses = read('./ExpensesWorkspace.jsx')
 const credentials = read('./CredentialsWorkspace.jsx')
@@ -19,18 +20,19 @@ describe('mobile-native workspace regression audit', () => {
     expect(styles).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.projection-mobile-view[\s\S]*?display:\s*block/)
   })
 
-  it('uses dedicated mobile Banking balance, cash-flow and transaction views', () => {
+  it('uses dedicated mobile Banking balance, cash-flow and compact transaction views', () => {
     expect(bankVisuals).toContain('bank-balance-mobile')
     expect(bank).toContain('bank-cashflow-mobile')
-    expect(bank).toContain('bank-transaction-mobile-list')
+    expect(bankReview).toContain('bank-review-ledger')
+    expect(bank).not.toContain('className="panel bank-transactions"')
     expect(styles).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.bank-chart-desktop[\s\S]*?display:\s*none/)
-    expect(styles).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.bank-transaction-table[\s\S]*?display:\s*none/)
+    expect(styles).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.bank-review-ledger-row/)
   })
 
   it('does not make primary phone views horizontally scrollable', () => {
     expect(styles).toContain('overflow-x: clip')
     expect(styles).not.toMatch(/\.projection-mobile-view[^{]*\{[^}]*overflow-x:\s*(auto|scroll)/)
-    expect(styles).not.toMatch(/\.bank-transaction-mobile-list[^{]*\{[^}]*overflow-x:\s*(auto|scroll)/)
+    expect(styles).not.toMatch(/\.bank-review-ledger[^{]*\{[^}]*overflow-x:\s*(auto|scroll)/)
   })
 })
 

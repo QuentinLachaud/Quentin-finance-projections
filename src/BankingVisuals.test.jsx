@@ -27,7 +27,8 @@ const cashSummary = {
   excludedCount: 1,
   internalTransferCount: 2,
   internalTransferAbsolute: 9000,
-  netBankMovement: -18700,
+  rawBankMovement: -18700,
+  netBankMovement: -18600,
 }
 
 describe('Banking less-is-more visuals', () => {

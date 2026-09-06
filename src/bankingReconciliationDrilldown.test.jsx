@@ -35,13 +35,14 @@ const summary = {
   reviewCount: 1,
   excludedNet: -40,
   excludedCount: 1,
-  operatingCashFlow: 1610,
-  companyOnlyCashFlow: 40,
+  operatingCashFlow: 1650,
+  companyOnlyCashFlow: 0,
   financingCashFlow: -700,
   cashExtractionCount: 1,
   internalTransferCount: 1,
   internalTransferAbsolute: 1000,
-  netBankMovement: -16090,
+  rawBankMovement: -16090,
+  netBankMovement: -16050,
 }
 
 describe('Banking reconciliation drill-down and exclusion UX', () => {
@@ -49,8 +50,9 @@ describe('Banking reconciliation drill-down and exclusion UX', () => {
     expect(reconciliationTransactionsForBucket(rows, 'business').map((row) => row.id)).toEqual(['rent', 'mortgage'])
     expect(reconciliationTransactionsForBucket(rows, 'owner').map((row) => row.id)).toEqual(['owner'])
     expect(reconciliationTransactionsForBucket(rows, 'extraction').map((row) => row.id)).toEqual(['extract'])
-    expect(reconciliationTransactionsForBucket(rows, 'other').map((row) => row.id)).toEqual(['capital', 'deposit', 'review', 'excluded'])
-    expect(reconciliationTransactionsForBucket(rows, 'net').map((row) => row.id)).toEqual(['rent', 'mortgage', 'owner', 'extract', 'capital', 'deposit', 'review', 'excluded'])
+    expect(reconciliationTransactionsForBucket(rows, 'other').map((row) => row.id)).toEqual(['capital', 'deposit', 'review'])
+    expect(reconciliationTransactionsForBucket(rows, 'net').map((row) => row.id)).toEqual(['rent', 'mortgage', 'owner', 'extract', 'capital', 'deposit', 'review'])
+    expect(reconciliationTransactionsForBucket(rows, 'excluded').map((row) => row.id)).toEqual(['excluded'])
   })
 
   it('renders every reconciliation card as an explicit transaction drill-down control', () => {

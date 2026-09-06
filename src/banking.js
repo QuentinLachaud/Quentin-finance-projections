@@ -320,10 +320,12 @@ export const reconciliationTransactionsForBucket = (transactions = [], bucket = 
   const category = normalizeBankCategory(transaction?.category)
   if (transaction?.isTransfer || transaction?.is_transfer || category === 'transfer') return false
   const treatment = performanceTreatmentForTransaction(transaction)
+  if (bucket === 'excluded') return treatment === 'exclude'
+  if (treatment === 'exclude') return false
   if (bucket === 'business') return ['operating', 'company', 'financing'].includes(treatment)
   if (bucket === 'owner') return treatment === 'investor'
   if (bucket === 'extraction') return treatment === 'extraction'
-  if (bucket === 'other') return ['capital', 'liability', 'review', 'exclude'].includes(treatment)
+  if (bucket === 'other') return ['capital', 'liability', 'review'].includes(treatment)
   return bucket === 'net'
 })
 
@@ -364,6 +366,7 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
     excludedCount: 0,
     excludedNet: 0,
     excludedAbsolute: 0,
+    rawBankMovement: 0,
   }
   rows.forEach((transaction) => {
     const amount = number(transaction.amount)
@@ -373,6 +376,7 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
       totals.internalTransferAbsolute += Math.abs(amount)
       return
     }
+    totals.rawBankMovement += amount
     if (treatment === 'operating') totals.operatingCashFlow += amount
     else if (treatment === 'company') totals.companyOnlyCashFlow += amount
     else if (treatment === 'financing') totals.financingCashFlow += amount
@@ -405,7 +409,7 @@ export const summarizeCashFlowPipeline = (transactions = [], options = {}) => {
   const companyFreeCashFlow = totals.operatingCashFlow + totals.companyOnlyCashFlow + totals.financingCashFlow
   const netDlaFunding = totals.dlaInjected - totals.dlaRepaid
   const netBankMovement = companyFreeCashFlow + totals.ownerFundingNet + totals.cashExtractionNet + totals.capitalMovementNet
-    + totals.liabilityMovementNet + totals.reviewNet + totals.excludedNet
+    + totals.liabilityMovementNet + totals.reviewNet
   return Object.fromEntries(Object.entries({
     ...totals,
     companyFreeCashFlow,
@@ -667,13 +671,25 @@ export const calculateBankMetrics = (transactions, balanceSeries = [], options =
   }
 }
 
+export const transactionExcludedFromAnalysis = (transaction) => (
+  transaction?.excludeFromPerformance === true
+  || transaction?.exclude_from_performance === true
+  || (transaction?.performanceTreatment || transaction?.performance_treatment || 'auto') === 'exclude'
+)
+
 export const reconstructBalanceSeries = (accounts, transactions, options = {}) => {
   const accountIds = new Set(options.accountIds || accounts.filter((account) => account.includeInCash !== false).map((account) => account.id))
   const selectedAccounts = accounts.filter((account) => accountIds.has(account.id))
   const dates = new Set()
   const histories = selectedAccounts.map((account) => {
     const rows = transactions
-      .filter((transaction) => transaction.accountId === account.id && transaction.status !== 'pending' && transaction.bookedAt)
+      .filter((transaction) => (
+        transaction.accountId === account.id
+        && transaction.status !== 'pending'
+        && transaction.bookedAt
+        && (options.includeExcluded !== false || !transactionExcludedFromAnalysis(transaction))
+        && (options.includeOwnerFunding !== false || performanceTreatmentForTransaction(transaction) !== 'investor')
+      ))
       .sort((a, b) => a.bookedAt.localeCompare(b.bookedAt))
     rows.forEach((transaction) => dates.add(transaction.bookedAt))
     const currentDate = isoDate(account.balanceUpdatedAt || options.asOf || new Date().toISOString())

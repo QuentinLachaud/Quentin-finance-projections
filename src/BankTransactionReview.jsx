@@ -25,6 +25,26 @@ const categoryLabels = new Map([
 ])
 const transactionId = (transaction) => String(transaction?.id || `${transaction?.accountId || 'bank'}:${transaction?.transactionKey || transaction?.canonicalKey || ''}`)
 
+export function BankTransactionLedger({ rows = [], properties = [], onEdit, onToggleExcluded }) {
+  const propertyNames = new Map((properties || []).map((property) => [String(property.id), property.name]))
+  return <div className="bank-review-ledger" role="list" aria-label="All bank transactions">
+    {rows.map((transaction) => {
+      const description = transaction.description || transaction.counterparty || 'Transaction'
+      const propertyName = propertyNames.get(String(transaction.propertyId || transaction.property_id || ''))
+      const categoryLabel = categoryLabels.get(transaction.category) || transaction.category || 'Other'
+      return <article className={`bank-review-ledger-row${transaction.excludeFromPerformance ? ' excluded' : ''}`} role="listitem" key={transactionId(transaction)}>
+        <div className="bank-review-ledger-main"><b>{description}</b><small>{transaction.bookedAt} · {transaction.accountName || 'Bank account'}</small></div>
+        <div className="bank-review-ledger-tags"><span>{categoryLabel}</span>{propertyName && <span>{propertyName}</span>}</div>
+        <strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount)}</strong>
+        <div className="bank-review-ledger-actions">
+          <label className="bank-inline-exclude compact" title="Remove this transaction from Banking charts and Performance without deleting the imported record"><input type="checkbox" checked={transaction.excludeFromPerformance === true} aria-label={`Exclude ${description} from analysis`} onChange={() => onToggleExcluded?.(transaction)} /><i /><span>{transaction.excludeFromPerformance ? 'Excluded' : 'Exclude'}</span></label>
+          <button type="button" className="bank-review-row-edit" aria-label={`Edit ${description}`} onClick={() => onEdit?.(transaction)}>Edit</button>
+        </div>
+      </article>
+    })}
+  </div>
+}
+
 export default function BankTransactionReview({ transactions, properties = [], tenants = [], onUpdate, onUpdateMany }) {
   const [mode, setMode] = useState('review')
   const [sortMode, setSortMode] = useState('amount')
@@ -99,10 +119,10 @@ export default function BankTransactionReview({ transactions, properties = [], t
 
   return <section className="panel bank-review-panel">
     <header>
-      <div><span className="kicker">TRANSACTION REVIEW</span><h2>Review transactions</h2><p>Make actuals trustworthy one decision at a time. Obvious tenant, rent and property matches are prefilled for confirmation.</p></div>
+      <div><span className="kicker">TRANSACTION REVIEW</span><h2>Review transactions</h2><p>Confirm suggestions, fix exceptions, and move on.</p></div>
       <div className="segmented"><button className={mode === 'review' ? 'active' : ''} onClick={() => switchMode('review')}>Review {reviewCount}</button><button className={mode === 'all' ? 'active' : ''} onClick={() => switchMode('all')}>All</button></div>
     </header>
-    <div className="bank-toolbar"><div className="segmented" aria-label="Transaction review order"><button className={sortMode === 'amount' ? 'active' : ''} onClick={() => setSortMode('amount')}>Largest first</button><button className={sortMode === 'newest' ? 'active' : ''} onClick={() => setSortMode('newest')}>Newest</button></div><button type="button" className="text-button" onClick={() => setShowAdvanced((current) => !current)}>{showAdvanced ? 'Hide advanced' : 'Advanced'}</button></div>
+    <div className="bank-toolbar"><div className="segmented" aria-label="Transaction review order"><button className={sortMode === 'amount' ? 'active' : ''} onClick={() => setSortMode('amount')}>Largest first</button><button className={sortMode === 'newest' ? 'active' : ''} onClick={() => setSortMode('newest')}>Newest</button></div>{active && <button type="button" className="text-button" onClick={() => setShowAdvanced((current) => !current)}>{showAdvanced ? 'Hide advanced' : 'Advanced'}</button>}</div>
 
     {mode === 'review' && !active && reviewCount === 0 && <div className="bank-review-empty"><Check size={18} /><span>All caught up. No transactions need review.</span></div>}
     {mode === 'review' && !active && reviewCount > 0 && <div className="bank-review-empty bank-review-skipped"><span>You skipped the {reviewCount} remaining transaction{reviewCount === 1 ? '' : 's'} for this session.</span><button type="button" className="secondary-button small" onClick={() => setSkippedIds([])}>Review skipped</button></div>}
@@ -117,7 +137,7 @@ export default function BankTransactionReview({ transactions, properties = [], t
           <label><span>Category</span><select value={currentDraft.category} onChange={(event) => updateDraft({ category: event.target.value })}>{BANK_CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           {propertyRelevant && <label><span>Property</span><select value={currentDraft.propertyId || ''} onChange={(event) => updateDraft({ propertyId: event.target.value })}><option value="">Choose property</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select>{baselineDraft?.propertyId && !active.propertyId && currentDraft.propertyId === baselineDraft.propertyId && <small>Suggested · {baselineDraft.suggestionReason || 'Transaction details match'}</small>}</label>}
           {showTreatment && <label><span>Cash-flow treatment</span><select value={currentDraft.performanceTreatment || 'auto'} onChange={(event) => updateDraft({ performanceTreatment: event.target.value })}><option value="auto">Auto · {treatmentLabels[performanceTreatmentForTransaction({ ...active, ...bankTransactionStatePatch(reviewPatchFromDraft({ ...currentDraft, performanceTreatment: 'auto' })) })] || 'Needs review'}</option><option value="operating">Property operating</option><option value="financing">Mortgage / financing</option><option value="company">Company overhead</option><option value="investor">Owner funding / DLA</option><option value="extraction">Cash extraction</option><option value="capital">Capital / acquisition</option><option value="liability">Tenant deposit / liability</option><option value="exclude">Ignore from analysis</option></select></label>}
-          <label className="bank-inline-exclude bank-review-exclude" title="Keep the bank movement but ignore this transaction in cash-flow and Performance analysis"><input type="checkbox" checked={currentDraft.excludeFromPerformance === true} aria-label={`Exclude ${active.description || active.counterparty || 'transaction'} from analysis`} onChange={(event) => updateDraft({ excludeFromPerformance: event.target.checked })} /><i /><span>{currentDraft.excludeFromPerformance ? 'Excluded from analysis' : 'Exclude from analysis'}</span></label>
+          <label className="bank-inline-exclude bank-review-exclude" title="Remove this transaction from Banking charts and Performance without deleting the imported record"><input type="checkbox" checked={currentDraft.excludeFromPerformance === true} aria-label={`Exclude ${active.description || active.counterparty || 'transaction'} from analysis`} onChange={(event) => updateDraft({ excludeFromPerformance: event.target.checked })} /><i /><span>{currentDraft.excludeFromPerformance ? 'Excluded from analysis' : 'Exclude from analysis'}</span></label>
         </div>
         {needsMore && <p className="bank-review-hint">{['operating', 'financing', 'capital', 'liability'].includes(previewTreatment) ? 'Choose the property before saving.' : 'Choose how this transaction affects cash flow before saving.'}</p>}
         {similar.length > 0 && <label className="bank-review-batch"><input type="checkbox" checked={applySimilar} onChange={(event) => setApplySimilar(event.target.checked)} /><i /><span><b><Sparkles size={14} /> Also apply to {similar.length} matching transaction{similar.length === 1 ? '' : 's'}</b><small>Exact counterparty match · unresolved rows only</small></span></label>}
@@ -126,11 +146,6 @@ export default function BankTransactionReview({ transactions, properties = [], t
       {mode === 'review' && reviewQueue.length > 1 && <div className="bank-review-next"><span>Next up</span>{reviewQueue.slice(1, 4).map((transaction) => <div key={transactionId(transaction)}><b>{transaction.description || transaction.counterparty || 'Transaction'}</b><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount)}</strong></div>)}</div>}
     </>}
 
-    {mode === 'all' && !active && <div className="bank-review-all">{allRows.map((transaction) => {
-      const treatment = performanceTreatmentForTransaction(transaction)
-      const property = properties.find((candidate) => String(candidate.id) === String(transaction.propertyId))
-      const description = transaction.description || transaction.counterparty || 'Transaction'
-      return <article key={transactionId(transaction)}><div><b>{description}</b><small>{transaction.bookedAt} · {transaction.accountName || 'Bank account'} · {categoryLabels.get(transaction.category) || transaction.category} · {property?.name || treatmentLabels[treatment] || treatment}</small></div><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount)}</strong><label className="bank-inline-exclude compact"><input type="checkbox" checked={transaction.excludeFromPerformance === true} aria-label={`Exclude ${description} from analysis`} onChange={() => onUpdate?.(transaction, { exclude_from_performance: !transaction.excludeFromPerformance })} /><i /><span>{transaction.excludeFromPerformance ? 'Excluded' : 'Exclude'}</span></label><button type="button" className="secondary-button small" onClick={() => setActiveReviewId(transactionId(transaction))}>Edit</button></article>
-    })}</div>}
+    {mode === 'all' && !active && <BankTransactionLedger rows={allRows} properties={properties} onEdit={(transaction) => setActiveReviewId(transactionId(transaction))} onToggleExcluded={(transaction) => onUpdate?.(transaction, { exclude_from_performance: !transaction.excludeFromPerformance })} />}
   </section>
 }

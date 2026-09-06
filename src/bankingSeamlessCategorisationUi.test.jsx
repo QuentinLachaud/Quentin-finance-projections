@@ -17,6 +17,8 @@ describe('Banking seamless review and chart UX', () => {
   it('keeps a compact DLA visibility control and explicit cash-flow hover/focus hit targets', () => {
     const workspace = readFileSync('src/BankWorkspace.jsx', 'utf8')
     expect(workspace).toContain('Include DLA movements')
+    expect(workspace).toContain('includeExcluded: false')
+    expect(workspace).toContain('includeOwnerFunding: includeDlaInBalance')
     expect(workspace).toContain('bank-cashflow-hit-area')
     expect(workspace).toContain('Net business cash ${currency(row.net)}')
     expect(workspace).toContain('onFocus={() => setHoveredPeriod(row.period)}')

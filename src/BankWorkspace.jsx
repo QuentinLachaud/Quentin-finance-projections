@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, ArrowDownRight, ArrowUpRight, Building2, Check, Download, ExternalLink,
+  AlertTriangle, ArrowDownRight, ArrowUpRight, Building2, Download, ExternalLink,
   FileText, Landmark, Link2, RefreshCw, Search, ShieldCheck, Trash2, WalletCards,
 } from 'lucide-react'
 import { supabase } from './supabase.js'
 import {
-  aggregateCashFlow, BANK_CATEGORIES, balanceSeriesWithoutOwnerFundingDates, calculateBankMetrics, cashHeldFromAccounts,
+  aggregateCashFlow, calculateBankMetrics, cashHeldFromAccounts,
   bankTransactionStatePatch, deduplicateTransactions, detectInternalTransfers, mapStoredBankTransaction, reconstructBalanceSeries, reportingAccountIds,
   summarizeCashFlowPipeline, transactionsToCsv, trueCashFlowTransactions,
 } from './banking.js'
@@ -227,12 +227,6 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
     onCashHeldChange(cashHeldFromAccounts(next))
   }
 
-  const updateCategory = async (transaction, category) => {
-    const { error: updateError } = await supabase.from('bank_transactions').update({ category, is_transfer: category === 'transfer', category_overridden: true }).eq('id', transaction.id)
-    if (updateError) { setError(updateError.message); return }
-    setTransactions((current) => current.map((row) => row.id === transaction.id ? { ...row, category, isTransfer: category === 'transfer', categoryOverridden: true } : row))
-  }
-
   const updateTransactionMeta = async (transaction, patch) => {
     const mappedPatch = bankTransactionStatePatch(patch)
     setTransactions((current) => current.map((row) => row.id === transaction.id ? { ...row, ...mappedPatch } : row))
@@ -290,12 +284,12 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
     return date.toISOString().slice(0, 10)
   }, [range])
   const filteredTransactions = useMemo(() => transactions.filter((transaction) => selectedAccountIds.includes(transaction.accountId) && (!fromDate || transaction.bookedAt >= fromDate)), [transactions, selectedAccountIds, fromDate])
-  const balanceSeries = useMemo(() => reconstructBalanceSeries(reportingSelected, transactions, { accountIds: reportingIds }), [reportingSelected, transactions, reportingIds])
-  const rangedBalanceSeries = useMemo(() => fromDate ? balanceSeries.filter((point) => point.date >= fromDate) : balanceSeries, [balanceSeries, fromDate])
-  const visibleBalanceSeries = useMemo(() => includeDlaInBalance
-    ? rangedBalanceSeries
-    : balanceSeriesWithoutOwnerFundingDates(rangedBalanceSeries, transactions, reportingIds),
-  [includeDlaInBalance, rangedBalanceSeries, transactions, reportingIds])
+  const balanceSeries = useMemo(() => reconstructBalanceSeries(reportingSelected, transactions, {
+    accountIds: reportingIds,
+    includeExcluded: false,
+    includeOwnerFunding: includeDlaInBalance,
+  }), [reportingSelected, transactions, reportingIds, includeDlaInBalance])
+  const visibleBalanceSeries = useMemo(() => fromDate ? balanceSeries.filter((point) => point.date >= fromDate) : balanceSeries, [balanceSeries, fromDate])
   const trueCashTransactions = useMemo(() => trueCashFlowTransactions(transactions), [transactions])
   const cashFlow = useMemo(() => aggregateCashFlow(trueCashTransactions, { period, accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, period, reportingIds, fromDate])
   const metrics = useMemo(() => calculateBankMetrics(trueCashTransactions, visibleBalanceSeries, { accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, visibleBalanceSeries, reportingIds, fromDate])
@@ -313,7 +307,8 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
       `Company free cash flow: ${currency(cashSummary.companyFreeCashFlow)}`,
       `Net owner/DLA funding: ${currency(cashSummary.ownerFundingNet)}`,
       `Cash extraction: ${currency(cashSummary.cashExtractionNet)}`,
-      `Net bank movement (internal transfers excluded): ${currency(cashSummary.netBankMovement)}`,
+      `Analysed net movement (excluded transactions and internal transfers ignored): ${currency(cashSummary.netBankMovement)}`,
+      `Raw bank movement (excluded transactions included): ${currency(cashSummary.rawBankMovement)}`,
       `12 month average true inflow: ${currency(metrics.averages.twelveMonth.inflow)}`,
       `12 month average true outflow: ${currency(metrics.averages.twelveMonth.outflow)}`,
       `Lowest balance: ${currency(metrics.lowestBalance)}   Highest balance: ${currency(metrics.highestBalance)}`,
@@ -349,7 +344,7 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
 
       <BankSummary reportingBalance={reportingBalance} reportingAccountCount={reportingIds.length} cashSummary={cashSummary} />
 
-      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history</h2><p>Combined balance of the selected GBP accounts.</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Hide temporary owner-funding movement dates while keeping the real current balance unchanged"><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
+      <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history</h2><p>Selected GBP accounts. Excluded transactions are removed from this chart.</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Show owner funding / DLA movements in this chart. Excluded transactions remain hidden."><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
 
       <section className="panel bank-chart-panel bank-cashflow-panel"><header><div><h2>Business cash flow</h2><p>Money generated by the business. Owner funding, cash extraction, internal transfers and anything still awaiting review are excluded.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Money in</span><span className="outflow">Money out</span><span className="net">Net business cash</span></div><CashFlowChart rows={cashFlow} /></section>
 
@@ -357,17 +352,6 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
 
       <BankTransactionReview transactions={filteredTransactions} properties={properties} tenants={tenants} onUpdate={updateTransactionMeta} onUpdateMany={updateTransactionsMeta} />
 
-      <section className="panel bank-transactions">
-        <header><div><h2>Transactions</h2><p>Correct a category or exclude a transaction directly from analysis.</p></div></header>
-        <div className="bank-transaction-table"><table><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Category</th><th>Amount</th><th>Exclude</th></tr></thead><tbody>{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => {
-          const description = transaction.description || transaction.counterparty || 'Transaction'
-          return <tr className={transaction.excludeFromPerformance ? 'excluded' : ''} key={transaction.id}><td>{shortDate(transaction.bookedAt)}</td><td>{transaction.accountName}</td><td><b>{description}</b><small>{transaction.counterparty}</small></td><td><select aria-label={`Category for ${description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>{transaction.categoryOverridden && <Check size={12} />}</td><td className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</td><td><label className="bank-inline-exclude compact"><input type="checkbox" checked={transaction.excludeFromPerformance === true} aria-label={`Exclude ${description} from analysis`} onChange={() => toggleTransactionExcluded(transaction)} /><i /><span>{transaction.excludeFromPerformance ? 'Excluded' : 'Exclude'}</span></label></td></tr>
-        })}</tbody></table></div>
-        <div className="bank-transaction-mobile-list">{filteredTransactions.slice().reverse().slice(0, 150).map((transaction) => {
-          const description = transaction.description || transaction.counterparty || 'Transaction'
-          return <article className={`bank-mobile-transaction${transaction.excludeFromPerformance ? ' excluded' : ''}`} key={`mobile-${transaction.id}`}><div className="bank-mobile-transaction-head"><div><b>{description}</b><small>{shortDate(transaction.bookedAt)} · {transaction.counterparty || transaction.accountName}</small></div><strong className={transaction.amount >= 0 ? 'positive' : 'negative'}>{money(transaction.amount, transaction.currency)}</strong></div><div className="bank-mobile-transaction-meta"><span>{transaction.accountName}</span><select aria-label={`Mobile category for ${description}`} value={transaction.category} onChange={(event) => updateCategory(transaction, event.target.value)}>{BANK_CATEGORIES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><label className="bank-inline-exclude compact"><input type="checkbox" checked={transaction.excludeFromPerformance === true} aria-label={`Exclude ${description} from analysis`} onChange={() => toggleTransactionExcluded(transaction)} /><i /><span>{transaction.excludeFromPerformance ? 'Excluded' : 'Exclude'}</span></label></div></article>
-        })}</div>
-      </section>
     </>}
 
     {!accounts.length && status === 'ready' && !showConnect && <section className="panel bank-empty-state"><WalletCards /><h2>Connect the account that receives your property income</h2><p>Its opted-in GBP balances will update the portfolio’s cash-held figure. You can connect and compare multiple accounts.</p><button className="primary-button" onClick={openConnect}><Link2 size={16} /> Choose a bank</button></section>}

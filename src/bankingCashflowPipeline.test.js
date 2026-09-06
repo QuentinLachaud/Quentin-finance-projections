@@ -54,6 +54,19 @@ describe('true cash-flow pipeline', () => {
     expect(summary.reviewCount).toBe(1)
     expect(summary.netBankMovement).toBe(-1500)
   })
+
+  it('keeps excluded movement auditable while removing it from analysed net bank movement', () => {
+    const summary = summarizeCashFlowPipeline([
+      tx({ amount: 1000, category: 'rent', propertyId: 'p1' }),
+      tx({ amount: -36000, category: 'property_acquisition', propertyId: 'p1', excludeFromPerformance: true }),
+    ])
+    expect(summary.companyFreeCashFlow).toBe(1000)
+    expect(summary.excludedCount).toBe(1)
+    expect(summary.excludedNet).toBe(-36000)
+    expect(summary.rawBankMovement).toBe(-35000)
+    expect(summary.netBankMovement).toBe(1000)
+  })
+
 })
 
 describe('minimal review workflow', () => {

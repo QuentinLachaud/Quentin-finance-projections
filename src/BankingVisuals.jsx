@@ -106,7 +106,7 @@ export function ReconciliationTransactionList({ title, transactions = [], proper
       return <article className={transaction.excludeFromPerformance ? 'excluded' : ''} key={reconciliationTransactionId(transaction)}>
         <div><b>{description}</b><small>{transaction.bookedAt || ''} · {reconciliationCategoryLabels.get(transaction.category) || transaction.category || 'Other'}{propertyName ? ` · ${propertyName}` : ''}</small></div>
         <strong className={amountTone(transaction.amount)}>{currency(transaction.amount)}</strong>
-        <label className="bank-inline-exclude" title="Keep the bank movement but ignore this transaction in cash-flow and Performance analysis">
+        <label className="bank-inline-exclude" title="Remove this transaction from Banking charts and Performance without deleting the imported record">
           <input type="checkbox" checked={transaction.excludeFromPerformance === true} aria-label={`Exclude ${description} from analysis`} onChange={() => onToggleExcluded?.(transaction)} />
           <i /><span>{transaction.excludeFromPerformance ? 'Excluded' : 'Exclude'}</span>
         </label>
@@ -118,13 +118,13 @@ export function ReconciliationTransactionList({ title, transactions = [], proper
 export function CashFlowReconciliation({ cashSummary, transactions = [], properties = [], onToggleExcluded }) {
   const [activeBucket, setActiveBucket] = useState('')
   const otherMovement = Number(cashSummary.capitalMovementNet || 0) + Number(cashSummary.liabilityMovementNet || 0)
-    + Number(cashSummary.reviewNet || 0) + Number(cashSummary.excludedNet || 0)
+    + Number(cashSummary.reviewNet || 0)
   const cards = [
     { key: 'business', label: 'Business cash generated', value: cashSummary.companyFreeCashFlow, note: 'Operations + company-level cash + financing' },
     { key: 'owner', label: 'Owner funding', value: cashSummary.ownerFundingNet, note: 'DLA injected minus DLA repaid' },
     { key: 'extraction', label: 'Cash extracted', value: cashSummary.cashExtractionNet, note: 'Payroll and owner distributions' },
-    { key: 'other', label: 'Other bank movement', value: otherMovement, note: `${cashSummary.reviewCount} to review · ${cashSummary.excludedCount} excluded` },
-    { key: 'net', label: 'Net bank movement', value: cashSummary.netBankMovement, note: 'Selected period · internal transfers ignored', total: true },
+    { key: 'other', label: 'Other bank movement', value: otherMovement, note: `${cashSummary.reviewCount} to review · capital & deposits` },
+    { key: 'net', label: 'Net bank movement', value: cashSummary.netBankMovement, note: 'Selected period · excluded & transfers ignored', total: true },
   ].map((card) => ({ ...card, rows: reconciliationTransactionsForBucket(transactions, card.key) }))
   const activeCard = cards.find((card) => card.key === activeBucket) || null
   const activeRows = activeCard ? [...activeCard.rows].sort((left, right) => String(right.bookedAt || '').localeCompare(String(left.bookedAt || '')) || Math.abs(Number(right.amount || 0)) - Math.abs(Number(left.amount || 0))) : []
@@ -138,9 +138,10 @@ export function CashFlowReconciliation({ cashSummary, transactions = [], propert
     ['Tenant deposits', cashSummary.liabilityMovementNet, `${cashSummary.liabilityMovementCount || 0} deposit movement${cashSummary.liabilityMovementCount === 1 ? '' : 's'} · not income or expense`],
     ['Needs review', cashSummary.reviewNet, `${cashSummary.reviewCount} transaction${cashSummary.reviewCount === 1 ? '' : 's'} awaiting classification`],
     ['Excluded from analysis', cashSummary.excludedNet, `${cashSummary.excludedCount} explicitly excluded transaction${cashSummary.excludedCount === 1 ? '' : 's'}`],
+    ['Raw bank movement', cashSummary.rawBankMovement, 'Includes excluded rows; internal transfers ignored'],
   ]
   return <section className="panel bank-reconciliation" aria-label="Cash flow reconciliation">
-    <header><div><h2>How bank movement is explained</h2><p>Click any card to see the transactions behind it. Excluding a row keeps the real bank movement but removes it from analysis.</p></div></header>
+    <header><div><h2>How bank movement is explained</h2><p>Click a card to inspect its transactions. Excluded rows stay stored but disappear from analysis.</p></div></header>
     <div className="bank-reconcile-equation">
       {cards.map((card, index) => <React.Fragment key={card.key}>
         {index > 0 && <i aria-hidden="true">{card.key === 'net' ? '=' : '+'}</i>}

@@ -125,6 +125,22 @@ describe('balance reconstruction and metrics', () => {
     ])
   })
 
+  it('reconstructs analytical balance without excluded or hidden DLA movements while preserving the real current endpoint', () => {
+    const account = [{ id: 'a', currency: 'GBP', currentBalance: 1000, balanceUpdatedAt: '2026-03-31', includeInCash: true }]
+    const rows = [
+      tx('a', '2026-01-10', 20000, { category: 'owner_funding' }),
+      tx('a', '2026-01-20', -15000, { category: 'property_acquisition', propertyId: 'p1', excludeFromPerformance: true }),
+      tx('a', '2026-02-10', 1000, { category: 'rent', propertyId: 'p1' }),
+    ]
+    expect(reconstructBalanceSeries(account, rows, { asOf: '2026-03-31', includeExcluded: false, includeOwnerFunding: false })).toEqual([
+      { date: '2026-02-10', balance: 1000 },
+      { date: '2026-03-31', balance: 1000 },
+    ])
+    const withDla = reconstructBalanceSeries(account, rows, { asOf: '2026-03-31', includeExcluded: false, includeOwnerFunding: true })
+    expect(withDla.map((point) => point.date)).toEqual(['2026-01-10', '2026-02-10', '2026-03-31'])
+    expect(withDla.at(-1).balance).toBe(1000)
+  })
+
   it('calculates cash held only from opted-in GBP accounts', () => {
     expect(cashHeldFromAccounts([...accounts, { id: 'c', currency: 'EUR', currentBalance: 900 }, { id: 'd', currency: 'GBP', currentBalance: 800, includeInCash: false }])).toBe(2000)
   })
