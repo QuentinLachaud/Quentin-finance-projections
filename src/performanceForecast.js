@@ -1,4 +1,5 @@
 import { amortizingPayment, calculatePortfolio } from './calculations.js'
+import { transactionExcludedFromAnalysis } from './banking.js'
 
 const clean = (value) => String(value ?? '').trim()
 const finite = (value, fallback = 0) => {
@@ -19,7 +20,8 @@ export const PERFORMANCE_SERIES = [
   { key: 'assetValue', label: 'Portfolio value', propertyLabel: 'Property value', axis: 'capital' },
   { key: 'equity', label: 'Equity', propertyLabel: 'Equity', axis: 'capital' },
   { key: 'debt', label: 'Mortgage debt', propertyLabel: 'Mortgage debt', axis: 'capital' },
-  { key: 'monthlyCashflow', label: 'Monthly cash flow', propertyLabel: 'Monthly cash flow', axis: 'flow' },
+  { key: 'monthlyCashflow', label: 'Model cash flow', propertyLabel: 'Model cash flow', axis: 'flow' },
+  { key: 'actualBankCashflow', label: 'Actual bank cash flow', propertyLabel: 'Actual bank cash flow', axis: 'flow', actual: true },
   { key: 'cashAccumulation', label: 'Cash accumulated', propertyLabel: 'Cash accumulated', axis: 'capital' },
   { key: 'monthlyRent', label: 'Monthly rent', propertyLabel: 'Monthly rent', axis: 'flow' },
 ]
@@ -42,7 +44,21 @@ export const addMonthsKey = (source, amount) => {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
+export const monthDistance = (fromMonth, toMonth) => {
+  const from = clean(fromMonth).match(/^(\d{4})-(\d{2})$/)
+  const to = clean(toMonth).match(/^(\d{4})-(\d{2})$/)
+  if (!from || !to) return 0
+  return (Number(to[1]) - Number(from[1])) * 12 + Number(to[2]) - Number(from[2])
+}
+
+const previousMonthKey = (month) => addMonthsKey(month, -1)
+const nextMonthKey = (month) => addMonthsKey(month, 1)
+
 const validMonth = (value) => /^(\d{4})-(0[1-9]|1[0-2])$/.test(clean(value))
+const strictMonthKey = (value) => {
+  const match = clean(value).match(/^(\d{4})-(0[1-9]|1[0-2])/)
+  return match ? `${match[1]}-${match[2]}` : ''
+}
 
 export const monthLabel = (value, long = false) => {
   if (!validMonth(value)) return '—'
@@ -108,13 +124,45 @@ export const validatePerformanceUpdate = (candidate, updates, properties = [], i
   if (candidate?.endMonth && candidate.endMonth < candidate.startMonth) return 'End month must be on or after start month.'
   if (!Number.isFinite(Number(candidate?.value)) || Number(candidate.value) <= 0) return 'Enter a value above £0.'
   if (!normalized) return 'Check the update details.'
-  const collision = normalizePerformanceUpdates(updates, properties).find((entry) =>
-    entry.id !== ignoreId
-    && entry.propertyId === normalized.propertyId
-    && entry.kind === normalized.kind
-    && rangesOverlap(entry, normalized))
-  if (collision) return `This overlaps ${monthLabel(collision.startMonth, true)}${collision.endMonth ? `–${monthLabel(collision.endMonth, true)}` : ' onward'}. Edit that range first.`
   return ''
+}
+
+export const applyPerformanceUpdate = (updates, candidate, properties = []) => {
+  const normalizedCandidate = normalizePerformanceUpdate(candidate)
+  if (!normalizedCandidate) return normalizePerformanceUpdates(updates, properties)
+
+  const current = normalizePerformanceUpdates(updates, properties)
+    .filter((entry) => entry.id !== normalizedCandidate.id)
+  const next = []
+
+  for (const entry of current) {
+    const sameTrack = entry.propertyId === normalizedCandidate.propertyId && entry.kind === normalizedCandidate.kind
+    if (!sameTrack || !rangesOverlap(entry, normalizedCandidate)) {
+      next.push(entry)
+      continue
+    }
+
+    if (entry.startMonth < normalizedCandidate.startMonth) {
+      next.push({
+        ...entry,
+        id: `${entry.id}:before:${normalizedCandidate.id}`,
+        endMonth: previousMonthKey(normalizedCandidate.startMonth),
+      })
+    }
+
+    const candidateEnd = normalizedCandidate.endMonth || '9999-12'
+    const entryEnd = entry.endMonth || '9999-12'
+    if (normalizedCandidate.endMonth && entryEnd > candidateEnd) {
+      next.push({
+        ...entry,
+        id: `${entry.id}:after:${normalizedCandidate.id}`,
+        startMonth: nextMonthKey(normalizedCandidate.endMonth),
+      })
+    }
+  }
+
+  next.push(normalizedCandidate)
+  return normalizePerformanceUpdates(next.map((entry, index) => ({ ...entry, order: index })), properties)
 }
 
 export const activePerformanceUpdate = (updates, propertyId, kind, atMonth) => normalizePerformanceUpdates(updates, [{ id: propertyId }])
@@ -178,6 +226,69 @@ const scopedCalculationSettings = (settings, scope, assumptions, activeShock) =>
   ...(scope === 'portfolio' ? {} : { companyCosts: [], extractions: [] }),
 })
 
+const bankTransactionMonth = (transaction) => strictMonthKey(transaction?.bookedAt || transaction?.booked_at || '')
+
+export const buildActualBankCashflowSeries = ({
+  transactions = [], scope = 'portfolio', fromMonth = '', toMonth = '',
+} = {}) => {
+  const rows = (Array.isArray(transactions) ? transactions : [])
+    .filter((transaction) => transaction?.status !== 'pending')
+    .filter((transaction) => !transactionExcludedFromAnalysis(transaction))
+    .filter((transaction) => {
+      if (scope === 'portfolio') return true
+      return clean(transaction?.propertyId || transaction?.property_id) === clean(scope)
+    })
+    .map((transaction) => ({ month: bankTransactionMonth(transaction), amount: finite(transaction?.amount, NaN) }))
+    .filter((row) => validMonth(row.month) && Number.isFinite(row.amount))
+
+  if (!rows.length) return []
+  const first = rows.map((row) => row.month).sort().at(0)
+  const last = rows.map((row) => row.month).sort().at(-1)
+  const start = validMonth(fromMonth) && fromMonth > first ? fromMonth : first
+  const end = validMonth(toMonth) && toMonth < last ? toMonth : last
+  if (end < start) return []
+
+  const byMonth = new Map()
+  rows.forEach((row) => byMonth.set(row.month, finite(byMonth.get(row.month)) + row.amount))
+  const points = []
+  for (let month = start, guard = 0; month <= end && guard < 600; month = addMonthsKey(month, 1), guard += 1) {
+    points.push({ date: month, value: Math.round((finite(byMonth.get(month)) + Number.EPSILON) * 100) / 100 })
+  }
+  return points
+}
+
+const earliestScopeMonth = (selected, updates, todayMonth) => {
+  const propertyIds = new Set(selected.map((property) => clean(property?.id)))
+  const purchaseMonths = selected.map((property) => strictMonthKey(property?.purchaseDate || '')).filter(validMonth)
+  const updateMonths = updates
+    .filter((entry) => propertyIds.has(entry.propertyId) && entry.startMonth <= todayMonth)
+    .map((entry) => entry.startMonth)
+  return [...purchaseMonths, ...updateMonths].filter((month) => month <= todayMonth).sort().at(0) || todayMonth
+}
+
+const propertyOwnedAt = (property, atMonth) => {
+  const purchaseMonth = strictMonthKey(property?.purchaseDate || '')
+  return !validMonth(purchaseMonth) || purchaseMonth <= atMonth
+}
+
+const historicalPropertyAtMonth = (property, updates, atMonth, todayMonth) => {
+  if (!propertyOwnedAt(property, atMonth)) return null
+  const id = clean(property?.id)
+  const rentUpdate = activePerformanceUpdate(updates, id, 'rent', atMonth)
+  const valuationUpdate = activePerformanceUpdate(updates, id, 'valuation', atMonth)
+  const purchaseMonth = strictMonthKey(property?.purchaseDate || '')
+  const fallbackValue = atMonth < todayMonth && validMonth(purchaseMonth) && nonNegative(property?.purchasePrice)
+    ? nonNegative(property.purchasePrice)
+    : nonNegative(property?.latestValuation)
+  return {
+    ...property,
+    active: true,
+    rent: rentUpdate ? nonNegative(rentUpdate.value) : nonNegative(property?.rent),
+    latestValuation: valuationUpdate ? nonNegative(valuationUpdate.value) : fallbackValue,
+    loanAmount: nonNegative(property?.loanAmount),
+  }
+}
+
 export const buildTheoreticalPerformanceProjection = ({
   properties = [], settings = {}, scope = 'portfolio', scenarioId = 0, horizonYears = 10,
   excludeExtractions = true, now = new Date(),
@@ -188,60 +299,91 @@ export const buildTheoreticalPerformanceProjection = ({
   const updates = normalizePerformanceUpdates(settings.performanceUpdates, properties)
   const anchors = new Map(selected.map((property) => [clean(property.id), performanceAnchorForProperty(property, updates, todayMonth)]))
   const balances = new Map(selected.map((property) => [clean(property.id), nonNegative(property.loanAmount)]))
+  const futureState = new Map(selected.map((property) => {
+    const id = clean(property.id)
+    const anchor = anchors.get(id) || { rent: 0, value: 0 }
+    return [id, { rent: anchor.rent, value: anchor.value }]
+  }))
   const horizon = Math.max(1, Math.min(15, finite(horizonYears, 10)))
-  const months = Math.round(horizon * 12)
+  const futureMonths = Math.round(horizon * 12)
+  const startMonth = earliestScopeMonth(selected, updates, todayMonth)
+  const historyMonths = Math.max(0, monthDistance(startMonth, todayMonth))
   const scenarioIndex = Math.max(0, Math.min(2, Math.trunc(finite(scenarioId))))
   const points = []
   let cashAccumulation = 0
+  const monthlyGrowth = (1 + Math.max(-0.99, assumptions.rentGrowthRate)) ** (1 / 12)
+  const monthlyHpi = (1 + Math.max(-0.99, assumptions.appreciationRate)) ** (1 / 12)
 
-  for (let month = 0; month <= months; month += 1) {
-    const atMonth = addMonthsKey(todayMonth, month)
-    const shock = rateShockAt(assumptions, atMonth)
-    const years = month / 12
-    const growth = Math.max(-0.99, assumptions.rentGrowthRate)
-    const hpi = Math.max(-0.99, assumptions.appreciationRate)
+  for (let offset = -historyMonths; offset <= futureMonths; offset += 1) {
+    const atMonth = addMonthsKey(todayMonth, offset)
+    const isHistory = offset < 0
+    const isToday = offset === 0
+    const shock = isHistory ? 0 : rateShockAt(assumptions, atMonth)
 
-    if (month > 0) {
-      for (const property of selected) {
-        const id = clean(property.id)
-        const priorBalance = balances.get(id) || 0
-        const originalTerm = Math.max(1, Math.round(finite(property.mortgageTermMonths, 300)))
-        const remainingTerm = Math.max(1, originalTerm - (month - 1))
-        const annualRate = Math.max(0, finite(property.baseRate) + shock)
-        balances.set(id, projectRepaymentBalance({ balance: priorBalance, property, annualRate, remainingTerm }))
+    let projected
+    if (isHistory) {
+      projected = selected
+        .map((property) => historicalPropertyAtMonth(property, updates, atMonth, todayMonth))
+        .filter(Boolean)
+    } else {
+      if (!isToday) {
+        for (const property of selected) {
+          const id = clean(property.id)
+          const priorBalance = balances.get(id) || 0
+          const originalTerm = Math.max(1, Math.round(finite(property.mortgageTermMonths, 300)))
+          const elapsed = Math.max(0, offset - 1)
+          const remainingTerm = Math.max(1, originalTerm - elapsed)
+          const annualRate = Math.max(0, finite(property.baseRate) + shock)
+          balances.set(id, projectRepaymentBalance({ balance: priorBalance, property, annualRate, remainingTerm }))
+
+          const prior = futureState.get(id) || { rent: 0, value: 0 }
+          const rentUpdate = activePerformanceUpdate(updates, id, 'rent', atMonth)
+          const valuationUpdate = activePerformanceUpdate(updates, id, 'valuation', atMonth)
+          futureState.set(id, {
+            rent: rentUpdate ? nonNegative(rentUpdate.value) : prior.rent * monthlyGrowth,
+            value: valuationUpdate ? nonNegative(valuationUpdate.value) : prior.value * monthlyHpi,
+          })
+        }
       }
+
+      projected = selected
+        .filter((property) => propertyOwnedAt(property, atMonth))
+        .map((property) => {
+          const id = clean(property.id)
+          const state = futureState.get(id) || { rent: 0, value: 0 }
+          return {
+            ...property,
+            active: true,
+            rent: state.rent,
+            latestValuation: state.value,
+            loanAmount: balances.get(id) || 0,
+            mortgageTermMonths: Math.max(1, Math.round(finite(property.mortgageTermMonths, 300)) - Math.max(0, offset)),
+          }
+        })
     }
 
-    const projected = selected.map((property) => {
-      const id = clean(property.id)
-      const anchor = anchors.get(id) || { rent: 0, value: 0 }
-      return {
-        ...property,
-        active: true,
-        rent: anchor.rent * ((1 + growth) ** years),
-        latestValuation: anchor.value * ((1 + hpi) ** years),
-        loanAmount: balances.get(id) || 0,
-        mortgageTermMonths: Math.max(1, Math.round(finite(property.mortgageTermMonths, 300)) - month),
-      }
-    })
     const calculationSettings = scopedCalculationSettings(settings, scope, assumptions, shock)
     const portfolio = calculatePortfolio(projected, calculationSettings, new Date(`${atMonth}-01T12:00:00Z`))
     const scenario = portfolio.scenarios?.[scenarioIndex] || { cashflow: 0, bankCashflow: 0 }
     const monthlyCashflow = scope === 'portfolio' && !excludeExtractions
       ? finite(scenario.bankCashflow)
       : finite(scenario.cashflow)
-    if (month > 0) cashAccumulation += monthlyCashflow
+
+    if (offset > 0) cashAccumulation += monthlyCashflow
     const assetValue = projected.reduce((sum, property) => sum + nonNegative(property.latestValuation), 0)
     const debt = projected.reduce((sum, property) => sum + nonNegative(property.loanAmount), 0)
     const monthlyRent = projected.reduce((sum, property) => sum + nonNegative(property.rent), 0)
+
     points.push({
-      month,
+      month: offset,
       date: atMonth,
+      period: isHistory ? 'history' : isToday ? 'today' : 'forecast',
       assetValue,
       equity: assetValue - debt,
       debt,
       monthlyCashflow,
-      cashAccumulation,
+      actualBankCashflow: null,
+      cashAccumulation: offset < 0 ? null : cashAccumulation,
       monthlyRent,
       rateShockApplied: shock,
       scenarioId: scenarioIndex,
@@ -255,6 +397,10 @@ export const buildTheoreticalPerformanceProjection = ({
     assumptions,
     points,
     anchors: Object.fromEntries(anchors),
+    startMonth,
+    todayMonth,
+    todayIndex: historyMonths,
+    forecastEndMonth: addMonthsKey(todayMonth, futureMonths),
     excludeExtractions: scope === 'portfolio' ? Boolean(excludeExtractions) : true,
     isEmpty: selected.length === 0,
   }
@@ -301,17 +447,19 @@ export const formatCompactCurrency = (value) => {
   return `${sign}£${Math.round(abs).toLocaleString('en-GB')}`
 }
 
-export const performanceXAxisTicks = (points, horizonYears) => {
+export const performanceXAxisTicks = (points) => {
   const list = Array.isArray(points) ? points : []
   if (!list.length) return []
-  const years = finite(horizonYears, 10)
-  const every = years <= 1 ? 2 : years <= 3 ? 4 : years <= 5 ? 6 : 12
+  const spanMonths = Math.max(0, list.length - 1)
+  const every = spanMonths <= 18 ? 2 : spanMonths <= 36 ? 3 : spanMonths <= 72 ? 6 : spanMonths <= 180 ? 12 : 24
+  const showMonth = spanMonths <= 72
   const ticks = list
     .map((point, index) => ({ point, index }))
-    .filter(({ point, index }) => index === 0 || index === list.length - 1 || point.month % every === 0)
+    .filter(({ point, index }) => index === 0 || index === list.length - 1 || point.date?.endsWith('-01') || index % every === 0)
+    .filter(({ index }) => index === 0 || index === list.length - 1 || index % every === 0)
     .map(({ point, index }) => ({
       index,
-      label: years <= 5 ? monthLabel(point.date) : point.date.slice(0, 4),
+      label: showMonth ? monthLabel(point.date) : point.date.slice(0, 4),
     }))
   return ticks.filter((tick, index) => index === 0 || tick.label !== ticks[index - 1]?.label)
 }

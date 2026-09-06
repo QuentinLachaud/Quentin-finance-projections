@@ -1,10 +1,13 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
+import { useBankPerformanceData } from './useBankPerformanceData.js'
 import {
   DEFAULT_PERFORMANCE_SERIES,
   PERFORMANCE_SCENARIOS,
   PERFORMANCE_SERIES,
+  applyPerformanceUpdate,
+  buildActualBankCashflowSeries,
   buildTheoreticalPerformanceProjection,
   createPerformanceUpdate,
   formatCompactCurrency,
@@ -27,11 +30,12 @@ const SERIES_CLASS = {
   equity: 'equity',
   debt: 'debt',
   monthlyCashflow: 'cashflow',
+  actualBankCashflow: 'actual-cashflow',
   cashAccumulation: 'cash',
   monthlyRent: 'rent',
 }
 
-const chartWidthFor = (horizonYears) => ({ 1: 900, 3: 1080, 5: 1260, 10: 1680, 15: 2040 }[horizonYears] || 1260)
+const chartWidthFor = (pointCount) => Math.max(980, Math.min(2800, 520 + Math.max(0, pointCount - 1) * 10))
 
 function Segmented({ label, value, options, onChange, className = '' }) {
   return <div className={`performance-v2-segmented ${className}`} role="group" aria-label={label}>
@@ -45,47 +49,66 @@ function Segmented({ label, value, options, onChange, className = '' }) {
   </div>
 }
 
-function PerformanceChart({ model, visibleSeries, horizonYears, scope }) {
+function PerformanceChart({ model, visibleSeries, scope }) {
   const points = model.points || []
-  const [activeIndex, setActiveIndex] = useState(0)
-  const width = chartWidthFor(horizonYears)
-  const height = 390
-  const pad = { top: 28, right: 84, bottom: 46, left: 84 }
+  const [activeIndex, setActiveIndex] = useState(model.todayIndex || 0)
+  const width = chartWidthFor(points.length)
+  const height = 430
+  const pad = { top: 34, right: 94, bottom: 52, left: 94 }
   const plotWidth = width - pad.left - pad.right
   const plotHeight = height - pad.top - pad.bottom
   const series = PERFORMANCE_SERIES.filter((item) => visibleSeries.includes(item.key))
-  const capitalSeries = series.filter((item) => item.axis === 'capital')
-  const flowSeries = series.filter((item) => item.axis === 'flow')
-  const capitalAxis = niceCurrencyAxis(points.flatMap((point) => capitalSeries.map((item) => point[item.key])), 5)
-  const flowAxis = niceCurrencyAxis(points.flatMap((point) => flowSeries.map((item) => point[item.key])), 5)
-  const xTicks = performanceXAxisTicks(points, horizonYears)
-  const active = points[Math.min(activeIndex, Math.max(0, points.length - 1))] || points[0]
+  const capitalSeries = series.filter((item) => item.axis === 'capital' && points.some((point) => Number.isFinite(Number(point[item.key]))))
+  const flowSeries = series.filter((item) => item.axis === 'flow' && points.some((point) => Number.isFinite(Number(point[item.key]))))
+  const capitalAxis = niceCurrencyAxis(points.flatMap((point) => capitalSeries.map((item) => point[item.key])).filter((value) => value != null), 5)
+  const flowAxis = niceCurrencyAxis(points.flatMap((point) => flowSeries.map((item) => point[item.key])).filter((value) => value != null), 5)
+  const xTicks = performanceXAxisTicks(points)
+  const clampedIndex = Math.min(activeIndex, Math.max(0, points.length - 1))
+  const active = points[clampedIndex] || points[0]
   const x = (index) => pad.left + (index / Math.max(1, points.length - 1)) * plotWidth
   const yFor = (value, axis) => {
     const range = Math.max(1e-9, axis.max - axis.min)
     return pad.top + ((axis.max - Number(value || 0)) / range) * plotHeight
   }
-  const pathFor = (item) => points.map((point, index) => {
+  const pathFor = (item) => {
     const axis = item.axis === 'flow' ? flowAxis : capitalAxis
-    return `${index ? 'L' : 'M'} ${x(index).toFixed(2)} ${yFor(point[item.key], axis).toFixed(2)}`
-  }).join(' ')
+    let path = ''
+    let drawing = false
+    points.forEach((point, index) => {
+      const value = point[item.key]
+      if (!Number.isFinite(Number(value))) {
+        drawing = false
+        return
+      }
+      path += `${drawing ? ' L' : ' M'} ${x(index).toFixed(2)} ${yFor(value, axis).toFixed(2)}`
+      drawing = true
+    })
+    return path.trim()
+  }
   const gridAxis = capitalSeries.length ? capitalAxis : flowAxis
+
+  useEffect(() => {
+    setActiveIndex(model.todayIndex || 0)
+  }, [model.todayIndex, points.length])
+
   const pointerMove = (event) => {
     const rect = event.currentTarget.getBoundingClientRect()
     if (!rect.width || points.length < 2) return
-    const relative = Math.max(0, Math.min(1, (event.clientX - rect.left - pad.left) / Math.max(1, rect.width - pad.left - pad.right)))
+    const svgX = (event.clientX - rect.left) * (width / rect.width)
+    const relative = Math.max(0, Math.min(1, (svgX - pad.left) / Math.max(1, plotWidth)))
     setActiveIndex(Math.round(relative * (points.length - 1)))
   }
 
   if (!points.length) return <div className="performance-v2-empty-chart">Add an active BTL to model Performance.</div>
 
-  return <>
-    <div className="performance-v2-inspector" aria-live="polite">
-      <strong>{monthLabel(active?.date, true)}</strong>
-      {series.map((item) => <span key={item.key} className={`series-${SERIES_CLASS[item.key]}`}>
-        <i />{scope === 'portfolio' ? item.label : item.propertyLabel}: <b>{currency(active?.[item.key])}</b>
-      </span>)}
-    </div>
+  const tooltipWidth = 248
+  const tooltipRows = series.filter((item) => Number.isFinite(Number(active?.[item.key])))
+  const tooltipHeight = 38 + tooltipRows.length * 19
+  const tooltipX = Math.max(pad.left + 8, Math.min(width - pad.right - tooltipWidth - 8, x(clampedIndex) + 14))
+  const tooltipY = Math.max(pad.top + 8, Math.min(height - pad.bottom - tooltipHeight - 8, 48))
+  const todayX = Number.isFinite(Number(model.todayIndex)) ? x(model.todayIndex) : null
+
+  return <div className="performance-v2-chart-shell">
     <div className="performance-v2-chart-scroll" data-testid="performance-chart-scroll">
       <svg
         className="performance-v2-chart"
@@ -93,7 +116,7 @@ function PerformanceChart({ model, visibleSeries, horizonYears, scope }) {
         width={width}
         height={height}
         role="img"
-        aria-label="Forward performance chart"
+        aria-label="Performance chart from recorded history through the selected forecast horizon"
         onPointerMove={pointerMove}
         onPointerDown={pointerMove}
       >
@@ -104,34 +127,66 @@ function PerformanceChart({ model, visibleSeries, horizonYears, scope }) {
             return <line key={`grid-${tick}`} x1={pad.left} x2={width - pad.right} y1={y} y2={y} />
           })}
         </g>
+
         {capitalSeries.length > 0 && <g className="performance-v2-axis capital-axis">
-          {capitalAxis.ticks.map((tick) => <text key={`capital-${tick}`} x={pad.left - 12} y={yFor(tick, capitalAxis) + 4} textAnchor="end">{formatCompactCurrency(tick)}</text>)}
+          {capitalAxis.ticks.map((tick) => <text key={`capital-${tick}`} x={pad.left - 14} y={yFor(tick, capitalAxis) + 5} textAnchor="end">{formatCompactCurrency(tick)}</text>)}
         </g>}
         {flowSeries.length > 0 && <g className="performance-v2-axis flow-axis">
-          {flowAxis.ticks.map((tick) => <text key={`flow-${tick}`} x={width - pad.right + 12} y={yFor(tick, flowAxis) + 4} textAnchor="start">{formatCompactCurrency(tick)}/m</text>)}
+          {flowAxis.ticks.map((tick) => <text key={`flow-${tick}`} x={width - pad.right + 14} y={yFor(tick, flowAxis) + 5} textAnchor="start">{formatCompactCurrency(tick)}/m</text>)}
         </g>}
+
         <g className="performance-v2-x-axis">
           {xTicks.map((tick) => <g key={`${tick.index}-${tick.label}`}>
             <line x1={x(tick.index)} x2={x(tick.index)} y1={height - pad.bottom} y2={height - pad.bottom + 6} />
-            <text x={x(tick.index)} y={height - 16} textAnchor="middle">{tick.label}</text>
+            <text x={x(tick.index)} y={height - 18} textAnchor="middle">{tick.label}</text>
           </g>)}
         </g>
-        {series.map((item) => <path
-          key={item.key}
-          className={`performance-v2-line series-${SERIES_CLASS[item.key]}`}
-          d={pathFor(item)}
-          vectorEffect="non-scaling-stroke"
-        />)}
+
+        {todayX != null && <g className="performance-v2-today-marker" aria-hidden="true">
+          <line x1={todayX} x2={todayX} y1={pad.top} y2={height - pad.bottom} />
+          <text x={todayX + 7} y={pad.top + 12}>Today</text>
+        </g>}
+
+        {series.map((item) => {
+          const d = pathFor(item)
+          return d ? <path
+            key={item.key}
+            className={`performance-v2-line series-${SERIES_CLASS[item.key]} ${item.actual ? 'actual-series' : ''}`}
+            d={d}
+            vectorEffect="non-scaling-stroke"
+          /> : null
+        })}
+
+        {series.map((item) => {
+          const axis = item.axis === 'flow' ? flowAxis : capitalAxis
+          return <g key={`points-${item.key}`} className={`performance-v2-points series-${SERIES_CLASS[item.key]}`}>
+            {points.map((point, index) => Number.isFinite(Number(point[item.key]))
+              ? <circle key={`${item.key}-${point.date}`} cx={x(index)} cy={yFor(point[item.key], axis)} r="1.9" />
+              : null)}
+          </g>
+        })}
+
         {active && <g className="performance-v2-scrubber" aria-hidden="true">
-          <line x1={x(activeIndex)} x2={x(activeIndex)} y1={pad.top} y2={height - pad.bottom} />
+          <line className="performance-v2-hover-guide" x1={x(clampedIndex)} x2={x(clampedIndex)} y1={pad.top} y2={height - pad.bottom} />
           {series.map((item) => {
+            if (!Number.isFinite(Number(active[item.key]))) return null
             const axis = item.axis === 'flow' ? flowAxis : capitalAxis
-            return <circle key={item.key} className={`series-${SERIES_CLASS[item.key]}`} cx={x(activeIndex)} cy={yFor(active[item.key], axis)} r="4.5" />
+            return <circle key={item.key} className={`series-${SERIES_CLASS[item.key]}`} cx={x(clampedIndex)} cy={yFor(active[item.key], axis)} r="4.2" />
           })}
+        </g>}
+
+        {active && <g className="performance-v2-hover-card" transform={`translate(${tooltipX} ${tooltipY})`} aria-hidden="true">
+          <rect width={tooltipWidth} height={tooltipHeight} rx="12" />
+          <text className="date" x="14" y="21">{monthLabel(active.date, true)}</text>
+          {tooltipRows.map((item, index) => <g key={item.key} transform={`translate(0 ${35 + index * 19})`}>
+            <circle className={`series-${SERIES_CLASS[item.key]}`} cx="15" cy="-4" r="2.7" />
+            <text x="25" y="0">{scope === 'portfolio' ? item.label : item.propertyLabel}</text>
+            <text className="value" x={tooltipWidth - 14} y="0" textAnchor="end">{currency(active[item.key])}</text>
+          </g>)}
         </g>}
       </svg>
     </div>
-  </>
+  </div>
 }
 
 function UpdateModal({ draft, setDraft, properties, updates, onSave, onClose }) {
@@ -165,22 +220,8 @@ function UpdateModal({ draft, setDraft, properties, updates, onSave, onClose }) 
   </div>
 }
 
-function DeleteModal({ update, property, onCancel, onDelete }) {
-  if (!update) return null
-  return <div className="performance-v2-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
-    <div className="performance-v2-modal performance-v2-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="performance-delete-title">
-      <div className="performance-v2-danger-icon"><Trash2 size={18} /></div>
-      <h3 id="performance-delete-title">Delete this {update.kind} update?</h3>
-      <p>{propertyName(property)} · {currency(update.value)} · {monthLabel(update.startMonth, true)}{update.endMonth ? ` to ${monthLabel(update.endMonth, true)}` : ' onward'}</p>
-      <div className="performance-v2-modal-actions">
-        <button type="button" className="performance-v2-secondary" onClick={onCancel}>Cancel</button>
-        <button type="button" className="performance-v2-delete" onClick={onDelete}>Delete</button>
-      </div>
-    </div>
-  </div>
-}
-
 export default function PerformanceWorkspace({
+  user = null,
   properties = [],
   settings = {},
   onAssumptionChange,
@@ -194,12 +235,28 @@ export default function PerformanceWorkspace({
   const [updateKind, setUpdateKind] = useState('rent')
   const [draft, setDraft] = useState(null)
   const [deleteId, setDeleteId] = useState('')
-  const [dragId, setDragId] = useState('')
+  const [dragState, setDragState] = useState(null)
+  const updateNodes = useRef(new Map())
+  const bankData = useBankPerformanceData(user?.id)
 
   const updates = useMemo(() => normalizePerformanceUpdates(settings.performanceUpdates, properties), [settings.performanceUpdates, properties])
   const model = useMemo(() => buildTheoreticalPerformanceProjection({
     properties, settings, scope, scenarioId, horizonYears, excludeExtractions,
   }), [properties, settings, scope, scenarioId, horizonYears, excludeExtractions])
+  const actualBankSeries = useMemo(() => buildActualBankCashflowSeries({
+    transactions: bankData.transactions,
+    scope,
+    fromMonth: model.startMonth,
+    toMonth: model.todayMonth,
+  }), [bankData.transactions, scope, model.startMonth, model.todayMonth])
+  const actualBankByMonth = useMemo(() => new Map(actualBankSeries.map((point) => [point.date, point.value])), [actualBankSeries])
+  const chartModel = useMemo(() => ({
+    ...model,
+    points: model.points.map((point) => ({
+      ...point,
+      actualBankCashflow: actualBankByMonth.has(point.date) ? actualBankByMonth.get(point.date) : null,
+    })),
+  }), [model, actualBankByMonth])
   const assumptions = resolvePerformanceAssumptions(settings, scope)
   const scopedProperty = activeProperties.find((property) => property.id === scope) || null
   const visibleUpdates = updates.filter((entry) => entry.kind === updateKind && (scope === 'portfolio' || entry.propertyId === scope))
@@ -217,23 +274,85 @@ export default function PerformanceWorkspace({
   }), _new: true })
   const saveUpdate = (entry) => {
     const normalized = { ...entry, value: Number(entry.value) }
-    writeUpdates(updates.some((candidate) => candidate.id === entry.id)
-      ? updates.map((candidate) => candidate.id === entry.id ? normalized : candidate)
-      : [...updates, normalized])
+    writeUpdates(applyPerformanceUpdate(updates, normalized, properties))
     setDraft(null)
   }
-  const reorder = (targetId) => {
-    if (!dragId || dragId === targetId) return setDragId('')
+
+  const moveUpdate = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= visibleUpdates.length) return
     const orderedVisible = [...visibleUpdates]
-    const from = orderedVisible.findIndex((entry) => entry.id === dragId)
-    const to = orderedVisible.findIndex((entry) => entry.id === targetId)
-    if (from < 0 || to < 0) return setDragId('')
-    const [moved] = orderedVisible.splice(from, 1)
-    orderedVisible.splice(to, 0, moved)
-    const rank = new Map(orderedVisible.map((entry, index) => [entry.id, index]))
-    const otherCount = updates.length - orderedVisible.length
-    writeUpdates(updates.map((entry) => rank.has(entry.id) ? { ...entry, order: otherCount + rank.get(entry.id) } : entry))
-    setDragId('')
+    const [moved] = orderedVisible.splice(fromIndex, 1)
+    orderedVisible.splice(toIndex, 0, moved)
+    const visibleIds = new Set(orderedVisible.map((entry) => entry.id))
+    const reordered = []
+    let visibleIndex = 0
+    for (const entry of updates) {
+      if (visibleIds.has(entry.id)) reordered.push({ ...orderedVisible[visibleIndex++], order: reordered.length })
+      else reordered.push({ ...entry, order: reordered.length })
+    }
+    writeUpdates(reordered)
+  }
+
+  const updateDragShift = (index) => {
+    if (!dragState || index === dragState.fromIndex) return 0
+    const distance = dragState.height + dragState.gap
+    if (dragState.fromIndex < dragState.toIndex && index > dragState.fromIndex && index <= dragState.toIndex) return -distance
+    if (dragState.fromIndex > dragState.toIndex && index >= dragState.toIndex && index < dragState.fromIndex) return distance
+    return 0
+  }
+
+  const beginUpdateDrag = (event, entry, index) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const node = updateNodes.current.get(entry.id)
+    if (!node) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    const rect = node.getBoundingClientRect()
+    const stack = node.parentElement
+    const gap = Number.parseFloat(stack ? window.getComputedStyle(stack).rowGap : '10') || 10
+    setDragState({
+      id: entry.id,
+      pointerId: event.pointerId,
+      fromIndex: index,
+      toIndex: index,
+      startY: event.clientY,
+      currentY: event.clientY,
+      height: rect.height,
+      gap,
+    })
+  }
+
+  const updateUpdateDrag = (event) => {
+    if (!dragState || dragState.pointerId !== event.pointerId) return
+    event.preventDefault()
+    const pointerY = event.clientY
+    let targetIndex = dragState.fromIndex
+    for (let index = 0; index < visibleUpdates.length; index += 1) {
+      if (index === dragState.fromIndex) continue
+      const node = updateNodes.current.get(visibleUpdates[index].id)
+      if (!node) continue
+      const rect = node.getBoundingClientRect()
+      const midpoint = rect.top + rect.height / 2
+      if (index < dragState.fromIndex && pointerY < midpoint) {
+        targetIndex = index
+        break
+      }
+      if (index > dragState.fromIndex && pointerY > midpoint) targetIndex = index
+    }
+    setDragState((current) => current && current.pointerId === event.pointerId
+      ? { ...current, currentY: pointerY, toIndex: targetIndex }
+      : current)
+  }
+
+  const finishUpdateDrag = (event, cancelled = false) => {
+    if (!dragState || dragState.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+    const { fromIndex, toIndex } = dragState
+    setDragState(null)
+    if (!cancelled && fromIndex !== toIndex) moveUpdate(fromIndex, toIndex)
   }
   const writeModelInput = (key, value) => {
     if (scope === 'portfolio') return onAssumptionChange?.(key, value)
@@ -258,7 +377,7 @@ export default function PerformanceWorkspace({
 
   return <section className="performance-v2" aria-label="Performance forecast">
     <header className="performance-v2-header">
-      <div><span className="performance-v2-eyebrow">Forward model</span><h1>Performance</h1><p>Theoretical progression from today, using your current BTL values and recorded input updates.</p></div>
+      <div><span className="performance-v2-eyebrow">History + forecast</span><h1>Performance</h1><p>Recorded property inputs from acquisition onward, then a theoretical forecast from today.</p></div>
       <label className="performance-v2-scope">Scope<select value={scope} onChange={(event) => setScope(event.target.value)}>
         <option value="portfolio">Whole portfolio</option>
         {activeProperties.map((property) => <option key={property.id} value={property.id}>{propertyName(property)}</option>)}
@@ -279,16 +398,17 @@ export default function PerformanceWorkspace({
         onClick={() => toggleSeries(item.key)}
       ><i />{scope === 'portfolio' ? item.label : item.propertyLabel}</button>)}
     </div>
+    {!bankData.available && <p className="performance-v2-bank-note">Actual bank cash flow becomes available when Banking has imported or connected transaction data.</p>}
 
     <article className="performance-v2-chart-card">
       <div className="performance-v2-chart-head">
-        <div><h2>{scope === 'portfolio' ? 'Portfolio projection' : `${propertyName(scopedProperty)} projection`}</h2><p>{model.scenario.label} · {horizonYears} year{horizonYears === 1 ? '' : 's'} · cash accumulated starts at £0 today</p></div>
+        <div><h2>{scope === 'portfolio' ? 'Portfolio performance' : `${propertyName(scopedProperty)} performance`}</h2><p>{monthLabel(model.startMonth, true)} → {monthLabel(model.forecastEndMonth, true)} · {model.scenario.label} forecast · cash accumulated starts at £0 today</p></div>
         <label className={`performance-v2-switch ${!isCompanyPortfolio ? 'disabled' : ''}`}>
           <input type="checkbox" checked={excludeExtractions} disabled={!isCompanyPortfolio} onChange={(event) => setExcludeExtractions(event.target.checked)} />
           <span aria-hidden="true" /><b>Exclude extractions</b><small>{isCompanyPortfolio ? 'Shows true company cash flow' : 'Portfolio companies only'}</small>
         </label>
       </div>
-      <PerformanceChart model={model} visibleSeries={visibleSeries} horizonYears={horizonYears} scope={scope} />
+      <PerformanceChart model={chartModel} visibleSeries={visibleSeries} scope={scope} />
     </article>
 
     <article className="performance-v2-inputs-card">
@@ -310,20 +430,46 @@ export default function PerformanceWorkspace({
         <button type="button" className="performance-v2-primary small" onClick={newUpdate}><Plus size={16} /> Add update</button>
       </div>
       <Segmented label="Update type" value={updateKind} onChange={setUpdateKind} options={[{ value: 'rent', label: 'Rent' }, { value: 'valuation', label: 'Valuation' }]} className="performance-v2-update-tags" />
-      <div className="performance-v2-update-list">
+      <p className="performance-v2-update-help">New dated values take precedence automatically. If a range overlaps an older one, the older range is trimmed around it.</p>
+      <div className={`performance-v2-update-list ${dragState ? 'is-reordering' : ''}`}>
         {visibleUpdates.length === 0 && <div className="performance-v2-update-empty">No {updateKind} updates recorded for this scope. The forecast uses the current property {updateKind === 'rent' ? 'rent' : 'valuation'}.</div>}
-        {visibleUpdates.map((entry) => {
+        {visibleUpdates.map((entry, index) => {
           const property = properties.find((candidate) => candidate.id === entry.propertyId)
+          const isDragging = dragState?.id === entry.id
+          const shift = updateDragShift(index)
+          const dragOffset = isDragging ? dragState.currentY - dragState.startY : 0
           return <div
             key={entry.id}
-            className={`performance-v2-update-row ${dragId === entry.id ? 'dragging' : ''}`}
-            draggable
-            onDragStart={() => setDragId(entry.id)}
-            onDragEnd={() => setDragId('')}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => reorder(entry.id)}
+            ref={(node) => {
+              if (node) updateNodes.current.set(entry.id, node)
+              else updateNodes.current.delete(entry.id)
+            }}
+            className={`performance-v2-update-row ${isDragging ? 'is-dragging' : ''}`}
+            style={{
+              '--performance-update-y': `${isDragging ? dragOffset : shift}px`,
+              '--performance-update-scale': isDragging ? '1.012' : '1',
+            }}
           >
-            <span className="performance-v2-drag" aria-label="Drag to reorder"><GripVertical size={18} /></span>
+            <button
+              type="button"
+              className="performance-v2-drag"
+              aria-label={`Reorder ${entry.kind} update`}
+              title="Drag to reorder"
+              onPointerDown={(event) => beginUpdateDrag(event, entry, index)}
+              onPointerMove={updateUpdateDrag}
+              onPointerUp={(event) => finishUpdateDrag(event)}
+              onPointerCancel={(event) => finishUpdateDrag(event, true)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault()
+                  moveUpdate(index, index - 1)
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault()
+                  moveUpdate(index, index + 1)
+                }
+              }}
+            ><GripVertical size={18} /></button>
             <div className="performance-v2-update-main">
               <span>{scope === 'portfolio' ? propertyName(property) : (entry.kind === 'rent' ? 'Monthly rent' : 'Valuation')}</span>
               <strong>{currency(entry.value)}{entry.kind === 'rent' ? ' / month' : ''}</strong>

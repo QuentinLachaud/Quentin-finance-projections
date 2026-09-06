@@ -4,33 +4,43 @@ import { describe, expect, it } from 'vitest'
 import PerformanceWorkspace from './PerformanceWorkspace.jsx'
 
 const property = {
-  id: 'p1', name: 'BTL1', active: true, latestValuation: 220000, purchasePrice: 200000,
-  loanAmount: 150000, rent: 1100, mortgageInterestOnly: true, mortgageTermMonths: 300,
-  baseRate: 0.04, repairs: 65, factorsFees: 0, legionella: 0, gasCertificate: 0, eicr: 0,
+  id: 'p1', name: 'BTL1', active: true, purchaseDate: '2025-02-28',
+  latestValuation: 240000, purchasePrice: 200000, rent: 1200, loanAmount: 150000,
+  mortgageInterestOnly: true, mortgageTermMonths: 300, baseRate: 0.04,
 }
 const settings = {
-  accountType: 'company', appreciationRate: 0.03, rentGrowthRate: 0.02, rateShock: 0,
-  companyCosts: [], extractions: [], fullyManaged: false,
-  performanceUpdates: [{ id: 'rent-1', kind: 'rent', propertyId: 'p1', value: 1200, startMonth: '2026-01', endMonth: '', order: 0 }],
+  accountType: 'company', rentGrowthRate: 0.02, appreciationRate: 0.03, rateShock: 0,
+  managementRate: 0, fullyManaged: false, companyCosts: [], extractions: [],
+  performanceUpdates: [
+    { id: 'rent-1', kind: 'rent', propertyId: 'p1', value: 1200, startMonth: '2025-02', endMonth: '', order: 0 },
+  ],
 }
 
-describe('Performance v2 UI', () => {
-  it('renders the default portfolio conservative forward model with high-value controls', () => {
+describe('Performance history + forecast UI', () => {
+  it('renders portfolio conservative defaults with history-aware, banking-aware chart controls', () => {
     const html = renderToStaticMarkup(<PerformanceWorkspace properties={[property]} settings={settings} onAssumptionChange={() => {}} />)
-    for (const text of ['Forward model', 'Performance', 'Whole portfolio', 'Conservative', 'No voids', 'No repairs/voids', '10Y', 'Portfolio value', 'Equity', 'Monthly cash flow', 'Cash accumulated', 'Exclude extractions', 'Shows true company cash flow']) {
+    for (const text of [
+      'History + forecast', 'Performance', 'Whole portfolio', 'Conservative', 'No voids', 'No repairs/voids',
+      '10Y', 'Portfolio value', 'Equity', 'Model cash flow', 'Actual bank cash flow', 'Cash accumulated',
+      'Exclude extractions', 'Shows true company cash flow',
+    ]) {
       expect(html).toContain(text)
     }
-    expect(html).toContain('aria-label="Forward performance chart"')
-    expect(html).toContain('data-testid="performance-chart-scroll"')
+    expect(html).toContain('Performance chart from recorded history through the selected forecast horizon')
+    expect(html).toContain('Today')
   })
 
-  it('renders scoped model inputs and the tagged update ledger without redundant historical dashboard copy', () => {
+  it('renders larger high-value model/update controls and explains automatic overlap precedence', () => {
     const html = renderToStaticMarkup(<PerformanceWorkspace properties={[property]} settings={settings} onAssumptionChange={() => {}} />)
-    for (const text of ['Model inputs', 'Portfolio assumptions', 'Rent growth', 'HPI / appreciation', 'Rate shock', 'Additive to current mortgage rate', 'Shock starts', 'Recorded inputs', 'Rent &amp; valuation updates', 'Rent', 'Valuation', 'Add update', '£1,200 / month']) {
+    for (const text of [
+      'Model inputs', 'Portfolio assumptions', 'Rent growth', 'HPI / appreciation', 'Rate shock',
+      'Additive to current mortgage rate', 'Shock starts', 'Recorded inputs', 'Rent &amp; valuation updates',
+      'Rent', 'Valuation', 'Add update', 'New dated values take precedence automatically',
+    ]) {
       expect(html).toContain(text)
     }
+    expect(html).not.toContain('This overlaps')
     expect(html).not.toContain('Investment snapshot')
     expect(html).not.toContain('Return breakdown')
-    expect(html).not.toContain('Financial history')
   })
 })

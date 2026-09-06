@@ -7,46 +7,73 @@ const ui = read('./PerformanceWorkspace.jsx')
 const forecast = read('./performanceForecast.js')
 const styles = read('./styles.css')
 
-describe('Performance v2 integration', () => {
-  it('keeps Performance wired through the existing portfolio state without a backend migration', () => {
+describe('Performance v3 history + forecast integration', () => {
+  it('keeps Performance on the existing state/user wiring without a backend migration', () => {
     expect(app).toContain("import PerformanceWorkspace from './PerformanceWorkspace.jsx'")
     expect(app).toContain("{section === 'Performance' && <PerformanceWorkspace")
+    expect(app).toContain('user={user}')
     expect(ui).toContain("onAssumptionChange?.('performanceUpdates'")
     expect(ui).toContain("onAssumptionChange?.('performanceModelOverrides'")
-    expect(forecast).toContain('settings.performanceUpdates')
+    expect(ui).toContain("useBankPerformanceData(user?.id)")
     expect(forecast).not.toContain("from('performance_")
   })
 
-  it('reuses canonical calculatePortfolio scenario cash semantics instead of duplicating them', () => {
+  it('reuses canonical scenario cash semantics while adding historical scope and actual Banking cash flow', () => {
     expect(forecast).toContain("import { amortizingPayment, calculatePortfolio } from './calculations.js'")
+    expect(forecast).toContain("import { transactionExcludedFromAnalysis } from './banking.js'")
     expect(forecast).toContain('const portfolio = calculatePortfolio(projected, calculationSettings')
     expect(forecast).toContain('scenario.bankCashflow')
     expect(forecast).toContain('scenario.cashflow')
-    expect(forecast).toContain("{ id: 0, label: 'Conservative'")
-    expect(forecast).toContain("{ id: 1, label: 'No voids'")
-    expect(forecast).toContain("{ id: 2, label: 'No repairs or voids'")
+    expect(forecast).toContain('earliestScopeMonth')
+    expect(forecast).toContain('buildActualBankCashflowSeries')
+    expect(forecast).toContain('transactionExcludedFromAnalysis(transaction)')
   })
 
-  it('supports explicit update ranges, overlap validation, editing, deletion confirmation and drag reordering', () => {
-    for (const token of ['normalizePerformanceUpdate', 'validatePerformanceUpdate', 'activePerformanceUpdate', 'rangesOverlap']) expect(forecast).toContain(token)
-    expect(ui).toContain('draggable')
-    expect(ui).toContain('onDrop={() => reorder(entry.id)}')
-    expect(ui).toContain('role="alertdialog"')
-    expect(ui).toContain('Delete this {update.kind} update?')
-    expect(ui).toContain('Edit ${entry.kind} update')
+  it('allows overlap by authoritative replacement and uses acquisition-style pointer drag reordering', () => {
+    for (const token of ['applyPerformanceUpdate', 'rangesOverlap', 'previousMonthKey', 'nextMonthKey']) expect(forecast).toContain(token)
+    expect(ui).toContain('writeUpdates(applyPerformanceUpdate')
+    expect(ui).toContain('setPointerCapture?.(event.pointerId)')
+    expect(ui).toContain('releasePointerCapture?.(event.pointerId)')
+    expect(ui).toContain('updateDragShift')
+    expect(ui).toContain('--performance-update-y')
+    expect(ui).not.toContain('draggable')
+    expect(ui).not.toContain('onDrop={() => reorder(entry.id)}')
+    expect(ui).toContain('DeleteConfirmDialog')
   })
 
-  it('offers all requested toggles, scoped assumptions, additive delayed rate shock and adaptive axes', () => {
-    for (const token of ['assetValue', 'equity', 'debt', 'monthlyCashflow', 'cashAccumulation', 'monthlyRent', 'performanceRateShockStartMonth', 'performanceModelOverrides', 'niceCurrencyAxis', 'performanceXAxisTicks']) expect(forecast).toContain(token)
+  it('renders subtle monthly points, local hover values, a dotted vertical guide and a Today boundary', () => {
+    expect(ui).toContain('performance-v2-points')
+    expect(ui).toContain('performance-v2-hover-card')
+    expect(ui).toContain('performance-v2-hover-guide')
+    expect(ui).toContain('performance-v2-today-marker')
+    expect(ui).toContain('monthLabel(active.date, true)')
+    expect(styles).toContain('.performance-v2-points circle')
+    expect(styles).toContain('stroke-dasharray: 2 5')
+    expect(styles).toContain('.performance-v2-hover-card')
+    expect(styles).toContain('.performance-v2-today-marker')
+  })
+
+  it('uses restrained series styling and materially larger typography than the first revamp', () => {
+    expect(styles).toContain('--perf-blue: #536273')
+    expect(styles).toContain('--perf-actual: #293640')
+    expect(styles).toContain('font-size: 13px')
+    expect(styles).toContain('font-size: .9rem')
+    expect(styles).toContain('.performance-v2-line.actual-series')
+    expect(styles).toContain('stroke-dasharray: 5 4')
+    expect(styles).toContain('.performance-v2-update-row.is-dragging')
+    expect(styles).toContain('touch-action: none')
+  })
+
+  it('keeps chart overflow local and all seven series independently toggleable', () => {
+    for (const token of [
+      'assetValue', 'equity', 'debt', 'monthlyCashflow', 'actualBankCashflow',
+      'cashAccumulation', 'monthlyRent', 'performanceRateShockStartMonth',
+      'performanceModelOverrides', 'niceCurrencyAxis', 'performanceXAxisTicks',
+    ]) expect(forecast).toContain(token)
+    expect(ui).toContain('performance-v2-chart-scroll')
+    expect(styles).toContain('.performance-v2-chart-scroll')
+    expect(styles).toContain('overflow-x: auto')
     expect(ui).toContain('Exclude extractions')
-    expect(ui).toContain('Shows true company cash flow')
-    expect(ui).toContain('Additive to current mortgage rate')
-    expect(ui).toContain('Use portfolio inputs')
-  })
-
-  it('keeps horizontal overflow local and preserves clear iOS-like visual affordances', () => {
-    for (const token of ['.performance-v2-chart-scroll', 'overflow-x: auto', '.performance-v2-switch', '.performance-v2-segmented', '.performance-v2-modal-backdrop', '@media (max-width: 560px)']) expect(styles).toContain(token)
-    expect(styles).toContain('min-height: 40px')
-    expect(styles).toContain('--perf-blue: #0a84ff')
+    expect(ui).toContain('Actual bank cash flow')
   })
 })

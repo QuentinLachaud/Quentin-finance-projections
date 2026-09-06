@@ -16006,7 +16006,6 @@ button.contractor-tag-chip { cursor: pointer; }
   .bank-import-account-choice { grid-template-columns: 1fr; gap: 5px; }
   .bank-import-account-choice select { width: 100%; min-height: 44px; font-size: 16px; }
 }
-
 /* Performance v2 — theoretical forward model */
 .performance-v2 {
   --perf-blue: #0a84ff;
@@ -16071,7 +16070,7 @@ button.contractor-tag-chip { cursor: pointer; }
 .performance-v2-inspector span { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; white-space: nowrap; }
 .performance-v2-inspector span b { color: var(--ui-text); font-size: .75rem; }
 .performance-v2-chart-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; scrollbar-width: thin; touch-action: pan-x pan-y; }
-.performance-v2-chart { display: block; min-width: 900px; max-height: 390px; user-select: none; }
+.performance-v2-chart { display: block; max-height: 390px; user-select: none; }
 .performance-v2-grid line { stroke: color-mix(in srgb, var(--ui-border) 70%, transparent); stroke-width: 1; }
 .performance-v2-axis text, .performance-v2-x-axis text { fill: var(--ui-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .performance-v2-x-axis line { stroke: var(--ui-border); }
@@ -16145,4 +16144,317 @@ button.contractor-tag-chip { cursor: pointer; }
   .performance-v2-update-row { grid-template-columns: 24px minmax(0, 1fr) auto; }
   .performance-v2-update-range b { white-space: normal; }
   .performance-v2-modal-dates { grid-template-columns: 1fr; }
+}
+/* Performance v3 — restrained history + forecast refinement */
+.performance-v2 {
+  --perf-blue: #536273;
+  --perf-green: #49685f;
+  --perf-grey: #7b7f83;
+  --perf-orange: #6f665c;
+  --perf-purple: #686276;
+  --perf-cyan: #6c7a72;
+  --perf-actual: #293640;
+  gap: 16px;
+  font-size: 16px;
+}
+.performance-v2-header h1 {
+  font-size: clamp(1.9rem, 2.7vw, 2.35rem);
+}
+.performance-v2-header p {
+  font-size: 1rem;
+  line-height: 1.48;
+}
+.performance-v2-eyebrow,
+.performance-v2-control-label {
+  font-size: .8rem;
+  letter-spacing: .045em;
+}
+.performance-v2-scope {
+  font-size: .84rem;
+}
+.performance-v2-scope select,
+.performance-v2-input-grid input,
+.performance-v2-modal input,
+.performance-v2-modal select {
+  min-height: 46px;
+  font-size: 1rem;
+}
+.performance-v2-segmented button {
+  min-height: 42px;
+  font-size: .91rem;
+  font-weight: 680;
+}
+.performance-v2-metric {
+  min-height: 42px;
+  font-size: .9rem;
+  font-weight: 650;
+  border-color: color-mix(in srgb, var(--ui-border) 88%, transparent);
+}
+.performance-v2-metric.selected {
+  box-shadow: 0 1px 3px rgb(0 0 0 / .055);
+}
+.performance-v2 .series-value { color: var(--perf-blue); }
+.performance-v2 .series-equity { color: var(--perf-green); }
+.performance-v2 .series-debt { color: var(--perf-grey); }
+.performance-v2 .series-cashflow { color: var(--perf-orange); }
+.performance-v2 .series-actual-cashflow { color: var(--perf-actual); }
+.performance-v2 .series-cash { color: var(--perf-purple); }
+.performance-v2 .series-rent { color: var(--perf-cyan); }
+
+.performance-v2-chart-card,
+.performance-v2-inputs-card,
+.performance-v2-updates-card {
+  border-radius: 22px;
+  box-shadow: 0 5px 18px rgb(0 0 0 / .025);
+}
+.performance-v2-chart-card {
+  padding-top: 20px;
+}
+.performance-v2-chart-head {
+  padding: 0 20px 16px;
+}
+.performance-v2-chart-head h2,
+.performance-v2-section-head h2 {
+  font-size: 1.28rem;
+  letter-spacing: -.022em;
+}
+.performance-v2-chart-head p {
+  font-size: .9rem;
+  line-height: 1.4;
+}
+.performance-v2-switch b {
+  font-size: .9rem;
+}
+.performance-v2-switch small {
+  font-size: .76rem;
+}
+.performance-v2-switch input:checked + span {
+  background: #59756c;
+}
+
+.performance-v2-bank-note {
+  margin: -4px 2px 0;
+  color: var(--ui-muted);
+  font-size: .82rem;
+}
+.performance-v2-chart-shell {
+  position: relative;
+  border-top: 1px solid color-mix(in srgb, var(--ui-border) 70%, transparent);
+}
+.performance-v2-chart-scroll {
+  scroll-behavior: smooth;
+}
+.performance-v2-chart {
+  min-width: 980px;
+  max-height: 430px;
+}
+.performance-v2-grid line {
+  stroke: color-mix(in srgb, var(--ui-border) 62%, transparent);
+}
+.performance-v2-axis text,
+.performance-v2-x-axis text {
+  font-size: 13px;
+  font-weight: 560;
+}
+.performance-v2-line {
+  stroke-width: 1.8;
+  opacity: .92;
+}
+.performance-v2-line.actual-series {
+  stroke-width: 1.7;
+  stroke-dasharray: 5 4;
+  opacity: .88;
+}
+.performance-v2-points circle {
+  fill: var(--ui-surface);
+  stroke: currentColor;
+  stroke-width: 1.15;
+  opacity: .72;
+  vector-effect: non-scaling-stroke;
+}
+.performance-v2-scrubber .performance-v2-hover-guide {
+  stroke: color-mix(in srgb, var(--ui-text) 46%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+}
+.performance-v2-scrubber circle {
+  fill: var(--ui-surface);
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+.performance-v2-today-marker line {
+  stroke: color-mix(in srgb, var(--ui-text) 25%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 4 5;
+}
+.performance-v2-today-marker text {
+  fill: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.performance-v2-hover-card {
+  pointer-events: none;
+}
+.performance-v2-hover-card rect {
+  fill: color-mix(in srgb, var(--ui-surface) 96%, transparent);
+  stroke: color-mix(in srgb, var(--ui-border) 90%, transparent);
+  stroke-width: 1;
+  filter: drop-shadow(0 5px 12px rgb(0 0 0 / .09));
+}
+.performance-v2-hover-card text {
+  fill: var(--ui-muted);
+  font-size: 12.5px;
+  font-weight: 560;
+}
+.performance-v2-hover-card text.date {
+  fill: var(--ui-text);
+  font-size: 13px;
+  font-weight: 720;
+}
+.performance-v2-hover-card text.value {
+  fill: var(--ui-text);
+  font-size: 12.7px;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+
+.performance-v2-inputs-card,
+.performance-v2-updates-card {
+  padding: 20px;
+}
+.performance-v2-section-head {
+  margin-bottom: 16px;
+}
+.performance-v2-input-grid {
+  gap: 14px 16px;
+  align-items: start;
+}
+.performance-v2-input-grid > label,
+.performance-v2-modal > label,
+.performance-v2-modal-dates label {
+  gap: 7px;
+  font-size: .9rem;
+  font-weight: 680;
+}
+.performance-v2-input-grid label > small,
+.performance-v2-modal label > small {
+  font-size: .77rem;
+  line-height: 1.35;
+}
+.performance-v2-percent-input span,
+.performance-v2-money-input span {
+  font-size: .88rem;
+}
+.performance-v2-text-button,
+.performance-v2-primary,
+.performance-v2-secondary,
+.performance-v2-delete {
+  font-size: .9rem;
+}
+.performance-v2-update-help {
+  margin: -2px 0 12px;
+  color: var(--ui-muted);
+  font-size: .82rem;
+  line-height: 1.4;
+}
+.performance-v2-update-list {
+  gap: 10px;
+}
+.performance-v2-update-row {
+  position: relative;
+  grid-template-columns: 38px minmax(200px, 1fr) minmax(220px, auto) auto;
+  min-height: 72px;
+  padding: 9px 10px 9px 6px;
+  border-radius: 16px;
+  background: var(--ui-surface);
+  transform: translateY(var(--performance-update-y, 0)) scale(var(--performance-update-scale, 1));
+  transition: transform 180ms cubic-bezier(.22,.8,.25,1), box-shadow 180ms ease, opacity 150ms ease;
+  will-change: transform;
+}
+.performance-v2-update-list.is-reordering .performance-v2-update-row:not(.is-dragging) {
+  transition: transform 170ms cubic-bezier(.22,.8,.25,1);
+}
+.performance-v2-update-row.is-dragging {
+  z-index: 4;
+  transition: none;
+  box-shadow: 0 12px 28px rgb(0 0 0 / .12);
+}
+.performance-v2-drag {
+  width: 38px;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: color-mix(in srgb, var(--ui-muted) 85%, transparent);
+  cursor: grab;
+  touch-action: none;
+}
+.performance-v2-drag:hover {
+  background: color-mix(in srgb, var(--ui-muted) 9%, transparent);
+  color: var(--ui-text);
+}
+.performance-v2-drag:active {
+  cursor: grabbing;
+}
+.performance-v2-update-main span,
+.performance-v2-update-range small {
+  font-size: .78rem;
+}
+.performance-v2-update-main strong,
+.performance-v2-update-range b {
+  font-size: .96rem;
+}
+
+.performance-v2-modal {
+  max-width: 760px;
+}
+.performance-v2-modal-head small {
+  font-size: .82rem;
+}
+.performance-v2-modal-head h3 {
+  font-size: 1.65rem;
+}
+.performance-v2-form-error {
+  font-size: .88rem;
+}
+
+@media (max-width: 900px) {
+  .performance-v2-input-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .performance-v2-update-row {
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+  }
+  .performance-v2-update-range {
+    grid-column: 2 / 3;
+  }
+  .performance-v2-update-actions {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+}
+
+@media (max-width: 560px) {
+  .performance-v2 {
+    font-size: 16px;
+  }
+  .performance-v2-header p {
+    font-size: .94rem;
+  }
+  .performance-v2-input-grid {
+    grid-template-columns: 1fr;
+  }
+  .performance-v2-axis text,
+  .performance-v2-x-axis text {
+    font-size: 12.5px;
+  }
+  .performance-v2-update-row {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    min-height: 78px;
+  }
+  .performance-v2-update-main strong,
+  .performance-v2-update-range b {
+    font-size: .92rem;
+  }
 }
