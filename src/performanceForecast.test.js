@@ -85,10 +85,40 @@ describe('Performance history + forecast model', () => {
     const oneYear = model.points.find((point) => point.date === '2027-09')
     expect(today.assetValue).toBeCloseTo(240000, 6)
     expect(today.monthlyRent).toBeCloseTo(1200, 6)
-    expect(today.cashAccumulation).toBe(0)
+
+    const start = model.points[0]
+    expect(start.cashAccumulation).toBeCloseTo(start.monthlyCashflow, 6)
+    for (let index = 1; index <= model.todayIndex; index += 1) {
+      expect(model.points[index].cashAccumulation).toBeCloseTo(
+        model.points[index - 1].cashAccumulation + model.points[index].monthlyCashflow,
+        6,
+      )
+    }
+    expect(today.cashAccumulation).not.toBe(0)
+
     expect(oneYear.assetValue).toBeCloseTo(240000 * 1.03, 4)
     expect(oneYear.monthlyRent).toBeCloseTo(1200 * 1.02, 4)
-    expect(oneYear.cashAccumulation).toBeGreaterThan(0)
+    const firstForecast = model.points[model.todayIndex + 1]
+    expect(firstForecast.cashAccumulation).toBeCloseTo(
+      today.cashAccumulation + firstForecast.monthlyCashflow,
+      6,
+    )
+    expect(oneYear.cashAccumulation).toBeGreaterThan(today.cashAccumulation)
+  })
+
+  it('starts theoretical cash accumulation at the selected scope start month, including a February 2025 acquisition', () => {
+    const febProperty = { ...property, purchaseDate: '2025-02-28' }
+    const model = buildTheoreticalPerformanceProjection({
+      properties: [febProperty], settings, scope: 'p1', scenarioId: 0, horizonYears: 1, now,
+    })
+    expect(model.startMonth).toBe('2025-02')
+    expect(model.points[0].date).toBe('2025-02')
+    expect(model.points[0].cashAccumulation).toBeCloseTo(model.points[0].monthlyCashflow, 6)
+    const today = model.points[model.todayIndex]
+    const cumulativeToToday = model.points
+      .slice(0, model.todayIndex + 1)
+      .reduce((total, point) => total + point.monthlyCashflow, 0)
+    expect(today.cashAccumulation).toBeCloseTo(cumulativeToToday, 6)
   })
 
   it('uses recorded historical valuation/rent ranges instead of inventing interpolation', () => {

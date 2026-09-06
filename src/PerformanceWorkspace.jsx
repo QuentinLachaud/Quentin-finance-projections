@@ -438,7 +438,7 @@ export default function PerformanceWorkspace({
           <div><span className="performance-v2-control-label">Value & cumulative</span><h2>Value & accumulated cash</h2><p>{monthLabel(model.startMonth, true)} → {monthLabel(model.forecastEndMonth, true)} · value, debt, equity and accumulated cash in £</p></div>
         </div>
         <MetricBar keys={CAPITAL_SERIES_KEYS} visibleSeries={visibleSeries} scope={scope} onToggle={toggleSeries} />
-        <p className="performance-v2-chart-note">Actual bank accumulated is the running net of included Banking transactions from the first available Banking month and stops at the latest Banking data.</p>
+        <p className="performance-v2-chart-note">Cash accumulated runs from the selected scope’s first acquisition month using the theoretical scenario. Actual bank accumulated is the running net of included Banking transactions from the first available Banking month and stops at the latest Banking data.</p>
         <PerformanceChart
           model={chartModel}
           visibleSeries={capitalVisibleSeries}

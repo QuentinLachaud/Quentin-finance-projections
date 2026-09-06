@@ -373,7 +373,7 @@ export const buildTheoreticalPerformanceProjection = ({
       ? finite(scenario.bankCashflow)
       : finite(scenario.cashflow)
 
-    if (offset > 0) cashAccumulation += monthlyCashflow
+    cashAccumulation += monthlyCashflow
     const assetValue = projected.reduce((sum, property) => sum + nonNegative(property.latestValuation), 0)
     const debt = projected.reduce((sum, property) => sum + nonNegative(property.loanAmount), 0)
     const monthlyRent = projected.reduce((sum, property) => sum + nonNegative(property.rent), 0)
@@ -388,7 +388,7 @@ export const buildTheoreticalPerformanceProjection = ({
       monthlyCashflow,
       actualBankCashflow: null,
       actualBankAccumulation: null,
-      cashAccumulation: offset < 0 ? null : cashAccumulation,
+      cashAccumulation,
       monthlyRent,
       rateShockApplied: shock,
       scenarioId: scenarioIndex,
