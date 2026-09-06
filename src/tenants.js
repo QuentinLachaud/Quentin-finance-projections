@@ -1,4 +1,5 @@
 import { calendarDate } from './dateUtils.js'
+import { normalizeRentPaymentDay } from './rentSchedule.js'
 
 const tenantPropertyFields = {
   name: 'tenantName',
@@ -26,6 +27,7 @@ export const createTenant = (propertyId = '') => ({
   moveIn: '',
   moveOut: '',
   depositHeld: '',
+  rentPaymentDay: null,
   importedFromProperty: false,
 })
 
@@ -34,11 +36,20 @@ export const tenantBelongsToProperty = (tenant, properties) => Boolean(tenant.pr
 
 export const removeTenantsForProperty = (tenants, propertyId) => tenants.filter((tenant) => tenant.propertyId !== propertyId)
 
+const requestedLegacyRentPaymentDay = (tenant) => {
+  const current = normalizeRentPaymentDay(tenant?.rentPaymentDay)
+  if (current) return current
+  const name = String(tenant?.name || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  if (name === 'scott reoch') return 6
+  if (name === 'joaquim') return 16
+  return null
+}
+
 export const importPropertyTenants = (properties, tenants = []) => {
   const propertyIds = new Set(properties.map((property) => property.id))
   const next = Array.isArray(tenants) ? tenants
     .filter((tenant) => propertyIds.has(tenant.propertyId))
-    .map((tenant) => ({ ...createTenant(), ...tenant })) : []
+    .map((tenant) => ({ ...createTenant(), ...tenant, rentPaymentDay: requestedLegacyRentPaymentDay(tenant) })) : []
   for (const property of properties) {
     if (!hasPropertyTenant(property)) continue
     const linked = next.find((tenant) => tenant.id === property.tenantId)
@@ -52,6 +63,7 @@ export const importPropertyTenants = (properties, tenants = []) => {
       ...propertyTenantValues(property),
       importedFromProperty: true,
     }
+    tenant.rentPaymentDay = requestedLegacyRentPaymentDay(tenant)
     property.tenantId = tenant.id
     next.push(tenant)
   }

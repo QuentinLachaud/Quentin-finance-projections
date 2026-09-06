@@ -16503,3 +16503,59 @@ button.contractor-tag-chip { cursor: pointer; }
     font-size: .8rem;
   }
 }
+
+/* Brain Drain 2026-09-06 22:22 BST — Overview rent month dial */
+.rent-month-dial-shell {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 132px minmax(170px, .9fr);
+  align-items: center;
+  gap: 18px;
+  margin: 4px 0 18px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--ui-border) 82%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--ui-surface) 94%, var(--ui-page));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 48%, transparent);
+}
+.rent-month-dial-copy { min-width: 0; }
+.rent-month-dial-copy > strong { display: block; margin-top: 4px; font-size: clamp(21px, 2.4vw, 28px); letter-spacing: -.035em; color: var(--ui-text); }
+.rent-month-dial-copy > strong small { font-size: 12px; font-weight: 700; letter-spacing: .01em; color: var(--ui-muted); }
+.rent-month-dial-copy p { margin: 5px 0 0; max-width: 34ch; font-size: 12px; line-height: 1.45; color: var(--ui-muted); }
+.rent-month-dial-warning { display: block; margin-top: 7px; font-weight: 700; color: var(--warning, #9b6a2a); }
+.rent-month-dial-visual { position: relative; width: 132px; height: 132px; justify-self: center; }
+.rent-month-dial-visual svg { width: 100%; height: 100%; overflow: visible; }
+.rent-month-dial-track { fill: none; stroke: color-mix(in srgb, var(--ui-border) 68%, transparent); stroke-width: 5; }
+.rent-month-dial-tick { stroke: color-mix(in srgb, var(--ui-muted) 38%, transparent); stroke-width: .8; stroke-linecap: round; }
+.rent-month-dial-tick.major { stroke: color-mix(in srgb, var(--ui-muted) 62%, transparent); stroke-width: 1.1; }
+.rent-month-dial-band { fill: none; stroke: var(--positive, #27795c); stroke-width: 7.5; stroke-linecap: round; filter: drop-shadow(0 1px 1px color-mix(in srgb, var(--positive, #27795c) 24%, transparent)); }
+.rent-month-dial-hand { stroke: color-mix(in srgb, var(--ui-text) 82%, transparent); stroke-width: 1.65; stroke-linecap: round; }
+.rent-month-dial-centre-dot { fill: var(--ui-text); stroke: var(--ui-surface); stroke-width: 1.5; }
+.rent-month-dial-centre { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; transform: translateY(3px); }
+.rent-month-dial-centre b { font-size: 9px; letter-spacing: .13em; color: var(--ui-muted); }
+.rent-month-dial-centre strong { margin-top: 1px; font-size: 21px; line-height: 1; letter-spacing: -.04em; color: var(--ui-text); }
+.rent-month-dial-due-list { display: grid; gap: 6px; min-width: 0; }
+.rent-month-dial-due-list > div { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 9px; min-width: 0; padding: 5px 0; border-bottom: 1px solid color-mix(in srgb, var(--ui-border) 60%, transparent); }
+.rent-month-dial-due-list > div:last-child { border-bottom: 0; }
+.rent-month-dial-due-list span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--ui-text); }
+.rent-month-dial-due-list span i { width: 7px; height: 7px; border-radius: 999px; background: var(--positive, #27795c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--positive, #27795c) 12%, transparent); }
+.rent-month-dial-due-list b { justify-self: end; font-size: 13px; color: var(--ui-text); }
+.rent-month-dial-due-list small { grid-column: 1 / -1; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-muted); }
+.rent-month-dial-due-list .empty { grid-template-columns: 1fr; }
+.rent-month-dial-due-list .empty small { grid-column: 1; }
+
+@media (max-width: 760px) {
+  .rent-month-dial-shell { grid-template-columns: minmax(0, 1fr) 116px; gap: 12px; padding: 13px 14px; border-radius: 16px; }
+  .rent-month-dial-visual { width: 116px; height: 116px; grid-column: 2; grid-row: 1; }
+  .rent-month-dial-copy { grid-column: 1; grid-row: 1; }
+  .rent-month-dial-copy > strong { font-size: 22px; }
+  .rent-month-dial-copy p { font-size: 11px; }
+  .rent-month-dial-due-list { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+  .rent-month-dial-due-list > div { min-width: 0; }
+}
+
+@media (max-width: 430px) {
+  .rent-month-dial-shell { grid-template-columns: minmax(0, 1fr) 106px; }
+  .rent-month-dial-visual { width: 106px; height: 106px; }
+  .rent-month-dial-copy p { display: none; }
+  .rent-month-dial-due-list { grid-template-columns: 1fr; }
+}

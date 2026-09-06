@@ -22,6 +22,7 @@ import LoansWorkspace from './LoansWorkspace.jsx'
 import ContractorsWorkspace from './ContractorsWorkspace.jsx'
 import PropertyTimeline from './PropertyTimeline.jsx'
 import PerformanceWorkspace from './PerformanceWorkspace.jsx'
+import RentMonthDial from './RentMonthDial.jsx'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 import AcquisitionSimulator from './AcquisitionSimulator.jsx'
 import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
@@ -1372,9 +1373,10 @@ function CostsWorkspace({
   </div>
 }
 
+const tenantRentPaymentDays = Array.from({ length: 31 }, (_, index) => index + 1)
 const tenantFields = [
   ['name', 'Name', 'text'], ['email', 'Email', 'email'], ['phone', 'Phone', 'tel'],
-  ['occupation', 'Occupation', 'text'], ['moveIn', 'Move-in date', 'date'], ['moveOut', 'Move-out date (optional)', 'date'], ['depositHeld', 'Deposit held', 'text'],
+  ['occupation', 'Occupation', 'text'], ['rentPaymentDay', 'Rent payment day', 'rent-day'], ['moveIn', 'Move-in date', 'date'], ['moveOut', 'Move-out date (optional)', 'date'], ['depositHeld', 'Deposit held', 'text'],
 ]
 
 function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
@@ -1393,6 +1395,7 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
       { key: 'email', label: 'Email' },
       { key: 'phone', label: 'Phone' },
       { key: 'occupation', label: 'Occupation' },
+      { key: 'rentPaymentDay', label: 'Rent payment day' },
       { key: 'moveIn', label: 'Move-in date' },
       { key: 'moveOut', label: 'Move-out date' },
       { key: 'depositHeld', label: 'Deposit held' },
@@ -1409,6 +1412,7 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
         email: tenant.email || '',
         phone: tenant.phone || '',
         occupation: tenant.occupation || '',
+        rentPaymentDay: tenant.rentPaymentDay ? `${tenant.rentPaymentDay}` : '',
         moveIn: tenant.moveIn || '',
         moveOut: tenant.moveOut || '',
         depositHeld: tenant.depositHeld || '',
@@ -1439,8 +1443,9 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
   }
   const submit = (event) => {
     event.preventDefault()
-    if (!draft.propertyId) return
-    onSave(draft)
+    const rentPaymentDay = Number(draft.rentPaymentDay)
+    if (!draft.propertyId || !Number.isInteger(rentPaymentDay) || rentPaymentDay < 1 || rentPaymentDay > 31) return
+    onSave({ ...draft, rentPaymentDay })
     setDraft(null)
   }
 
@@ -1450,7 +1455,7 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
     {properties.length > 0 && tenants.length === 0 && <section className="panel tenants-empty"><Users /><h2>No tenants yet</h2><p>Add a tenant here, or enter tenant details while creating or editing a BTL.</p><button className="secondary-button" onClick={startNew}><Plus size={16} /> Add your first tenant</button></section>}
     <section className="tenant-grid">{currentTenants.map(tenantCard)}</section>
     {archivedTenants.length > 0 && <details className="panel archived-tenants"><summary><span><b>Archived tenants</b><small>{archivedTenants.length} historical {archivedTenants.length === 1 ? 'record' : 'records'}</small></span><ChevronDown size={18} /></summary><section className="tenant-grid">{archivedTenants.map(tenantCard)}</section></details>}
-    {draft && <div className="tenant-editor-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDraft(null)}><form className="panel tenant-editor" onSubmit={submit}><header><div><span className="kicker">TENANT RECORD</span><h2>{tenants.some((tenant) => tenant.id === draft.id) ? 'Edit tenant' : 'Add tenant'}</h2></div><button type="button" className="icon-button" onClick={() => setDraft(null)} aria-label="Close tenant editor"><X /></button></header><label className="tenant-property-field"><span>Linked BTL <b>Required</b></span><select required value={draft.propertyId} onChange={(event) => setDraft((current) => ({ ...current, propertyId: event.target.value }))}><option value="" disabled>Select a property</option>{properties.map((property) => <option value={property.id} key={property.id}>{property.name} — {formatPropertyAddress(property.flatNumber, property.address) || property.postcode || 'Address not set'}</option>)}</select></label><div className="tenant-form-grid">{tenantFields.map(([key, label, type]) => <label key={key}><span>{label}</span><input type={type} value={draft[key] || ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div><footer><button type="button" className="secondary-button" onClick={() => setDraft(null)}>Cancel</button><button className="primary-button"><Check size={16} /> Save tenant</button></footer></form></div>}
+    {draft && <div className="tenant-editor-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDraft(null)}><form className="panel tenant-editor" onSubmit={submit}><header><div><span className="kicker">TENANT RECORD</span><h2>{tenants.some((tenant) => tenant.id === draft.id) ? 'Edit tenant' : 'Add tenant'}</h2></div><button type="button" className="icon-button" onClick={() => setDraft(null)} aria-label="Close tenant editor"><X /></button></header><label className="tenant-property-field"><span>Linked BTL <b>Required</b></span><select required value={draft.propertyId} onChange={(event) => setDraft((current) => ({ ...current, propertyId: event.target.value }))}><option value="" disabled>Select a property</option>{properties.map((property) => <option value={property.id} key={property.id}>{property.name} — {formatPropertyAddress(property.flatNumber, property.address) || property.postcode || 'Address not set'}</option>)}</select></label><div className="tenant-form-grid">{tenantFields.map(([key, label, type]) => <label key={key}><span>{label}{type === 'rent-day' && <b>Required</b>}</span>{type === 'rent-day' ? <select required value={draft[key] ?? ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: Number(event.target.value) }))}><option value="" disabled>Select day</option>{tenantRentPaymentDays.map((day) => <option key={day} value={day}>{day}</option>)}</select> : <input type={type} value={draft[key] || ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} />}</label>)}</div><footer><button type="button" className="secondary-button" onClick={() => setDraft(null)}>Cancel</button><button className="primary-button"><Check size={16} /> Save tenant</button></footer></form></div>}
   </div>
 }
 
@@ -2292,6 +2297,7 @@ function PortfolioApp({ user }) {
                   <p>Compare monthly cash available under different operating assumptions.</p>
                 </div>
               </header>
+              <RentMonthDial tenants={state.tenants} properties={state.properties} />
               <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
             </section>
           </>}
