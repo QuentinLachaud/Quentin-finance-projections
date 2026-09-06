@@ -315,6 +315,18 @@ export const transactionNeedsReview = (transaction, properties = []) => {
 }
 
 
+export const reconciliationTransactionsForBucket = (transactions = [], bucket = 'net') => (transactions || []).filter((transaction) => {
+  if (transaction?.status === 'pending') return false
+  const category = normalizeBankCategory(transaction?.category)
+  if (transaction?.isTransfer || transaction?.is_transfer || category === 'transfer') return false
+  const treatment = performanceTreatmentForTransaction(transaction)
+  if (bucket === 'business') return ['operating', 'company', 'financing'].includes(treatment)
+  if (bucket === 'owner') return treatment === 'investor'
+  if (bucket === 'extraction') return treatment === 'extraction'
+  if (bucket === 'other') return ['capital', 'liability', 'review', 'exclude'].includes(treatment)
+  return bucket === 'net'
+})
+
 export const trueCashFlowTransactions = (transactions = []) => (transactions || []).filter((transaction) => {
   const treatment = performanceTreatmentForTransaction(transaction)
   return ['operating', 'company', 'financing'].includes(treatment)

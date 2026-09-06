@@ -17,6 +17,8 @@ describe('BankTransactionReview focused inbox UX', () => {
     expect(html).toContain('Review transactions')
     expect(html).toContain('Save &amp; next')
     expect(html).toContain('Skip')
+    expect(html).toContain('aria-label="Exclude Large unresolved from analysis"')
+    expect(html).toContain('Exclude from analysis')
     expect(html).toContain('Next up')
     expect(html.indexOf('Large unresolved')).toBeLessThan(html.indexOf('Small unresolved'))
     expect((html.match(/bank-review-focus/g) || [])).toHaveLength(1)

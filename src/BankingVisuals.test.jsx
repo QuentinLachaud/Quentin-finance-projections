@@ -41,7 +41,7 @@ describe('Banking less-is-more visuals', () => {
     expect(html).toContain('bank-balance-mobile')
   })
 
-  it('reduces reconciliation to four plain-language steps with detail on demand', () => {
+  it('keeps five plain-language reconciliation cards with detail on demand', () => {
     const html = renderToStaticMarkup(<CashFlowReconciliation cashSummary={cashSummary} />)
     expect(html).toContain('Business cash generated')
     expect(html).toContain('Owner funding')

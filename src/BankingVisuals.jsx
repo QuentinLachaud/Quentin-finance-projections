@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { currency } from './calculations.js'
+import { BANK_CATEGORIES, reconciliationTransactionsForBucket } from './banking.js'
 import {
   balanceAxis, balanceCoordinates, balanceMonthTicks, formatAxisMoney,
   formatBalanceDate, nearestBalancePoint, xForBalanceDate,
@@ -9,6 +10,8 @@ const DESKTOP = { width: 960, height: 320, pad: { top: 24, right: 24, bottom: 50
 const MOBILE = { width: 340, height: 196, pad: { top: 16, right: 10, bottom: 34, left: 48 } }
 const amountTone = (value) => Number(value || 0) >= 0 ? 'positive' : 'negative'
 const preciseMoney = (value) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value || 0))
+const reconciliationCategoryLabels = new Map(BANK_CATEGORIES)
+const reconciliationTransactionId = (transaction) => String(transaction?.id || transaction?.transactionKey || transaction?.transaction_key || transaction?.canonicalKey || '')
 
 const linePath = (coordinates) => coordinates.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
 
@@ -93,9 +96,38 @@ export function BankSummary({ reportingBalance, reportingAccountCount, cashSumma
   </section>
 }
 
-export function CashFlowReconciliation({ cashSummary }) {
+export function ReconciliationTransactionList({ title, transactions = [], properties = [], onToggleExcluded }) {
+  const propertyNames = new Map((properties || []).map((property) => [String(property.id), property.name]))
+  if (!transactions.length) return <div className="bank-reconcile-drilldown-empty">No transactions in this card for the selected period.</div>
+  return <div className="bank-reconcile-transaction-list" aria-label={`${title} transactions`}>
+    {transactions.map((transaction) => {
+      const propertyName = propertyNames.get(String(transaction.propertyId || transaction.property_id || ''))
+      const description = transaction.description || transaction.counterparty || 'Bank transaction'
+      return <article className={transaction.excludeFromPerformance ? 'excluded' : ''} key={reconciliationTransactionId(transaction)}>
+        <div><b>{description}</b><small>{transaction.bookedAt || ''} · {reconciliationCategoryLabels.get(transaction.category) || transaction.category || 'Other'}{propertyName ? ` · ${propertyName}` : ''}</small></div>
+        <strong className={amountTone(transaction.amount)}>{currency(transaction.amount)}</strong>
+        <label className="bank-inline-exclude" title="Keep the bank movement but ignore this transaction in cash-flow and Performance analysis">
+          <input type="checkbox" checked={transaction.excludeFromPerformance === true} aria-label={`Exclude ${description} from analysis`} onChange={() => onToggleExcluded?.(transaction)} />
+          <i /><span>{transaction.excludeFromPerformance ? 'Excluded' : 'Exclude'}</span>
+        </label>
+      </article>
+    })}
+  </div>
+}
+
+export function CashFlowReconciliation({ cashSummary, transactions = [], properties = [], onToggleExcluded }) {
+  const [activeBucket, setActiveBucket] = useState('')
   const otherMovement = Number(cashSummary.capitalMovementNet || 0) + Number(cashSummary.liabilityMovementNet || 0)
     + Number(cashSummary.reviewNet || 0) + Number(cashSummary.excludedNet || 0)
+  const cards = [
+    { key: 'business', label: 'Business cash generated', value: cashSummary.companyFreeCashFlow, note: 'Operations + company-level cash + financing' },
+    { key: 'owner', label: 'Owner funding', value: cashSummary.ownerFundingNet, note: 'DLA injected minus DLA repaid' },
+    { key: 'extraction', label: 'Cash extracted', value: cashSummary.cashExtractionNet, note: 'Payroll and owner distributions' },
+    { key: 'other', label: 'Other bank movement', value: otherMovement, note: `${cashSummary.reviewCount} to review · ${cashSummary.excludedCount} excluded` },
+    { key: 'net', label: 'Net bank movement', value: cashSummary.netBankMovement, note: 'Selected period · internal transfers ignored', total: true },
+  ].map((card) => ({ ...card, rows: reconciliationTransactionsForBucket(transactions, card.key) }))
+  const activeCard = cards.find((card) => card.key === activeBucket) || null
+  const activeRows = activeCard ? [...activeCard.rows].sort((left, right) => String(right.bookedAt || '').localeCompare(String(left.bookedAt || '')) || Math.abs(Number(right.amount || 0)) - Math.abs(Number(left.amount || 0))) : []
   const breakdown = [
     ['Property operations', cashSummary.operatingCashFlow, 'Rent and property running costs'],
     ['Company-level cash', cashSummary.companyOnlyCashFlow, 'Bank/admin fees and company taxes'],
@@ -108,18 +140,19 @@ export function CashFlowReconciliation({ cashSummary }) {
     ['Excluded from analysis', cashSummary.excludedNet, `${cashSummary.excludedCount} explicitly excluded transaction${cashSummary.excludedCount === 1 ? '' : 's'}`],
   ]
   return <section className="panel bank-reconciliation" aria-label="Cash flow reconciliation">
-    <header><div><h2>How bank movement is explained</h2><p>Start with cash generated by the business, then add owner funding and bank-only movement.</p></div></header>
+    <header><div><h2>How bank movement is explained</h2><p>Click any card to see the transactions behind it. Excluding a row keeps the real bank movement but removes it from analysis.</p></div></header>
     <div className="bank-reconcile-equation">
-      <article><span>Business cash generated</span><strong className={amountTone(cashSummary.companyFreeCashFlow)}>{currency(cashSummary.companyFreeCashFlow)}</strong><small>Operations + company-level cash + financing</small></article>
-      <i aria-hidden="true">+</i>
-      <article><span>Owner funding</span><strong className={amountTone(cashSummary.ownerFundingNet)}>{currency(cashSummary.ownerFundingNet)}</strong><small>DLA injected minus DLA repaid</small></article>
-      <i aria-hidden="true">+</i>
-      <article><span>Cash extracted</span><strong className={amountTone(cashSummary.cashExtractionNet)}>{currency(cashSummary.cashExtractionNet)}</strong><small>Payroll and owner distributions</small></article>
-      <i aria-hidden="true">+</i>
-      <article><span>Other bank movement</span><strong className={amountTone(otherMovement)}>{currency(otherMovement)}</strong><small>{cashSummary.reviewCount} to review · {cashSummary.excludedCount} excluded</small></article>
-      <i aria-hidden="true">=</i>
-      <article className="total"><span>Net bank movement</span><strong className={amountTone(cashSummary.netBankMovement)}>{currency(cashSummary.netBankMovement)}</strong><small>Selected period · internal transfers ignored</small></article>
+      {cards.map((card, index) => <React.Fragment key={card.key}>
+        {index > 0 && <i aria-hidden="true">{card.key === 'net' ? '=' : '+'}</i>}
+        <button type="button" className={`bank-reconcile-card${card.total ? ' total' : ''}${activeBucket === card.key ? ' active' : ''}`} aria-label={`View transactions for ${card.label}`} aria-expanded={activeBucket === card.key} onClick={() => setActiveBucket((current) => current === card.key ? '' : card.key)}>
+          <span>{card.label}</span><strong className={amountTone(card.value)}>{currency(card.value)}</strong><small>{card.note}</small><em>{card.rows.length} transaction{card.rows.length === 1 ? '' : 's'} · View</em>
+        </button>
+      </React.Fragment>)}
     </div>
+    {activeCard && <section id="bank-reconcile-drilldown" className="bank-reconcile-drilldown">
+      <header><div><span>TRANSACTIONS</span><h3>{activeCard.label}</h3><p>{activeRows.length} transaction{activeRows.length === 1 ? '' : 's'} contributing to this card in the selected period.</p></div><button type="button" className="text-button" onClick={() => setActiveBucket('')}>Close</button></header>
+      <ReconciliationTransactionList title={activeCard.label} transactions={activeRows} properties={properties} onToggleExcluded={onToggleExcluded} />
+    </section>}
     <details className="bank-reconcile-details"><summary>Show detailed breakdown</summary><div>{breakdown.map(([label, value, note]) => <div className="bank-reconcile-row" key={label}><span><b>{label}</b><small>{note}</small></span><strong className={amountTone(value)}>{currency(value)}</strong></div>)}<div className="bank-reconcile-row muted"><span><b>Internal transfers ignored</b><small>{cashSummary.internalTransferCount} transfer{cashSummary.internalTransferCount === 1 ? '' : 's'} excluded from movement</small></span><strong>{currency(cashSummary.internalTransferAbsolute)}</strong></div></div></details>
   </section>
 }
