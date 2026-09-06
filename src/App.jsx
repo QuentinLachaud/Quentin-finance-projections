@@ -23,6 +23,7 @@ import ContractorsWorkspace from './ContractorsWorkspace.jsx'
 import PropertyTimeline from './PropertyTimeline.jsx'
 import PerformanceWorkspace from './PerformanceWorkspace.jsx'
 import RentMonthDial from './RentMonthDial.jsx'
+import { formatOrdinalDay } from './rentSchedule.js'
 import RemortgageSimulator from './RemortgageSimulator.jsx'
 import AcquisitionSimulator from './AcquisitionSimulator.jsx'
 import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'
@@ -1439,7 +1440,7 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
   }
   const tenantCard = (tenant) => {
     const tenure = tenantTenure(tenant)
-    return <article className={`panel tenant-card ${tenure.live ? 'live' : ''}`} key={tenant.id}><header><div><span className={`tenant-status ${tenure.live ? 'live' : tenure.archived ? 'archived' : 'future'}`}>{tenure.live ? 'Live tenant' : tenure.archived ? 'Archived' : 'Upcoming'}</span><h2>{tenant.name || 'Unnamed tenant'}</h2><p>{propertyName(tenant.propertyId)} · {tenure.label}</p></div><Users size={20} /></header><dl><div><dt>Email</dt><dd>{tenant.email || '—'}</dd></div><div><dt>Phone</dt><dd>{tenant.phone || '—'}</dd></div><div><dt>Occupation</dt><dd>{tenant.occupation || '—'}</dd></div><div><dt>Deposit</dt><dd>{tenant.depositHeld || '—'}</dd></div></dl><footer><button className="text-button" onClick={() => edit(tenant)}><Pencil size={15} /> Edit</button><button className="text-button tenant-delete" onClick={() => onRemove(tenant.id)}><Trash2 size={15} /> Remove</button></footer></article>
+    return <article className={`panel tenant-card ${tenure.live ? 'live' : ''}`} key={tenant.id}><header><div><span className={`tenant-status ${tenure.live ? 'live' : tenure.archived ? 'archived' : 'future'}`}>{tenure.live ? 'Live tenant' : tenure.archived ? 'Archived' : 'Upcoming'}</span><h2>{tenant.name || 'Unnamed tenant'}</h2><p>{propertyName(tenant.propertyId)} · {tenure.label}</p></div><Users size={20} /></header><dl><div><dt>Email</dt><dd>{tenant.email || '—'}</dd></div><div><dt>Phone</dt><dd>{tenant.phone || '—'}</dd></div><div><dt>Occupation</dt><dd>{tenant.occupation || '—'}</dd></div><div><dt>Rent payment date</dt><dd>{formatOrdinalDay(tenant.rentPaymentDay)} monthly</dd></div><div><dt>Deposit</dt><dd>{tenant.depositHeld || '—'}</dd></div></dl><footer><button className="text-button" onClick={() => edit(tenant)}><Pencil size={15} /> Edit</button><button className="text-button tenant-delete" onClick={() => onRemove(tenant.id)}><Trash2 size={15} /> Remove</button></footer></article>
   }
   const submit = (event) => {
     event.preventDefault()

@@ -16,6 +16,18 @@ describe('tenant records', () => {
     expect(properties[0].tenantId).toBe('generated-tenant-id')
   })
 
+  it('backfills requested rent payment days without overwriting valid existing values', () => {
+    const properties = [{ id: 'btl-1' }, { id: 'btl-2' }, { id: 'btl-3' }]
+    const tenants = importPropertyTenants(properties, [
+      { id: 'scott', propertyId: 'btl-1', name: 'Scott Reoch', rentPaymentDay: null },
+      { id: 'joaquim', propertyId: 'btl-2', name: 'Joaquim' },
+      { id: 'scott-custom', propertyId: 'btl-3', name: 'Scott Reoch', rentPaymentDay: 9 },
+    ])
+    expect(tenants.find((tenant) => tenant.id === 'scott')?.rentPaymentDay).toBe(6)
+    expect(tenants.find((tenant) => tenant.id === 'joaquim')?.rentPaymentDay).toBe(16)
+    expect(tenants.find((tenant) => tenant.id === 'scott-custom')?.rentPaymentDay).toBe(9)
+  })
+
   it('updates the imported tenant when a BTL is edited', () => {
     const result = syncPropertyTenant({ ...property, tenantId: 'tenant-1', tenantPhone: '07000' }, [{ id: 'tenant-1', propertyId: 'btl-1', importedFromProperty: true }])
     expect(result.tenants[0].phone).toBe('07000')
