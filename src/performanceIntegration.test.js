@@ -41,16 +41,21 @@ describe('Performance v3 history + forecast integration', () => {
     expect(ui).toContain('DeleteConfirmDialog')
   })
 
-  it('renders subtle monthly points, local hover values, a dotted vertical guide and a Today boundary', () => {
+  it('renders subtle monthly points, local hover values, and an explicit Past/Forecast boundary', () => {
     expect(ui).toContain('performance-v2-points')
     expect(ui).toContain('performance-v2-hover-card')
     expect(ui).toContain('performance-v2-hover-guide')
     expect(ui).toContain('performance-v2-today-marker')
+    expect(ui).toContain('performance-v2-era-bands')
+    expect(ui).toContain('>PAST</text>')
+    expect(ui).toContain('>FORECAST</text>')
     expect(ui).toContain('monthLabel(active.date, true)')
     expect(styles).toContain('.performance-v2-points circle')
     expect(styles).toContain('stroke-dasharray: 2 5')
     expect(styles).toContain('.performance-v2-hover-card')
     expect(styles).toContain('.performance-v2-today-marker')
+    expect(styles).toContain('.performance-v2-era-bands .past')
+    expect(styles).toContain('.performance-v2-era-bands .future')
   })
 
   it('uses restrained series styling and materially larger typography than the first revamp', () => {
@@ -62,6 +67,20 @@ describe('Performance v3 history + forecast integration', () => {
     expect(styles).toContain('stroke-dasharray: 5 4')
     expect(styles).toContain('.performance-v2-update-row.is-dragging')
     expect(styles).toContain('touch-action: none')
+  })
+
+  it('defaults both graphs to actual versus estimated and reuses the Overview scenario palette', () => {
+    expect(forecast).toContain("export const DEFAULT_PERFORMANCE_SERIES = ['monthlyCashflow', 'actualBankCashflow', 'cashAccumulation', 'actualBankAccumulation']")
+    for (const colour of ['#b35c54', '#c78b3e', '#27795c']) {
+      expect(app).toContain(colour)
+      expect(forecast).toContain(colour)
+    }
+    expect(ui).toContain('className="scenario"')
+    expect(ui).toContain("'--scenario': option.colour")
+    expect(styles).toContain('.performance-v2-segmented.scenario button::before')
+    expect(styles).toContain('.performance-v2-segmented.scenario button.selected')
+    expect(ui).toContain('value={scenarioId}')
+    expect(ui).toContain('useState(0)')
   })
 
   it('keeps chart overflow local and all eight series independently toggleable across two non-mixed charts', () => {

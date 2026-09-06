@@ -11,9 +11,9 @@ const makeId = (prefix = 'performance-update') => globalThis.crypto?.randomUUID?
   || `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 
 export const PERFORMANCE_SCENARIOS = [
-  { id: 0, label: 'Conservative', shortLabel: 'Conservative' },
-  { id: 1, label: 'No voids', shortLabel: 'No voids' },
-  { id: 2, label: 'No repairs or voids', shortLabel: 'No repairs/voids' },
+  { id: 0, label: 'Conservative', shortLabel: 'Conservative', colour: '#b35c54' },
+  { id: 1, label: 'No voids', shortLabel: 'No voids', colour: '#c78b3e' },
+  { id: 2, label: 'No repairs or voids', shortLabel: 'No repairs/voids', colour: '#27795c' },
 ]
 
 export const PERFORMANCE_SERIES = [
@@ -27,7 +27,7 @@ export const PERFORMANCE_SERIES = [
   { key: 'monthlyRent', label: 'Monthly rent', propertyLabel: 'Monthly rent', axis: 'flow', group: 'monthly' },
 ]
 
-export const DEFAULT_PERFORMANCE_SERIES = ['assetValue', 'equity', 'monthlyCashflow', 'cashAccumulation']
+export const DEFAULT_PERFORMANCE_SERIES = ['monthlyCashflow', 'actualBankCashflow', 'cashAccumulation', 'actualBankAccumulation']
 
 export const monthKey = (value = new Date()) => {
   if (typeof value === 'string') {

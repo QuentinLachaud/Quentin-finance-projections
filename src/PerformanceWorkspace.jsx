@@ -47,6 +47,7 @@ function Segmented({ label, value, options, onChange, className = '' }) {
       key={option.value}
       type="button"
       className={value === option.value ? 'selected' : ''}
+      style={option.colour ? { '--scenario': option.colour } : undefined}
       aria-pressed={value === option.value}
       onClick={() => onChange(option.value)}
     >{option.label}</button>)}
@@ -137,6 +138,12 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
         onPointerMove={pointerMove}
         onPointerDown={pointerMove}
       >
+        {todayX != null && <g className="performance-v2-era-bands" aria-hidden="true">
+          <rect className="past" x={pad.left} y={pad.top} width={Math.max(0, todayX - pad.left)} height={plotHeight} />
+          <rect className="future" x={todayX} y={pad.top} width={Math.max(0, width - pad.right - todayX)} height={plotHeight} />
+          {todayX - pad.left > 52 && <text className="past-label" x={pad.left + 12} y={pad.top + 18}>PAST</text>}
+          {width - pad.right - todayX > 72 && <text className="future-label" x={todayX + 12} y={pad.top + 18}>FORECAST</text>}
+        </g>}
         <g className="performance-v2-grid">
           {gridAxis.ticks.map((tick) => {
             const axis = capitalSeries.length ? capitalAxis : flowAxis
@@ -408,7 +415,7 @@ export default function PerformanceWorkspace({
     </header>
 
     <div className="performance-v2-control-row">
-      <div><span className="performance-v2-control-label">Scenario</span><Segmented label="Scenario" value={scenarioId} onChange={setScenarioId} options={PERFORMANCE_SCENARIOS.map((scenario) => ({ value: scenario.id, label: scenario.shortLabel }))} /></div>
+      <div><span className="performance-v2-control-label">Scenario</span><Segmented label="Scenario" value={scenarioId} onChange={setScenarioId} options={PERFORMANCE_SCENARIOS.map((scenario) => ({ value: scenario.id, label: scenario.shortLabel, colour: scenario.colour }))} className="scenario" /></div>
       <div><span className="performance-v2-control-label">Horizon</span><Segmented label="Forecast horizon" value={horizonYears} onChange={setHorizonYears} options={[1, 3, 5, 10, 15].map((year) => ({ value: year, label: `${year}Y` }))} className="compact" /></div>
     </div>
 
@@ -417,7 +424,7 @@ export default function PerformanceWorkspace({
     <div className="performance-v2-chart-stack">
       <article className="performance-v2-chart-card performance-v2-chart-card-monthly">
         <div className="performance-v2-chart-head">
-          <div><span className="performance-v2-control-label">Monthly</span><h2>Monthly performance</h2><p>Model cash flow, literal Banking cash flow and rent · {model.scenario.label} forecast</p></div>
+          <div><span className="performance-v2-control-label">Monthly</span><h2>Monthly performance</h2><p>Past compares model with Banking actuals · future is the {model.scenario.label} estimate</p></div>
           <label className={`performance-v2-switch ${!isCompanyPortfolio ? 'disabled' : ''}`}>
             <input type="checkbox" checked={excludeExtractions} disabled={!isCompanyPortfolio} onChange={(event) => setExcludeExtractions(event.target.checked)} />
             <span aria-hidden="true" /><b>Exclude extractions</b><small>{isCompanyPortfolio ? 'Shows true company cash flow' : 'Portfolio companies only'}</small>
@@ -435,7 +442,7 @@ export default function PerformanceWorkspace({
 
       <article className="performance-v2-chart-card performance-v2-chart-card-capital">
         <div className="performance-v2-chart-head">
-          <div><span className="performance-v2-control-label">Value & cumulative</span><h2>Value & accumulated cash</h2><p>{monthLabel(model.startMonth, true)} → {monthLabel(model.forecastEndMonth, true)} · value, debt, equity and accumulated cash in £</p></div>
+          <div><span className="performance-v2-control-label">Value & cumulative</span><h2>Value & accumulated cash</h2><p>{monthLabel(model.startMonth, true)} → {monthLabel(model.forecastEndMonth, true)} · past compares accumulated model vs Banking actuals · future continues the estimate</p></div>
         </div>
         <MetricBar keys={CAPITAL_SERIES_KEYS} visibleSeries={visibleSeries} scope={scope} onToggle={toggleSeries} />
         <p className="performance-v2-chart-note">Cash accumulated runs from the selected scope’s first acquisition month using the theoretical scenario. Actual bank accumulated is the running net of included Banking transactions from the first available Banking month and stops at the latest Banking data.</p>
