@@ -14,6 +14,7 @@ import BankStatementImportSheet from './BankStatementImportSheet.jsx'
 import BankTransactionReview from './BankTransactionReview.jsx'
 import { BalanceChart, BankSummary, CashFlowReconciliation } from './BankingVisuals.jsx'
 import { formatCashPeriod } from './bankingChart.js'
+import { bankingCashFlowSeries, bankingTimelineRange, alignBankingBalanceSeries } from './bankingTimeline.js'
 
 const money = (value, currencyCode = 'GBP') => new Intl.NumberFormat('en-GB', {
   style: 'currency', currency: currencyCode || 'GBP', maximumFractionDigits: 2,
@@ -91,7 +92,7 @@ export function CashFlowChart({ rows }) {
   const scale = 105 / maxValue
   const step = (width - pad * 2) / rows.length
   const netPoints = rows.map((row, index) => `${pad + step * (index + .5)},${mid - row.net * scale}`).join(' ')
-  const mobileRows = rows.slice(-12).reverse()
+  const mobileRows = rows.slice().reverse()
   const hoveredIndex = rows.findIndex((row) => row.period === hoveredPeriod)
   const hovered = hoveredIndex >= 0 ? rows[hoveredIndex] : null
   const hoveredCentre = hovered ? pad + step * (hoveredIndex + .5) : 0
@@ -133,7 +134,7 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
   const [search, setSearch] = useState('')
   const [showConnect, setShowConnect] = useState(false)
   const [period, setPeriod] = useState('month')
-  const [range, setRange] = useState('12')
+  const [range, setRange] = useState('all')
   const [selectedAccountIds, setSelectedAccountIds] = useState([])
   const [showStatementImport, setShowStatementImport] = useState(false)
   const [includeDlaInBalance, setIncludeDlaInBalance] = useState(false)
@@ -152,9 +153,9 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
     setTransactions(mappedTransactions)
     setSelectedAccountIds((current) => {
       const valid = current.filter((id) => mappedAccounts.some((account) => account.id === id))
-      const included = mappedAccounts.filter((account) => account.includeInCash).map((account) => account.id)
-      if (included.length && !valid.some((id) => included.includes(id))) return included
-      return valid.length ? valid : (included.length ? included : mappedAccounts.map((account) => account.id))
+      // Account selection is independent of the cash-held preference: historical
+      // accounts must not disappear simply because they are not cash holdings.
+      return valid.length ? valid : mappedAccounts.map((account) => account.id)
     })
     const cashHeld = latestCashHeldFromAccounts(mappedAccounts, mappedTransactions)
     if (mappedAccounts.some((account) => account.includeInCash)) onCashHeldChange(cashHeld)
@@ -280,23 +281,25 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
   const selected = useMemo(() => accounts.filter((account) => selectedAccountIds.includes(account.id)), [accounts, selectedAccountIds])
   const reportingIds = useMemo(() => reportingAccountIds(accounts, selectedAccountIds, 'GBP'), [accounts, selectedAccountIds])
   const reportingSelected = useMemo(() => accounts.filter((account) => reportingIds.includes(account.id)), [accounts, reportingIds])
-  const fromDate = useMemo(() => {
-    if (range === 'all') return ''
-    const date = new Date()
-    date.setMonth(date.getMonth() - Number(range))
-    return date.toISOString().slice(0, 10)
-  }, [range])
-  const filteredTransactions = useMemo(() => transactions.filter((transaction) => selectedAccountIds.includes(transaction.accountId) && (!fromDate || transaction.bookedAt >= fromDate)), [transactions, selectedAccountIds, fromDate])
+  const timeline = useMemo(() => bankingTimelineRange(transactions, {
+    accountIds: reportingIds, range,
+  }), [transactions, reportingIds, range])
+  const fromDate = timeline.from
+  const toDate = timeline.to
+  const filteredTransactions = useMemo(() => transactions.filter((transaction) => selectedAccountIds.includes(transaction.accountId)
+    && (!fromDate || transaction.bookedAt >= fromDate) && (!toDate || transaction.bookedAt <= toDate)), [transactions, selectedAccountIds, fromDate, toDate])
   const balanceSeries = useMemo(() => reconstructBalanceSeries(reportingSelected, transactions, {
     accountIds: reportingIds,
     includeExcluded: false,
     includeOwnerFunding: includeDlaInBalance,
   }), [reportingSelected, transactions, reportingIds, includeDlaInBalance])
-  const visibleBalanceSeries = useMemo(() => fromDate ? balanceSeries.filter((point) => point.date >= fromDate) : balanceSeries, [balanceSeries, fromDate])
+  const visibleBalanceSeries = useMemo(() => alignBankingBalanceSeries(balanceSeries, { from: fromDate, to: toDate }), [balanceSeries, fromDate, toDate])
   const trueCashTransactions = useMemo(() => trueCashFlowTransactions(transactions), [transactions])
-  const cashFlow = useMemo(() => aggregateCashFlow(trueCashTransactions, { period, accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, period, reportingIds, fromDate])
-  const metrics = useMemo(() => calculateBankMetrics(trueCashTransactions, visibleBalanceSeries, { accountIds: reportingIds, from: fromDate || undefined }), [trueCashTransactions, visibleBalanceSeries, reportingIds, fromDate])
-  const cashSummary = useMemo(() => summarizeCashFlowPipeline(transactions, { accountIds: reportingIds, from: fromDate || undefined }), [transactions, reportingIds, fromDate])
+  const cashFlow = useMemo(() => bankingCashFlowSeries(trueCashTransactions, {
+    period, accountIds: reportingIds, from: fromDate, to: toDate,
+  }), [trueCashTransactions, period, reportingIds, fromDate, toDate])
+  const metrics = useMemo(() => calculateBankMetrics(trueCashTransactions, visibleBalanceSeries, { accountIds: reportingIds, from: fromDate || undefined, to: toDate || undefined, asOf: toDate }), [trueCashTransactions, visibleBalanceSeries, reportingIds, fromDate, toDate])
+  const cashSummary = useMemo(() => summarizeCashFlowPipeline(transactions, { accountIds: reportingIds, from: fromDate || undefined, to: toDate || undefined }), [transactions, reportingIds, fromDate, toDate])
   const authoritativeBalanceValues = reportingSelected.map((account) => authoritativeAccountBalance(account, transactions))
   const reportingBalanceAuthoritative = authoritativeBalanceValues.every((value) => value != null)
   const reportingBalanceValues = reportingSelected.map((account) => latestAccountBalance(account, transactions))
@@ -367,7 +370,7 @@ export default function BankWorkspace({ user, properties = [], tenants = [], onC
 
       <section className="panel bank-chart-panel bank-balance-panel"><header><div><h2>Balance history <span className="bank-analysis-badge">{reportingBalanceAuthoritative ? 'Analysis-adjusted' : 'Relative movement'}</span></h2><p>{reportingBalanceAuthoritative ? 'Opening bank balance is preserved. Excluded transactions and confirmed internal-transfer pairs are ignored; DLA movements follow the toggle.' : 'This Tide statement export contains no balance column, so the opening balance is unknown. The chart starts at £0 and shows cumulative included movements; excluded transactions and confirmed internal-transfer pairs are ignored, and DLA follows the toggle.'}</p></div><div className="bank-balance-head-controls"><label className="bank-dla-toggle" title="Toggle owner funding / DLA movements in this analysis-adjusted balance. Excluded transactions and confirmed internal-transfer pairs always remain hidden."><input type="checkbox" checked={includeDlaInBalance} onChange={(event) => setIncludeDlaInBalance(event.target.checked)} /><i /><span>Include DLA movements</span></label><span className="panel-stat">{visibleBalanceSeries.length ? `${shortDate(visibleBalanceSeries[0].date)} – ${shortDate(visibleBalanceSeries.at(-1).date)}` : 'No history'}</span></div></header><BalanceChart points={visibleBalanceSeries} /></section>
 
-      <section className="panel bank-chart-panel bank-cashflow-panel"><header><div><h2>Business cash flow</h2><p>Money generated by the business. Owner funding, cash extraction, internal transfers and anything still awaiting review are excluded.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Money in</span><span className="outflow">Money out</span><span className="net">Net business cash</span></div><CashFlowChart rows={cashFlow} /></section>
+      <section className="panel bank-chart-panel bank-cashflow-panel"><header><div><h2>Business cash flow</h2><p>Money generated by the business. Owner funding, cash extraction, confirmed internal transfers and anything still awaiting review are excluded. The timeline begins with the first booked transaction, including excluded history; zero-activity periods remain visible.</p></div><div className="segmented"><button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Monthly</button><button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Yearly</button></div></header><div className="bank-chart-legend"><span className="inflow">Money in</span><span className="outflow">Money out</span><span className="net">Net business cash</span></div><CashFlowChart rows={cashFlow} /></section>
 
       <CashFlowReconciliation cashSummary={cashSummary} transactions={filteredTransactions} properties={properties} onToggleExcluded={toggleTransactionExcluded} />
 

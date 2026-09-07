@@ -17,7 +17,7 @@ const linePath = (coordinates) => coordinates.map((point, index) => `${index ? '
 
 export function BalanceChart({ points = [] }) {
   const [hovered, setHovered] = useState(null)
-  if (points.length < 2) return <div className="bank-empty-chart"><span>Balance history will appear after transactions are synced.</span></div>
+  if (!points.length) return <div className="bank-empty-chart"><span>Balance history will appear after transactions are synced.</span></div>
 
   const desktopAxis = balanceAxis(points, 5)
   const desktopCoordinates = balanceCoordinates(points, desktopAxis, DESKTOP)
