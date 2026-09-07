@@ -2,6 +2,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import PerformanceWorkspace from './PerformanceWorkspace.jsx'
+import { normalizeLoan } from './loans.js'
 
 const property = {
   id: 'p1', name: 'BTL1', active: true, purchaseDate: '2025-02-28',
@@ -17,6 +18,15 @@ const settings = {
 }
 
 describe('Performance history + forecast UI', () => {
+  it('accepts two independent loans without requiring all callers to supply the new prop', () => {
+    const loans = [
+      normalizeLoan({ id: 'first', propertyId: 'p1', principalAmount: 100000, rate: .05 }, [property]),
+      normalizeLoan({ id: 'second', propertyId: 'p1', principalAmount: 50000, rate: .06 }, [property]),
+    ]
+    const html = renderToStaticMarkup(<PerformanceWorkspace properties={[property]} loans={loans} settings={settings} onAssumptionChange={() => {}} />)
+    expect(html).toContain('Performance')
+    expect(html).toContain('Monthly Performance chart')
+  })
   it('renders portfolio conservative defaults with history-aware, banking-aware chart controls', () => {
     const html = renderToStaticMarkup(<PerformanceWorkspace properties={[property]} settings={settings} onAssumptionChange={() => {}} />)
     for (const text of [

@@ -246,6 +246,7 @@ function UpdateModal({ draft, setDraft, properties, updates, onSave, onClose }) 
 export default function PerformanceWorkspace({
   user = null,
   properties = [],
+  loans = null,
   settings = {},
   onAssumptionChange,
 }) {
@@ -264,8 +265,8 @@ export default function PerformanceWorkspace({
 
   const updates = useMemo(() => normalizePerformanceUpdates(settings.performanceUpdates, properties), [settings.performanceUpdates, properties])
   const model = useMemo(() => buildTheoreticalPerformanceProjection({
-    properties, settings, scope, scenarioId, horizonYears, excludeExtractions,
-  }), [properties, settings, scope, scenarioId, horizonYears, excludeExtractions])
+    properties, loans, settings, scope, scenarioId, horizonYears, excludeExtractions,
+  }), [properties, loans, settings, scope, scenarioId, horizonYears, excludeExtractions])
   const actualBankSeries = useMemo(() => buildActualBankCashflowSeries({
     transactions: bankData.transactions,
     scope,

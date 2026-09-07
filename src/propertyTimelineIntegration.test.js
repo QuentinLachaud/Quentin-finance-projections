@@ -26,7 +26,9 @@ describe('property timeline integration', () => {
 
   it('captures overwrite-prone changes at save/commit boundaries rather than per keystroke', () => {
     expect(app).toContain('propertyChangeEvents(previousProperty, effectiveProperty)')
-    expect(app).toContain('loanChangeEvents(previousLoan, nextLoan, draft.id)')
+    expect(app).toContain('portfolioLoanChangeEvents(')
+    expect(app).toContain('portfolioLoanChangeEvents(previousLoan, nextLoan, current, next)')
+    expect(app).toContain('...intendedLoans.map((loan) => loan.id), ...removedLoanIds')
     expect(app).toContain('const commitPropertyTimelineField =')
     expect(app).toContain("onPropertyCommit={commitPropertyTimelineField}")
     expect(moneyInput).toContain('onCommit')

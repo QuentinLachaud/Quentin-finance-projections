@@ -1,3 +1,5 @@
+import { loanFinancials } from './loans.js'
+
 const makeId = () => globalThis.crypto?.randomUUID?.()
   || `remortgage-${Date.now()}-${Math.random().toString(16).slice(2)}`
 
@@ -14,10 +16,12 @@ export const createRemortgageScenario = ({
   feeValue = 0,
   addFeeToLoan = false,
   loanBasis = 'loan',
+  ...extra
 } = {}) => {
   const value = nonNegative(propertyValue)
   const loan = nonNegative(loanAmount)
   return {
+    ...extra,
     propertyValue: value,
     loanAmount: loan,
     ltv: value ? loan / value * 100 : 0,
@@ -40,7 +44,7 @@ export const createRemortgageComparison = (property = null) => {
     id: makeId(),
     sourcePropertyId: property?.id || '',
     name: property?.name ? `${property.name} remortgage` : 'Manual remortgage',
-    left: { ...scenario },
+    left: { ...scenario, ...(Array.isArray(property?.financeLoans) ? { currentLoans: property.financeLoans, financeScope: property.financeLoans.length > 1 ? 'whole-property' : 'single-loan' } : {}) },
     right: { ...scenario },
   }
 }
@@ -55,6 +59,12 @@ export const duplicateRemortgageComparison = (comparison) => ({
 
 export const updateRemortgageScenario = (scenario, key, rawValue) => {
   const current = createRemortgageScenario(scenario)
+  if (key !== 'propertyValue') {
+    delete current.currentLoans
+    delete current.currentMonthlyInterest
+    delete current.currentMonthlyPayment
+    delete current.financeScope
+  }
 
   if (key === 'addFeeToLoan') return { ...current, addFeeToLoan: Boolean(rawValue) }
   if (key === 'feeMode') return { ...current, feeMode: rawValue === 'amount' ? 'amount' : 'percent' }
@@ -92,18 +102,17 @@ export const updateRemortgageScenario = (scenario, key, rawValue) => {
 
 export const calculateRemortgageScenario = (scenario) => {
   const current = createRemortgageScenario(scenario)
-  const fee = current.feeMode === 'amount'
-    ? current.feeValue
-    : current.loanAmount * current.feeValue / 100
-  const effectiveLoan = current.loanAmount + (current.addFeeToLoan ? fee : 0)
+  const fee = current.feeMode === 'amount' ? current.feeValue : current.loanAmount * current.feeValue / 100
+  const financing = Array.isArray(current.currentLoans) ? current.currentLoans.map((loan) => loanFinancials(loan)) : []
+  const actual = financing.length > 0
+  const effectiveLoan = actual ? financing.reduce((sum, loan) => sum + loan.balance, 0)
+    : current.loanAmount + (current.addFeeToLoan ? fee : 0)
   const resultingLtv = current.propertyValue ? effectiveLoan / current.propertyValue * 100 : 0
-  const monthlyInterest = effectiveLoan * current.rate / 100 / 12
+  const monthlyInterest = actual ? financing.reduce((sum, loan) => sum + loan.monthlyInterestCost, 0)
+    : effectiveLoan * current.rate / 100 / 12
+  const monthlyPayment = actual ? financing.reduce((sum, loan) => sum + loan.monthlyPayment, 0) : monthlyInterest
   return {
-    ...current,
-    fee,
-    effectiveLoan,
-    resultingLtv,
-    monthlyInterest,
+    ...current, fee, effectiveLoan, resultingLtv, monthlyInterest, monthlyPayment,
     annualInterest: monthlyInterest * 12,
     upfrontFee: current.addFeeToLoan ? 0 : fee,
     equity: current.propertyValue - effectiveLoan,
@@ -116,8 +125,8 @@ export const compareRemortgageScenarios = (leftScenario, rightScenario) => {
   return {
     left,
     right,
-    monthlyCashFlowChange: left.monthlyInterest - right.monthlyInterest,
-    annualCashFlowChange: (left.monthlyInterest - right.monthlyInterest) * 12,
+    monthlyCashFlowChange: left.monthlyPayment - right.monthlyPayment,
+    annualCashFlowChange: (left.monthlyPayment - right.monthlyPayment) * 12,
     loanChange: right.effectiveLoan - left.effectiveLoan,
     ltvChange: right.resultingLtv - left.resultingLtv,
     rateChange: right.rate - left.rate,

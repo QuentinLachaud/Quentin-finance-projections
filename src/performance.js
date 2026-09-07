@@ -1,4 +1,6 @@
 import { cashHeldFromAccounts, deduplicateTransactions, performanceTreatmentForTransaction } from './banking.js'
+import { calculateProperty } from './calculations.js'
+import { effectiveLoanAmount, projectPropertyLoans } from './loans.js'
 
 const MS_DAY = 24 * 60 * 60 * 1000
 const MS_YEAR = 365.2425 * MS_DAY
@@ -120,18 +122,17 @@ const financialTimelineEvent = (event) => {
   return event.category === 'finance' && event.kind === 'change'
 }
 
-const currentLoanFor = (propertyId, loans) => (loans || []).find((loan) => clean(loan?.propertyId) === clean(propertyId)) || null
-
 const purchaseDebtFor = (property, loans) => {
   const purchaseDate = dateOnly(property?.purchaseDate)
-  const loan = currentLoanFor(property?.id, loans)
-  if (purchaseDate && loan && dateOnly(loan.fixedStartDate) === purchaseDate) {
-    return { amount: nonNegative(loan.principalAmount || loan.loanAmount), confidence: 'recorded' }
+  const linked = (loans || []).filter((loan) => clean(loan?.propertyId) === clean(property?.id))
+  const originated = linked.filter((loan) => purchaseDate && dateOnly(loan.fixedStartDate) === purchaseDate)
+  if (originated.length) return {
+    amount: originated.reduce((sum, loan) => sum + nonNegative(loan.principalAmount ?? loan.loanAmount), 0),
+    confidence: 'recorded',
   }
-  return {
-    amount: nonNegative(property?.mortgagePrincipalAmount || property?.loanAmount),
-    confidence: 'estimated',
-  }
+  // The original purchase debt is not known when no loan dates match the purchase.
+  // Retain the explicitly estimated legacy basis rather than claiming it is recorded.
+  return { amount: nonNegative(property?.mortgagePrincipalAmount || property?.loanAmount), confidence: 'estimated' }
 }
 
 const timelineAmount = (event, key) => {
@@ -298,6 +299,7 @@ const buildRawEvents = ({ properties, loans, expenses, timelineEvents, performan
     if (!occurredAt || !financialTimelineEvent(event)) continue
     const afterValuation = event.sourceField === 'latestValuation' ? timelineAmount(event, 'after') : null
     const loanAfter = event.sourceType === 'loan-change' ? event.after : null
+    const aggregateDebtAfter = event.sourceType === 'loan-change' ? timelineAmount(event, 'propertyDebtAfter') : null
     events.push({
       id: `performance:timeline:${clean(event?.id) || makeId('timeline')}`,
       propertyId: clean(event?.propertyId),
@@ -308,7 +310,8 @@ const buildRawEvents = ({ properties, loans, expenses, timelineEvents, performan
       details: clean(event?.details),
       amount: 0,
       assetValue: afterValuation == null ? null : nonNegative(afterValuation),
-      debtValue: loanAfter && Number.isFinite(Number(loanAfter.loanAmount)) ? nonNegative(loanAfter.loanAmount) : null,
+      debtValue: aggregateDebtAfter == null ? null : nonNegative(aggregateDebtAfter),
+      loanId: clean(loanAfter?.id || event.sourceId),
       rentBefore: event.sourceField === 'rent' && Number.isFinite(Number(event.before)) ? nonNegative(event.before) : null,
       rentValue: event.sourceField === 'rent' && Number.isFinite(Number(event.after)) ? nonNegative(event.after) : null,
       sourceType: 'timeline',
@@ -483,6 +486,10 @@ const buildActualPoints = ({ properties, events, basisByProperty, today }) => {
 }
 
 const repaymentBalanceAtMonth = (property, month, settings) => {
+  if (Array.isArray(property?.financeLoans)) {
+    const projected = projectPropertyLoans(property, month, settings?.rateShock || 0)
+    return projected.financeLoans.reduce((sum, loan) => sum + effectiveLoanAmount(loan), 0)
+  }
   const starting = nonNegative(property?.loanAmount)
   if (!starting || property?.mortgageInterestOnly !== false || month <= 0) return starting
   const annualRate = Math.max(0, finite(property?.baseRate) + finite(settings?.rateShock))
@@ -507,7 +514,10 @@ const projectedPropertyAtMonth = (property, month, settings) => {
   const rent = currentRent * ((1 + rentGrowth) ** years)
   const managementShare = settings?.fullyManaged ? Math.max(0, finite(settings?.managementRate)) : 0
   const rentDeltaContribution = (rent - currentRent) * (1 - managementShare)
-  const netCash = finite(property?.operatingCashflow) + rentDeltaContribution
+  const projected = Array.isArray(property?.financeLoans) ? projectPropertyLoans(property, month, settings?.rateShock || 0) : null
+  const newPayment = projected ? calculateProperty({ ...projected, latestValuation: value, rent }, settings).monthlyPayment : null
+  const paymentDelta = newPayment == null ? 0 : finite(property.monthlyPayment) - newPayment
+  const netCash = finite(property?.operatingCashflow) + rentDeltaContribution + paymentDelta
   return { value, debt, equity: value - debt, rent, netCash }
 }
 

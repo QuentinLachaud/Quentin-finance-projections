@@ -67,11 +67,12 @@ export const propertyMetricSupported = (property = {}, supportKey = '') => {
   if (!supportKey) return true
   const currentValue = finitePositive(property?.latestValuation)
   const loanBalance = finitePositive(property?.loanAmount)
+  const financeKnown = Array.isArray(property?.financeLoans) || Number(property?.mortgageLoanCount || 0) > 0
   const rent = finitePositive(property?.rent)
   const baseRate = finitePositive(property?.baseRate)
   const homeReportPurchase = finitePositive(property?.homeReportPurchase)
   const mortgage = propertyHasMortgage(property)
-  const nextRemortgage = hasNextRemortgageInputs(property)
+  const nextRemortgage = financeKnown ? Boolean(property?.remortgageSchedule?.length) : hasNextRemortgageInputs(property)
 
   const support = {
     currentValue,
@@ -79,11 +80,11 @@ export const propertyMetricSupported = (property = {}, supportKey = '') => {
     equity: currentValue && (!mortgage || loanBalance),
     ltv: currentValue && loanBalance,
     rent,
-    mortgagePayment: loanBalance && baseRate,
-    operatingCashflow: rent && (!mortgage || (loanBalance && baseRate)),
+    mortgagePayment: financeKnown || (loanBalance && baseRate),
+    operatingCashflow: rent && (financeKnown || !mortgage || (loanBalance && baseRate)),
     netYield: rent && homeReportPurchase,
     grossYield: rent && homeReportPurchase,
-    interestRate: baseRate,
+    interestRate: financeKnown ? loanBalance : baseRate,
     lender: nonBlank(property?.lender),
     nextRemortgage,
     brokerDate: nextRemortgage,
@@ -92,7 +93,7 @@ export const propertyMetricSupported = (property = {}, supportKey = '') => {
     expectedRemortgageValue: currentValue && nextRemortgage,
     expectedRemortgageLtv: currentValue && loanBalance && nextRemortgage,
     releasableEquity: currentValue && loanBalance,
-    interestCoverage: rent && loanBalance && baseRate,
+    interestCoverage: rent && loanBalance && (financeKnown || baseRate),
     annualAppreciation: currentValue,
     voidHistory: nonBlank(property?.purchaseDate),
     address: nonBlank(property?.address) || nonBlank(property?.flatNumber),

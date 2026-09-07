@@ -19,6 +19,7 @@ import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import CredentialsWorkspace from './CredentialsWorkspace.jsx'
 import LoansWorkspace from './LoansWorkspace.jsx'
+import PropertyLoansEditor from './PropertyLoansEditor.jsx'
 import ContractorsWorkspace from './ContractorsWorkspace.jsx'
 import PropertyTimeline from './PropertyTimeline.jsx'
 import PerformanceWorkspace from './PerformanceWorkspace.jsx'
@@ -34,9 +35,9 @@ import { PROPERTY_EDITOR_CORE_KEYS, PROPERTY_EDITOR_OPTIONAL_SECTIONS, propertyF
 import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
-import { applyLoanToPortfolio, normalizeLoans, reconcileLoanPortfolio, syncPropertyMortgage, updatePropertyMortgageInput } from './loans.js'
+import { applyLoanToPortfolio, applyLoansToProperty, loansForProperty, normalizeLoans, reconcileLoanPortfolio, removeLoanFromPortfolio, removePropertyFromLoanPortfolio, savePropertyLoans, updatePropertyMortgageInput, withPropertyLoans } from './loans.js'
 import { normalizeContractor, normalizeContractors, normalizeContractorTags } from './contractors.js'
-import { loanChangeEvents, normalizePropertyTimelineEvents, normalizeTimelineEvent, propertyChangeEvents } from './propertyTimeline.js'
+import { normalizePropertyTimelineEvents, normalizeTimelineEvent, portfolioLoanChangeEvents, propertyChangeEvents } from './propertyTimeline.js'
 import { normalizePerformanceEvents } from './performance.js'
 import MoneyPeriodInput from './MoneyPeriodInput.jsx'
 import { moneyEntryPeriodFor, normalizeMoneyEntryPreferences, setMoneyEntryPeriod } from './moneyPeriods.js'
@@ -1460,14 +1461,24 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
   </div>
 }
 
-function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '' }) {
+function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose, onDelete, isNew, focusField = '' }) {
   const [draft, setDraft] = useState(property)
+  const [stagedLoans, setStagedLoans] = useState(() => loans.map((loan) => ({ ...loan })))
+  const [removedLoanIds, setRemovedLoanIds] = useState([])
+  const removeStagedLoan = (id) => {
+    const original = loans.find((loan) => loan.id === id && loan.propertyId === property.id)
+    if (original) setRemovedLoanIds((current) => [...new Set([...current, id])])
+    setStagedLoans((current) => current.filter((loan) => loan.id !== id))
+  }
   const drawerRef = useRef(null)
-  useEffect(() => setDraft(property), [property])
+  useEffect(() => { setDraft(property); setStagedLoans(loans.map((loan) => ({ ...loan }))); setRemovedLoanIds([]) }, [property?.id])
   useEffect(() => {
     if (!focusField || !drawerRef.current) return undefined
     const focusTarget = () => {
+      const financingFields = new Set(['loanAmount', 'baseRate', 'lender', 'fixedRateMonths', 'latestRemortgage', 'mortgageNumber', 'qualifyingFinanceBalance'])
+      const targetField = financingFields.has(focusField) ? 'financing' : focusField
       const input = drawerRef.current?.querySelector(`[data-property-field="${focusField}"]`)
+        || drawerRef.current?.querySelector(`[data-property-field="${targetField}"]`)
       if (!input) return
       const disclosure = input.closest('details')
       if (disclosure) disclosure.open = true
@@ -1516,8 +1527,10 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '
           <section className="property-editor-more" aria-label="Optional property details">
             <div className="property-editor-more-heading"><div><span className="kicker">OPTIONAL</span><h3>Add more details</h3></div><small>Financing, tenancy, costs and compliance stay available without blocking setup.</small></div>
             {optionalSections.map((section) => <details className="property-editor-disclosure" key={section.id}>
-              <summary><span><b>{section.title}</b><small>{section.count ? `${section.count} detail${section.count === 1 ? '' : 's'} added` : section.description}</small></span><ChevronDown size={18} /></summary>
-              <div className="form-grid">{section.fields.map(renderField)}</div>
+              <summary data-property-field={section.id === 'financing' ? 'financing' : undefined}><span><b>{section.title}</b><small>{section.id === 'financing' ? `${stagedLoans.length} loan${stagedLoans.length === 1 ? '' : 's'} associated` : section.count ? `${section.count} detail${section.count === 1 ? '' : 's'} added` : section.description}</small></span><ChevronDown size={18} /></summary>
+              {section.id === 'financing'
+                ? <div className="property-editor-financing-body"><PropertyLoansEditor property={draft} loans={stagedLoans} availableLoans={availableLoans} onChange={setStagedLoans} onRemove={removeStagedLoan} /></div>
+                : <div className="form-grid">{section.fields.map(renderField)}</div>}
             </details>)}
           </section>
         </div>
@@ -1525,7 +1538,7 @@ function EditDrawer({ property, onSave, onClose, onDelete, isNew, focusField = '
           {!isNew && <button className="danger-button" onClick={() => onDelete(draft.id)}><Trash2 size={16} /> Delete</button>}
           <span />
           <button className="secondary-button" onClick={onClose}>Cancel</button>
-          <button className="primary-button" onClick={() => onSave(draft)}><Check size={17} /> Save BTL</button>
+          <button className="primary-button" onClick={() => onSave(draft, stagedLoans, removedLoanIds)}><Check size={17} /> Save BTL</button>
         </footer>
       </aside>
     </div>
@@ -1841,8 +1854,9 @@ function PortfolioApp({ user }) {
   if (loadError) return <div className="app-status-screen"><CloudOff size={32} /><h1>We couldn’t load your portfolio</h1><p>{loadError}</p><button className="primary-button" onClick={() => window.location.reload()}>Try again</button></div>
   if (!state) return <div className="app-status-screen"><span className="loading-mark"><Building2 /></span><h1>Loading your private portfolio…</h1></div>
 
-  const portfolio = calculatePortfolio(state.properties, state.settings)
-  const calculated = state.properties.map((property) => {
+  const propertiesWithLoans = withPropertyLoans(state.properties, state.loans || [])
+  const portfolio = calculatePortfolio(propertiesWithLoans, state.settings)
+  const calculated = propertiesWithLoans.map((property) => {
     const calculatedProperty = calculateProperty(property, state.settings)
     return {
       ...calculatedProperty,
@@ -1850,7 +1864,7 @@ function PortfolioApp({ user }) {
       ...propertyVoidHistory(property, state.tenants),
     }
   })
-  const includedProperties = includedPortfolioProperties(state.properties)
+  const includedProperties = includedPortfolioProperties(propertiesWithLoans)
   const includedCalculated = includedPortfolioProperties(calculated)
   const includedTenants = tenantsForIncludedProperties(state.tenants, state.properties)
 
@@ -1869,40 +1883,37 @@ function PortfolioApp({ user }) {
   }
   const openPropertyEditor = (id, field = '') => { setEditingField(field); setEditingId(id); setPendingProperty(null) }
   const closeEditor = () => { setEditingField(''); setEditingId(null); setPendingProperty(null) }
-  const saveProperty = (draft) => {
+  const saveProperty = (draft, stagedLoans = null, removedLoanIds = []) => {
     if (!state.properties.some((property) => property.id === draft.id) && !requestPropertySlot()) return
     setState((current) => {
       const previousProperty = current.properties.find((property) => property.id === draft.id) || null
-      const previousLoan = (current.loans || []).find((loan) => loan.propertyId === draft.id) || null
       const synced = syncPropertyTenant(draft, current.tenants)
-      const properties = current.properties.some((property) => property.id === draft.id)
-        ? current.properties.map((property) => property.id === draft.id ? synced.property : property)
-        : [...current.properties, synced.property]
-      const mortgageSync = syncPropertyMortgage({
-        property: synced.property,
-        loans: current.loans || [],
-        comparisons: current.remortgageComparisons || [],
-      })
-      const effectiveProperty = mortgageSync.property || synced.property
-      const nextLoan = (mortgageSync.loans || []).find((loan) => loan.propertyId === draft.id) || null
+      const intendedLoans = stagedLoans ?? loansForProperty(current.loans || [], draft.id)
+      const next = savePropertyLoans(current, synced.property, intendedLoans, removedLoanIds)
+      const effectiveProperty = next.properties.find((property) => property.id === draft.id) || synced.property
+      const changedIds = new Set([...intendedLoans.map((loan) => loan.id), ...removedLoanIds])
       const timelineChanges = previousProperty
-        ? [...propertyChangeEvents(previousProperty, effectiveProperty), ...loanChangeEvents(previousLoan, nextLoan, draft.id)]
-        : []
+        ? [
+          ...propertyChangeEvents(previousProperty, effectiveProperty),
+          ...[...changedIds].flatMap((id) => portfolioLoanChangeEvents(
+            (current.loans || []).find((loan) => loan.id === id) || null,
+            (next.loans || []).find((loan) => loan.id === id) || null,
+            current, next,
+          )),
+        ] : []
       return {
-        ...current,
+        ...next,
         tenants: synced.tenants,
-        properties: properties.map((property) => property.id === draft.id ? effectiveProperty : property),
-        loans: mortgageSync.loans,
-        remortgageComparisons: mortgageSync.comparisons,
         propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges],
       }
     })
     closeEditor()
   }
+
   const cloneProperty = (id) => {
     if (!requestPropertySlot()) return
     const source = state.properties.find((p) => p.id === id)
-    const clone = { ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', tenantMoveOut: '', depositHeld: '', mortgageNumber: '' }
+    const clone = applyLoansToProperty({ ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', tenantMoveOut: '', depositHeld: '', mortgageNumber: '' }, [])
     setEditingField('')
     setPendingProperty(clone)
     setEditingId(null)
@@ -1915,7 +1926,10 @@ function PortfolioApp({ user }) {
     setEditingId(null)
   }
   const removeProperty = (id) => {
-    setState((current) => ({ ...current, properties: current.properties.filter((p) => p.id !== id), tenants: removeTenantsForProperty(current.tenants, id), propertyTimelineEvents: (current.propertyTimelineEvents || []).filter((event) => event.propertyId !== id), performanceEvents: (current.performanceEvents || []).filter((event) => event.propertyId !== id) }))
+    setState((current) => {
+      const next = removePropertyFromLoanPortfolio(current, id)
+      return { ...next, tenants: removeTenantsForProperty(current.tenants, id), propertyTimelineEvents: (current.propertyTimelineEvents || []).filter((event) => event.propertyId !== id), performanceEvents: (current.performanceEvents || []).filter((event) => event.propertyId !== id) }
+    })
     closeEditor()
   }
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
@@ -2022,11 +2036,17 @@ function PortfolioApp({ user }) {
     const previousLoan = (current.loans || []).find((candidate) => candidate.id === loan.id) || null
     const next = applyLoanToPortfolio(current, loan)
     const nextLoan = (next.loans || []).find((candidate) => candidate.id === loan.id) || null
-    const propertyId = nextLoan?.propertyId || previousLoan?.propertyId || ''
-    const timelineChanges = propertyId ? loanChangeEvents(previousLoan, nextLoan, propertyId) : []
+    const timelineChanges = portfolioLoanChangeEvents(previousLoan, nextLoan, current, next)
     return { ...next, propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges] }
   })
-  const removeLoan = (id) => setState((current) => ({ ...current, loans: (current.loans || []).filter((loan) => loan.id !== id) }))
+  const removeLoan = (id) => setState((current) => {
+    const previousLoan = (current.loans || []).find((loan) => loan.id === id)
+    if (!previousLoan) return current
+    const next = removeLoanFromPortfolio(current, id)
+    const timelineChanges = portfolioLoanChangeEvents(previousLoan, null, current, next)
+    return { ...next, propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges] }
+  })
+
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
     tenants: current.tenants.some((item) => item.id === tenant.id) ? current.tenants.map((item) => item.id === tenant.id ? tenant : item) : [...current.tenants, tenant],
@@ -2546,7 +2566,7 @@ function PortfolioApp({ user }) {
         <button className={visibleWorkspaceNavigation.slice(4).some(([label]) => label === section) ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
       </nav>
 
-        {editing && <EditDrawer property={editing} isNew={!state.properties.some((p) => p.id === editing.id)} focusField={editingField} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
+        {editing && <EditDrawer property={editing} loans={loansForProperty(state.loans || [], editing.id)} availableLoans={state.loans || []} isNew={!state.properties.some((p) => p.id === editing.id)} focusField={editingField} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
         {upgradeOpen && <BillingWorkspace entitlement={effectiveEntitlement} modal onClose={() => setUpgradeOpen(false)} />}
       {!state.settings.onboardingComplete && <AccountSetupModal onComplete={completeAccountSetup} />}
     </div>

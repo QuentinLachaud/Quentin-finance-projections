@@ -1,5 +1,6 @@
 import { calculateCorporationTax, calculatePrivateLandlordTax, taxYearForDate } from './tax.js'
 import { calendarDate } from './dateUtils.js'
+import { projectPropertyLoans, summarizePropertyLoans } from './loans.js'
 export { shortDate } from './dateUtils.js'
 
 const MS_YEAR = 365.2425 * 24 * 60 * 60 * 1000
@@ -35,13 +36,20 @@ export const amortizingPayment = (principal, annualRate, months, dueAtStart = tr
   return dueAtStart ? ordinaryPayment / (1 + monthlyRate) : ordinaryPayment
 }
 
+const financingSummary = (property, settings) => Array.isArray(property?.financeLoans)
+  ? summarizePropertyLoans(property, property.financeLoans, settings?.rateShock || 0) : null
+
 export const mortgageInterestPayment = (property, settings) => {
+  const summary = financingSummary(property, settings)
+  if (summary) return summary.monthlyInterestCost
   const loanAmount = Math.max(0, Number(property.loanAmount || 0))
   const currentRate = Math.max(0, Number(property.baseRate || 0) + Number(settings.rateShock || 0))
   return loanAmount * currentRate / 12
 }
 
 export const mortgageMonthlyPayment = (property, settings) => {
+  const summary = financingSummary(property, settings)
+  if (summary) return summary.monthlyPayment
   if (property?.mortgageInterestOnly !== false) return mortgageInterestPayment(property, settings)
   const loanAmount = Math.max(0, Number(property?.loanAmount || 0))
   const currentRate = Math.max(0, Number(property?.baseRate || 0) + Number(settings?.rateShock || 0))
@@ -50,11 +58,12 @@ export const mortgageMonthlyPayment = (property, settings) => {
 }
 
 const qualifyingFinancePayment = (property, settings) => {
+  const summary = financingSummary(property, settings)
+  if (summary) return summary.qualifyingFinanceCost
   const loanAmount = Math.max(0, Number(property.loanAmount || 0))
   const rawQualifyingBalance = property.qualifyingFinanceBalance
   const qualifyingBalance = rawQualifyingBalance === '' || rawQualifyingBalance == null
-    ? loanAmount
-    : Math.min(loanAmount, Math.max(0, Number(rawQualifyingBalance || 0)))
+    ? loanAmount : Math.min(loanAmount, Math.max(0, Number(rawQualifyingBalance || 0)))
   const currentRate = Math.max(0, Number(property.baseRate || 0) + Number(settings.rateShock || 0))
   return qualifyingBalance * currentRate / 12
 }
@@ -79,18 +88,21 @@ export function calculateProperty(property, settings, now = new Date()) {
     rateShock: finiteNumber(settings?.rateShock),
     appreciationRate: finiteNumber(settings?.appreciationRate),
   }
-  const currentRate = Math.max(0, Number(property.baseRate || 0) + Number(settings.rateShock || 0))
+  const finance = financingSummary(property, settings)
+  if (finance) property = { ...property, loanAmount: finance.loanAmount }
+  const currentRate = finance ? finance.rate : Math.max(0, Number(property.baseRate || 0) + Number(settings.rateShock || 0))
   const monthlyInterestCost = mortgageInterestPayment(property, settings)
   const monthlyPayment = mortgageMonthlyPayment(property, settings)
   const calculatedMortgage = monthlyPayment
   const qualifyingFinanceCost = qualifyingFinancePayment(property, settings)
-  const nextRemortgage = addMonths(property.latestRemortgage, property.fixedRateMonths)
+  const nextRemortgage = finance ? calendarDate(finance.nextRemortgage) : addMonths(property.latestRemortgage, property.fixedRateMonths)
   const brokerDate = nextRemortgage ? addMonths(nextRemortgage.toISOString().slice(0, 10), -3) : null
   const monthsToRemortgage = monthsBetween(now, nextRemortgage)
   const expectedRemortgageValue = Number(property.latestValuation) * ((1 + Number(settings.appreciationRate)) ** (monthsToRemortgage / 12))
   const equity = Number(property.latestValuation) - Number(property.loanAmount)
   const mortgageAdmin = property.mortgageAdmin == null
-    ? 13 / Math.max(1, Number(property.fixedRateMonths))
+    ? finance ? finance.loans.reduce((sum, loan) => sum + (loan.fixedRateMonths > 0 ? 13 / loan.fixedRateMonths : 0), 0)
+      : 13 / Math.max(1, Number(property.fixedRateMonths))
     : Number(property.mortgageAdmin)
   const complianceBudget = Number(property.legionella) + Number(property.gasCertificate) + Number(property.eicr)
   const financeAdminBudget = mortgageAdmin
@@ -108,6 +120,9 @@ export function calculateProperty(property, settings, now = new Date()) {
   return {
     ...property,
     currentRate,
+    loanCount: finance?.loanCount ?? property.mortgageLoanCount ?? 0,
+    remortgageSchedule: finance?.remortgageSchedule ?? property.remortgageSchedule,
+    principalPayment: finance?.principalPayment ?? Math.max(0, monthlyPayment - monthlyInterestCost),
     monthlyPayment,
     monthlyInterestCost,
     qualifyingFinanceCost,
@@ -298,7 +313,7 @@ export const propertiesWithProjectedRentGrowth = (properties = [], annualGrowthR
     rent: projectedRentAtMonth(property?.rent, annualGrowthRate, month),
   }))
 
-export const propertiesWithProjectedLoanEvents = (properties = [], loanEvents = [], month = 0) => {
+export const propertiesWithProjectedLoanEvents = (properties = [], loanEvents = [], month = 0, rateShock = 0) => {
   const currentMonth = Math.max(0, Math.trunc(finiteNumber(month)))
   const deltas = new Map()
   for (const event of Array.isArray(loanEvents) ? loanEvents : []) {
@@ -310,6 +325,7 @@ export const propertiesWithProjectedLoanEvents = (properties = [], loanEvents = 
     deltas.set(propertyId, (deltas.get(propertyId) || 0) + loanDelta)
   }
   return (Array.isArray(properties) ? properties : []).map((property) => {
+    if (Array.isArray(property.financeLoans)) return projectPropertyLoans(property, currentMonth, rateShock, loanEvents)
     const delta = deltas.get(String(property?.id ?? '')) || 0
     return delta ? { ...property, loanAmount: finiteNumber(property?.loanAmount) + delta } : property
   })
@@ -346,7 +362,7 @@ export function projectPortfolio(properties, settings, months = settings.project
       privateTaxStates,
     }
     const projectedProperties = propertiesWithProjectedRentGrowth(
-      propertiesWithProjectedLoanEvents(properties, loanEvents, month),
+      propertiesWithProjectedLoanEvents(properties, loanEvents, month, settings.rateShock),
       settings.rentGrowthRate,
       month,
     )

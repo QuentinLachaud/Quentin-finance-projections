@@ -73,18 +73,24 @@ export const complianceDiaryItems = (properties = []) => (Array.isArray(properti
   .flatMap((property) => {
     const propertyId = String(property.id || property.name || '')
     const propertyName = String(property.name || 'Property')
-    const nextRemortgage = derivedRemortgageDate(property)
-    const brokerDate = dateOnly(property.brokerDate) || (nextRemortgage ? addMonthsDateOnly(nextRemortgage, -REMORTGAGE_NOTICE_MONTHS) : '')
-    const remortgage = nextRemortgage && brokerDate ? [{
-      key: `${propertyId}|remortgage|${nextRemortgage}`,
-      type: 'remortgage',
-      propertyId,
-      propertyName,
-      label: 'Call broker',
-      dueDate: nextRemortgage,
-      notifyFrom: brokerDate,
-      displayDate: brokerDate,
-    }] : []
+    const schedule = Array.isArray(property.remortgageSchedule) ? property.remortgageSchedule : null
+    const dueLoans = schedule === null
+      ? [{ date: derivedRemortgageDate(property), loanId: '', lender: '' }]
+      : schedule
+    const remortgage = dueLoans.flatMap((loan) => {
+      const nextRemortgage = dateOnly(loan.date)
+      const brokerDate = loan.loanId ? addMonthsDateOnly(nextRemortgage, -REMORTGAGE_NOTICE_MONTHS)
+        : dateOnly(property.brokerDate) || (nextRemortgage ? addMonthsDateOnly(nextRemortgage, -REMORTGAGE_NOTICE_MONTHS) : '')
+      if (!nextRemortgage || !brokerDate) return []
+      return [{
+        key: `${propertyId}|remortgage|${loan.loanId ? `${loan.loanId}|` : ''}${nextRemortgage}`,
+        type: 'remortgage', propertyId, propertyName,
+        loanId: loan.loanId || '', lender: loan.lender || '',
+        label: loan.lender ? `Call broker — ${loan.lender}` : 'Call broker',
+        dueDate: nextRemortgage, notifyFrom: brokerDate, displayDate: brokerDate,
+      }]
+    })
+
     const compliance = complianceDefinitions.flatMap(([type, label, field]) => {
       const dueDate = dateOnly(property[field])
       if (!dueDate) return []

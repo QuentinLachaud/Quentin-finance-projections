@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { addMonths, currency, shortDate } from './calculations.js'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
-import { createBlankLoan, createLoanFromProperty, inferLtvBand, loanCostSummary } from './loans.js'
+import { createBlankLoan, effectiveLoanAmount, inferLtvBand, loanCostSummary } from './loans.js'
 
 const RATE_BANDS = [50, 55, 60, 65, 70, 75, 80, 85, 90]
 
@@ -19,7 +19,7 @@ const actualLtv = (loan, property) => {
   return value ? Number(loan.loanAmount || 0) / value * 100 : 0
 }
 
-function LoanEditor({ loan, properties, onSave, onDelete }) {
+export function LoanEditor({ loan, properties, onSave, onDelete, allowAssociation = true }) {
   const costs = loanCostSummary(loan)
   const update = (patch) => onSave({ ...loan, ...patch })
   const linkProperty = (propertyId) => {
@@ -29,17 +29,17 @@ function LoanEditor({ loan, properties, onSave, onDelete }) {
     }
     const property = properties.find((candidate) => candidate.id === propertyId)
     if (!property) return
-    onSave(createLoanFromProperty(property, loan))
+    update({ propertyId: property.id })
   }
 
   return <div className="loan-editor">
-    <label className="loan-editor-field">
+    {allowAssociation && <label className="loan-editor-field">
       <span>Associated BTL</span>
       <select value={loan.propertyId || ''} onChange={(event) => linkProperty(event.target.value)}>
         <option value="">Manual / not linked</option>
         {properties.map((property) => <option value={property.id} key={property.id}>{property.name}</option>)}
       </select>
-    </label>
+    </label>}
 
     <label className="loan-editor-field">
       <span>Lender</span>
@@ -54,7 +54,7 @@ function LoanEditor({ loan, properties, onSave, onDelete }) {
 
     <label className="loan-editor-field">
       <span>Interest rate</span>
-      <div className="loan-input-affix"><input type="number" min="0" step="0.01" value={(Number(loan.rate || 0) * 100).toFixed(2)} onChange={(event) => update({ rate: Number(event.target.value) / 100 })} /><b>%</b></div>
+      <div className="loan-input-affix"><input type="number" min="0" step="0.01" value={Number((Number(loan.rate || 0) * 100).toFixed(4))} onChange={(event) => update({ rate: Number(event.target.value) / 100 })} /><b>%</b></div>
     </label>
 
     <label className="loan-editor-field">

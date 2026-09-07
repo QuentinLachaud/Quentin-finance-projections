@@ -20,7 +20,7 @@ describe('Loans workspace integration', () => {
     expect(app).toContain('remortgageComparisons: mortgageMigration.comparisons,')
     expect(app).toContain('const saveLoan = (loan) => setState((current) => {')
     expect(app).toContain('const next = applyLoanToPortfolio(current, loan)')
-    expect(app).toContain('loanChangeEvents(previousLoan, nextLoan, propertyId)')
+    expect(app).toContain('portfolioLoanChangeEvents(previousLoan, nextLoan, current, next)')
     expect(app).toContain("{section === 'Loans' && <LoansWorkspace")
   })
 
@@ -35,13 +35,13 @@ describe('Loans workspace integration', () => {
     expect(loansWorkspace).toContain('When enabled, the product fee increases the mortgage balance and therefore the monthly payment.')
   })
 
-  it('keeps BTL-originated mortgage edits synchronized with Loans and current remortgage state', () => {
-    expect(app).toContain('const mortgageSync = syncPropertyMortgage({')
-    expect(app).toContain('loans: current.loans || []')
-    expect(app).toContain('comparisons: current.remortgageComparisons || []')
-    expect(app).toContain('const effectiveProperty = mortgageSync.property || synced.property')
-    expect(app).toContain('properties.map((property) => property.id === draft.id ? effectiveProperty : property)')
-    expect(app.match(/setEditingField\(''\)/g)?.length).toBeGreaterThanOrEqual(3)
+  it('commits staged BTL loan edits atomically and reuses the Loans editor', () => {
+    expect(app).toContain('const next = savePropertyLoans(current, synced.property, intendedLoans, removedLoanIds)')
+    expect(app).toContain('loans={stagedLoans}')
+    expect(app).toContain('onSave(draft, stagedLoans, removedLoanIds)')
+    expect(app).toContain('const propertiesWithLoans = withPropertyLoans(state.properties, state.loans || [])')
+    expect(loansWorkspace).toContain('export function LoanEditor')
+    expect(loansWorkspace).toContain('update({ propertyId: property.id })')
     expect(data).toContain("mortgageFeeMode: 'percent'")
     expect(data).toContain('mortgageFeeValue: 0')
     expect(data).toContain('mortgageFeeAddedToLoan: false')

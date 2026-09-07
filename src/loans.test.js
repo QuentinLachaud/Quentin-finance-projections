@@ -143,17 +143,18 @@ describe('loan and mortgage synchronization', () => {
     expect(synced.comparisons[0].right).toEqual(comparison.right)
   })
 
-  it('keeps manual loans independent and deconflicts duplicate property links without deleting rows', () => {
+  it('keeps manual loans independent and preserves multiple property associations', () => {
     const linked = createLoanFromProperty(property)
     const manual = { ...linked, id: 'manual', propertyId: '', lender: 'Director loan' }
     const manualResult = applyLoanToPortfolio({ properties: [property], loans: [linked], remortgageComparisons: [comparison] }, manual)
-    expect(manualResult.properties[0]).toEqual(property)
-    expect(manualResult.remortgageComparisons[0]).toEqual(comparison)
+    expect(manualResult.properties[0].loanAmount).toBe(property.loanAmount)
+    expect(manualResult.remortgageComparisons[0].right).toEqual(comparison.right)
 
     const replacement = { ...linked, id: 'replacement', lender: 'New lender' }
     const linkedResult = applyLoanToPortfolio({ properties: [property], loans: [linked, replacement], remortgageComparisons: [] }, replacement)
     expect(linkedResult.loans).toHaveLength(2)
-    expect(linkedResult.loans.find((loan) => loan.id === linked.id).propertyId).toBe('')
+    expect(linkedResult.loans.find((loan) => loan.id === linked.id).propertyId).toBe('btl-1')
     expect(linkedResult.loans.find((loan) => loan.id === replacement.id).propertyId).toBe('btl-1')
+    expect(linkedResult.properties[0].loanAmount).toBe(345000)
   })
 })

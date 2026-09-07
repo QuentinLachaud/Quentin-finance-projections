@@ -16767,3 +16767,24 @@ button.contractor-tag-chip { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .performance-v2-metric { transition: none !important; }
 }
+
+
+/* Multiple-loan BTL editor: restrained, responsive finance controls. */
+.property-editor-financing-body { display: block; min-width: 0; }
+.property-loans-editor { display: grid; gap: 14px; width: 100%; min-width: 0; }
+.property-loans-total { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 15px; border: 1px solid var(--ui-line); border-radius: 12px; background: var(--ui-surface); }
+.property-loans-total > span { display: grid; gap: 4px; min-width: 0; }
+.property-loans-total strong { font-size: 20px; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.property-loans-total small, .property-loan-heading small { font-size: 12px; line-height: 1.4; opacity: .7; }
+.property-loans-empty { margin: 0; font-size: 13px; opacity: .7; }
+.property-loan-item { border: 1px solid var(--ui-line); border-radius: 12px; overflow: hidden; background: var(--ui-surface); }
+.property-loan-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 62px; padding: 12px 15px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.property-loan-heading > span { display: grid; gap: 4px; min-width: 0; }
+.property-loan-heading b { font-size: 14px; font-weight: 600; }
+.property-loan-heading svg { flex: none; transition: transform .18s ease; }
+.property-loan-heading[aria-expanded="true"] svg { transform: rotate(180deg); }
+.property-loan-item .loan-editor { padding: 15px; border-top: 1px solid var(--ui-line); }
+.property-loans-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.property-loans-actions select { flex: 1 1 190px; max-width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid var(--ui-line); border-radius: 9px; background: var(--ui-surface); color: inherit; font: inherit; font-size: 13px; }
+@media (max-width: 600px) { .property-loans-total { gap: 10px; padding: 12px; } .property-loans-total strong { font-size: 18px; } .property-loan-item .loan-editor { padding: 12px; } .property-loans-actions { flex-direction: column; align-items: stretch; } .property-loans-actions > * { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .property-loan-heading svg { transition: none; } }

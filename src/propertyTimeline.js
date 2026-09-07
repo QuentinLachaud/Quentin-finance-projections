@@ -1,5 +1,6 @@
 import { normalizeDocumentMeta } from './documents.js'
 import { inferExpenseType } from './expenses.js'
+import { effectiveLoanAmount, summarizePropertyLoans } from './loans.js'
 import { complianceDiaryItems, dateOnly, daysBetweenDateOnly } from './notifications.js'
 
 const clean = (value) => String(value ?? '').trim()
@@ -73,6 +74,8 @@ export const normalizeTimelineEvent = (event = {}) => {
     before: event.before ?? null,
     after: event.after ?? null,
     major: Boolean(event.major),
+    propertyDebtBefore: finiteOrBlank(event.propertyDebtBefore),
+    propertyDebtAfter: finiteOrBlank(event.propertyDebtAfter),
     createdAt: clean(event.createdAt) || new Date().toISOString(),
   }
 }
@@ -103,7 +106,7 @@ export const createManualTimelineEvent = (propertyId, overrides = {}, now = new 
   ...overrides,
 })
 
-const makeChangeEvent = ({ propertyId, occurredAt, category, title, details, sourceField, before, after, sourceType = 'property-change', sourceId = '', major = false }) => normalizeTimelineEvent({
+const makeChangeEvent = ({ propertyId, occurredAt, category, title, details, sourceField, before, after, sourceType = 'property-change', sourceId = '', major = false, ...extra }) => normalizeTimelineEvent({
   id: makeId('timeline-change'),
   propertyId,
   kind: 'change',
@@ -117,6 +120,7 @@ const makeChangeEvent = ({ propertyId, occurredAt, category, title, details, sou
   before,
   after,
   major,
+  ...extra,
 })
 
 const trackedPropertyChanges = [
@@ -152,8 +156,11 @@ export const propertyChangeEvents = (beforeProperty, afterProperty, now = new Da
 const loanSnapshot = (loan) => loan ? ({
   id: clean(loan.id),
   lender: clean(loan.lender),
-  loanAmount: Number(loan.loanAmount || 0),
-  principalAmount: Number(loan.principalAmount || loan.loanAmount || 0),
+  loanAmount: effectiveLoanAmount(loan),
+  principalAmount: Number(loan.principalAmount ?? loan.loanAmount ?? 0),
+  propertyId: clean(loan.propertyId),
+  termMonths: Number(loan.termMonths || 300),
+  qualifyingFinanceBalance: finiteOrBlank(loan.qualifyingFinanceBalance),
   rate: Number(loan.rate || 0),
   fixedRateMonths: Number(loan.fixedRateMonths || 0),
   fixedStartDate: dateValue(loan.fixedStartDate),
@@ -176,9 +183,8 @@ const loanSummary = (loan) => {
 export const loanChangeEvents = (beforeLoan, afterLoan, propertyId, now = new Date()) => {
   const before = loanSnapshot(beforeLoan)
   const after = loanSnapshot(afterLoan)
-  if (!after || !clean(propertyId)) return []
+  if ((!before && !after) || !clean(propertyId)) return []
   if (!before) {
-    if (after.fixedStartDate) return []
     const event = makeChangeEvent({
       propertyId,
       occurredAt: todayDate(now),
@@ -194,7 +200,13 @@ export const loanChangeEvents = (beforeLoan, afterLoan, propertyId, now = new Da
     return event ? [event] : []
   }
 
-  const keys = ['lender', 'loanAmount', 'rate', 'fixedRateMonths', 'fixedStartDate', 'feeMode', 'feeValue', 'addFeeToLoan', 'interestOnly', 'ltvBand']
+  if (!after) {
+    const event = makeChangeEvent({ propertyId, occurredAt: todayDate(now), category: 'finance',
+      title: 'Mortgage removed', details: loanSummary(before), sourceType: 'loan-change',
+      sourceId: before.id, before, after: null, major: true })
+    return event ? [event] : []
+  }
+  const keys = ['propertyId', 'lender', 'loanAmount', 'rate', 'fixedRateMonths', 'fixedStartDate', 'feeMode', 'feeValue', 'addFeeToLoan', 'interestOnly', 'ltvBand', 'termMonths', 'qualifyingFinanceBalance']
   const changed = keys.some((key) => ['loanAmount', 'rate', 'fixedRateMonths', 'feeValue', 'ltvBand'].includes(key)
     ? !numberEqual(before[key], after[key])
     : before[key] !== after[key])
@@ -213,6 +225,21 @@ export const loanChangeEvents = (beforeLoan, afterLoan, propertyId, now = new Da
     major: true,
   })
   return event ? [event] : []
+}
+
+export const portfolioLoanChangeEvents = (beforeLoan, afterLoan, beforeState, afterState, now = new Date()) => {
+  const ids = [...new Set([beforeLoan?.propertyId, afterLoan?.propertyId].filter(Boolean))]
+  return ids.flatMap((propertyId) => {
+    const before = beforeLoan?.propertyId === propertyId ? beforeLoan : null
+    const after = afterLoan?.propertyId === propertyId ? afterLoan : null
+    const property = (afterState.properties || []).find((item) => item.id === propertyId)
+      || (beforeState.properties || []).find((item) => item.id === propertyId)
+    const oldDebt = summarizePropertyLoans(property, beforeState.loans || []).loanAmount
+    const newDebt = summarizePropertyLoans(property, afterState.loans || []).loanAmount
+    return loanChangeEvents(before, after, propertyId, now).map((event) => ({
+      ...event, propertyDebtBefore: oldDebt, propertyDebtAfter: newDebt,
+    }))
+  })
 }
 
 const propertyLinkedExpense = (entry, property) => {

@@ -132,12 +132,12 @@ const propertyCashFlowBeforeMortgage = (property) => {
 }
 
 const optionCashFlow = (property, scenarioResult) =>
-  propertyCashFlowBeforeMortgage(property) - Number(scenarioResult.monthlyInterest || 0)
+  propertyCashFlowBeforeMortgage(property) - Number(scenarioResult.monthlyPayment ?? scenarioResult.monthlyInterest ?? 0)
 
 function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
   const result = calculateRemortgageScenario(scenario)
   const cashFlow = optionCashFlow(property, result)
-  const animatedMortgageCost = useAnimatedNumber(result.monthlyInterest)
+  const animatedMortgageCost = useAnimatedNumber(result.monthlyPayment ?? result.monthlyInterest)
   const animatedCashFlow = useAnimatedNumber(cashFlow)
   const update = (key) => (value) => onChange(updateRemortgageScenario(scenario, key, value))
 

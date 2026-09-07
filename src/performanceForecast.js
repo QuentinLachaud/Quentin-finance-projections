@@ -1,5 +1,6 @@
 import { amortizingPayment, calculatePortfolio } from './calculations.js'
 import { transactionExcludedFromAnalysis } from './banking.js'
+import { applyLoansToProperty, projectPropertyLoans, withPropertyLoans } from './loans.js'
 
 const clean = (value) => String(value ?? '').trim()
 const finite = (value, fallback = 0) => {
@@ -294,15 +295,17 @@ const historicalPropertyAtMonth = (property, updates, atMonth, todayMonth) => {
 }
 
 export const buildTheoreticalPerformanceProjection = ({
-  properties = [], settings = {}, scope = 'portfolio', scenarioId = 0, horizonYears = 10,
+  properties = [], loans = null, settings = {}, scope = 'portfolio', scenarioId = 0, horizonYears = 10,
   excludeExtractions = true, now = new Date(),
 } = {}) => {
-  const selected = scopedProperties(properties, scope)
+  const selected = scopedProperties(Array.isArray(loans) ? withPropertyLoans(properties, loans) : properties, scope)
   const todayMonth = monthKey(now)
   const assumptions = resolvePerformanceAssumptions(settings, scope)
   const updates = normalizePerformanceUpdates(settings.performanceUpdates, properties)
   const anchors = new Map(selected.map((property) => [clean(property.id), performanceAnchorForProperty(property, updates, todayMonth)]))
   const balances = new Map(selected.map((property) => [clean(property.id), nonNegative(property.loanAmount)]))
+  const financeStates = new Map(selected.filter((property) => Array.isArray(property.financeLoans))
+    .map((property) => [clean(property.id), property.financeLoans]))
   const futureState = new Map(selected.map((property) => {
     const id = clean(property.id)
     const anchor = anchors.get(id) || { rent: 0, value: 0 }
@@ -338,7 +341,13 @@ export const buildTheoreticalPerformanceProjection = ({
           const elapsed = Math.max(0, offset - 1)
           const remainingTerm = Math.max(1, originalTerm - elapsed)
           const annualRate = Math.max(0, finite(property.baseRate) + shock)
-          balances.set(id, projectRepaymentBalance({ balance: priorBalance, property, annualRate, remainingTerm }))
+          if (financeStates.has(id)) {
+            const next = projectPropertyLoans({ ...property, financeLoans: financeStates.get(id) }, 1, shock)
+            financeStates.set(id, next.financeLoans)
+            balances.set(id, next.loanAmount)
+          } else {
+            balances.set(id, projectRepaymentBalance({ balance: priorBalance, property, annualRate, remainingTerm }))
+          }
 
           const prior = futureState.get(id) || { rent: 0, value: 0 }
           const rentUpdate = activePerformanceUpdate(updates, id, 'rent', atMonth)
@@ -355,11 +364,13 @@ export const buildTheoreticalPerformanceProjection = ({
         .map((property) => {
           const id = clean(property.id)
           const state = futureState.get(id) || { rent: 0, value: 0 }
+          const base = { ...property, active: true, rent: state.rent, latestValuation: state.value }
+          if (financeStates.has(id)) {
+            const financeLoans = financeStates.get(id)
+            return { ...applyLoansToProperty(base, financeLoans), financeLoans }
+          }
           return {
-            ...property,
-            active: true,
-            rent: state.rent,
-            latestValuation: state.value,
+            ...base,
             loanAmount: balances.get(id) || 0,
             mortgageTermMonths: Math.max(1, Math.round(finite(property.mortgageTermMonths, 300)) - Math.max(0, offset)),
           }
