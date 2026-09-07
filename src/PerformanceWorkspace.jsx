@@ -70,7 +70,7 @@ function MetricBar({ keys, visibleSeries, scope, onToggle }) {
 
 function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performance chart', height = 360 }) {
   const points = model.points || []
-  const [activeIndex, setActiveIndex] = useState(model.todayIndex || 0)
+  const [activeIndex, setActiveIndex] = useState(null)
   const width = chartWidthFor(points.length)
   const pad = { top: 34, right: 94, bottom: 52, left: 94 }
   const plotWidth = width - pad.left - pad.right
@@ -81,18 +81,19 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
   const capitalAxis = niceCurrencyAxis(points.flatMap((point) => capitalSeries.map((item) => point[item.key])).filter((value) => value != null), 5)
   const flowAxis = niceCurrencyAxis(points.flatMap((point) => flowSeries.map((item) => point[item.key])).filter((value) => value != null), 5)
   const xTicks = performanceXAxisTicks(points)
-  const clampedIndex = Math.min(activeIndex, Math.max(0, points.length - 1))
-  const active = points[clampedIndex] || points[0]
+  const clampedIndex = activeIndex == null ? null : Math.min(activeIndex, Math.max(0, points.length - 1))
+  const active = clampedIndex == null ? null : points[clampedIndex]
   const x = (index) => pad.left + (index / Math.max(1, points.length - 1)) * plotWidth
   const yFor = (value, axis) => {
     const range = Math.max(1e-9, axis.max - axis.min)
     return pad.top + ((axis.max - Number(value || 0)) / range) * plotHeight
   }
-  const pathFor = (item) => {
+  const pathFor = (item, startIndex = 0, endIndex = points.length - 1) => {
     const axis = item.axis === 'flow' ? flowAxis : capitalAxis
     let path = ''
     let drawing = false
     points.forEach((point, index) => {
+      if (index < startIndex || index > endIndex) return
       const value = point[item.key]
       if (!Number.isFinite(Number(value))) {
         drawing = false
@@ -106,7 +107,7 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
   const gridAxis = capitalSeries.length ? capitalAxis : flowAxis
 
   useEffect(() => {
-    setActiveIndex(model.todayIndex || 0)
+    setActiveIndex(null)
   }, [model.todayIndex, points.length])
 
   const pointerMove = (event) => {
@@ -119,14 +120,17 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
 
   if (!points.length) return <div className="performance-v2-empty-chart">Add an active BTL to model Performance.</div>
 
-  const tooltipWidth = 248
-  const tooltipRows = series.filter((item) => Number.isFinite(Number(active?.[item.key])))
-  const tooltipHeight = 38 + tooltipRows.length * 19
-  const tooltipX = Math.max(pad.left + 8, Math.min(width - pad.right - tooltipWidth - 8, x(clampedIndex) + 14))
-  const tooltipY = Math.max(pad.top + 8, Math.min(height - pad.bottom - tooltipHeight - 8, 48))
+  const readoutRows = active ? series.filter((item) => Number.isFinite(Number(active[item.key]))) : []
   const todayX = Number.isFinite(Number(model.todayIndex)) ? x(model.todayIndex) : null
+  const todayIndex = Number.isFinite(Number(model.todayIndex))
+    ? Math.max(0, Math.min(points.length - 1, Math.trunc(Number(model.todayIndex))))
+    : Math.max(0, points.length - 1)
 
   return <div className="performance-v2-chart-shell">
+    {active && <div className="performance-v2-chart-readout" aria-live="polite">
+      <strong>{monthLabel(active.date, true)}</strong>
+      <div>{readoutRows.map((item) => <span key={item.key} className={`series-${SERIES_CLASS[item.key]}`}><i />{scope === 'portfolio' ? item.label : item.propertyLabel}<b>{currency(active[item.key])}</b></span>)}</div>
+    </div>}
     <div className="performance-v2-chart-scroll" data-testid="performance-chart-scroll">
       <svg
         className="performance-v2-chart"
@@ -137,12 +141,10 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
         aria-label={ariaLabel}
         onPointerMove={pointerMove}
         onPointerDown={pointerMove}
+        onPointerLeave={() => setActiveIndex(null)}
       >
         {todayX != null && <g className="performance-v2-era-bands" aria-hidden="true">
-          <rect className="past" x={pad.left} y={pad.top} width={Math.max(0, todayX - pad.left)} height={plotHeight} />
           <rect className="future" x={todayX} y={pad.top} width={Math.max(0, width - pad.right - todayX)} height={plotHeight} />
-          {todayX - pad.left > 52 && <text className="past-label" x={pad.left + 12} y={pad.top + 18}>PAST</text>}
-          {width - pad.right - todayX > 72 && <text className="future-label" x={todayX + 12} y={pad.top + 18}>FORECAST</text>}
         </g>}
         <g className="performance-v2-grid">
           {gridAxis.ticks.map((tick) => {
@@ -172,21 +174,28 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
         </g>}
 
         {series.map((item) => {
-          const d = pathFor(item)
-          return d ? <path
-            key={item.key}
-            className={`performance-v2-line series-${SERIES_CLASS[item.key]} ${item.actual ? 'actual-series' : ''}`}
-            d={d}
-            vectorEffect="non-scaling-stroke"
-          /> : null
-        })}
-
-        {series.map((item) => {
-          const axis = item.axis === 'flow' ? flowAxis : capitalAxis
-          return <g key={`points-${item.key}`} className={`performance-v2-points series-${SERIES_CLASS[item.key]}`}>
-            {points.map((point, index) => Number.isFinite(Number(point[item.key]))
-              ? <circle key={`${item.key}-${point.date}`} cx={x(index)} cy={yFor(point[item.key], axis)} r="1.9" />
-              : null)}
+          if (item.actual) {
+            const d = pathFor(item)
+            return d ? <path
+              key={item.key}
+              className={`performance-v2-line actual-series series-${SERIES_CLASS[item.key]}`}
+              d={d}
+              vectorEffect="non-scaling-stroke"
+            /> : null
+          }
+          const historyPath = pathFor(item, 0, todayIndex)
+          const forecastPath = todayIndex < points.length - 1 ? pathFor(item, todayIndex, points.length - 1) : ''
+          return <g key={item.key} className={`performance-v2-series series-${SERIES_CLASS[item.key]}`}>
+            {historyPath && <path
+              className={`performance-v2-line history-segment series-${SERIES_CLASS[item.key]}`}
+              d={historyPath}
+              vectorEffect="non-scaling-stroke"
+            />}
+            {forecastPath && <path
+              className={`performance-v2-line forecast-segment series-${SERIES_CLASS[item.key]}`}
+              d={forecastPath}
+              vectorEffect="non-scaling-stroke"
+            />}
           </g>
         })}
 
@@ -197,16 +206,6 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
             const axis = item.axis === 'flow' ? flowAxis : capitalAxis
             return <circle key={item.key} className={`series-${SERIES_CLASS[item.key]}`} cx={x(clampedIndex)} cy={yFor(active[item.key], axis)} r="4.2" />
           })}
-        </g>}
-
-        {active && <g className="performance-v2-hover-card" transform={`translate(${tooltipX} ${tooltipY})`} aria-hidden="true">
-          <rect width={tooltipWidth} height={tooltipHeight} rx="12" />
-          <text className="date" x="14" y="21">{monthLabel(active.date, true)}</text>
-          {tooltipRows.map((item, index) => <g key={item.key} transform={`translate(0 ${35 + index * 19})`}>
-            <circle className={`series-${SERIES_CLASS[item.key]}`} cx="15" cy="-4" r="2.7" />
-            <text x="25" y="0">{scope === 'portfolio' ? item.label : item.propertyLabel}</text>
-            <text className="value" x={tooltipWidth - 14} y="0" textAnchor="end">{currency(active[item.key])}</text>
-          </g>)}
         </g>}
       </svg>
     </div>

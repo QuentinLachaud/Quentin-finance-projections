@@ -16625,3 +16625,145 @@ button.contractor-tag-chip { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .performance-v2-segmented.scenario button::before { transition: none; }
 }
+
+
+/* Brain Drain 2026-09-07 08:24 BST — clean iOS Performance chart hierarchy */
+.performance-v2-chart-card {
+  border-color: color-mix(in srgb, var(--ui-line) 82%, transparent);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgb(20 35 29 / .025), 0 8px 24px rgb(20 35 29 / .025);
+}
+.performance-v2-chart-head { padding-bottom: 12px; }
+.performance-v2-chart-head h2 { letter-spacing: -.025em; }
+.performance-v2-chart-head p { max-width: 720px; line-height: 1.45; }
+.performance-v2-chart-scroll { border-top-color: color-mix(in srgb, var(--ui-line) 72%, transparent); }
+.performance-v2-grid line {
+  stroke: color-mix(in srgb, var(--ui-line) 64%, transparent);
+  stroke-width: .8;
+}
+.performance-v2-era-bands .future {
+  fill: color-mix(in srgb, var(--perf-green) 3.4%, transparent);
+}
+.performance-v2-era-bands text { display: none; }
+.performance-v2-line {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .78;
+}
+.performance-v2-line.history-segment { opacity: .5; }
+.performance-v2-line.forecast-segment {
+  stroke-width: 2.25;
+  stroke-dasharray: 7 5;
+  opacity: .9;
+}
+.performance-v2-line.actual-series {
+  stroke-width: 2.7;
+  stroke-dasharray: none;
+  opacity: 1;
+}
+.performance-v2-points { display: none; }
+.performance-v2-hover-card { display: none; }
+.performance-v2-hover-guide {
+  stroke: color-mix(in srgb, var(--ui-text) 22%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+.performance-v2-scrubber circle {
+  r: 4px;
+  fill: var(--ui-surface);
+  stroke-width: 2.25;
+}
+.performance-v2-today-marker line {
+  stroke: color-mix(in srgb, var(--ui-text) 28%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+}
+.performance-v2-today-marker text {
+  fill: color-mix(in srgb, var(--ui-muted) 92%, transparent);
+  font-size: 10px;
+  font-weight: 650;
+}
+.performance-v2-chart-readout {
+  min-height: 46px;
+  padding: 8px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--ui-line) 66%, transparent);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: color-mix(in srgb, var(--ui-surface-subtle) 58%, var(--ui-surface));
+}
+.performance-v2-chart-readout > strong {
+  flex: 0 0 auto;
+  color: var(--ui-text);
+  font: 650 12px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.performance-v2-chart-readout > div {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 16px;
+}
+.performance-v2-chart-readout span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.performance-v2-chart-readout span > i,
+.performance-v2-metric > i {
+  width: 18px;
+  height: 0;
+  border-top: 2px solid currentColor;
+  border-radius: 999px;
+}
+.performance-v2-chart-readout span > b {
+  color: var(--ui-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.performance-v2-metric-bar { gap: 5px; }
+.performance-v2-metric {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--ui-muted) 92%, transparent);
+  background: transparent;
+  box-shadow: none;
+}
+.performance-v2-metric:hover {
+  background: color-mix(in srgb, var(--ui-surface-subtle) 74%, transparent);
+}
+.performance-v2-metric.selected {
+  border-color: color-mix(in srgb, currentColor 18%, var(--ui-line));
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  box-shadow: 0 1px 3px rgb(20 35 29 / .05);
+}
+.performance-v2-metric:not(.selected) > i { opacity: .34; }
+.performance-v2-metric.selected > i { opacity: 1; }
+:root[data-theme='dark'] .performance-v2-era-bands .future {
+  fill: color-mix(in srgb, #7da994 4.5%, transparent);
+}
+:root[data-theme='dark'] .performance-v2-chart-card {
+  box-shadow: 0 1px 2px rgb(0 0 0 / .11);
+}
+@media (max-width: 700px) {
+  .performance-v2-chart-readout {
+    padding-inline: 12px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .performance-v2-chart-readout > div {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 1px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .performance-v2-metric { transition: none !important; }
+}

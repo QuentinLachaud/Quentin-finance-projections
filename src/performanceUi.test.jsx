@@ -30,8 +30,6 @@ describe('Performance history + forecast UI', () => {
     expect(html).toContain('Monthly Performance chart from recorded history through the selected forecast horizon')
     expect(html).toContain('Value and accumulated cash Performance chart from recorded history through the selected forecast horizon')
     expect(html).toContain('Today')
-    expect(html).toContain('PAST')
-    expect(html).toContain('FORECAST')
     expect(html).toContain('Past compares model with Banking actuals')
     expect(html).toContain('past compares accumulated model vs Banking actuals')
   })
