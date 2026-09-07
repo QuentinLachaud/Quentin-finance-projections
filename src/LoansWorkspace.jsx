@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { addMonths, currency, shortDate } from './calculations.js'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
 import { createBlankLoan, effectiveLoanAmount, inferLtvBand, loanCostSummary } from './loans.js'
+import { groupLoans, loanGroupTotals, LOAN_SORT_OPTIONS } from './loanSorting.js'
 
 const RATE_BANDS = [50, 55, 60, 65, 70, 75, 80, 85, 90]
 
@@ -124,6 +125,11 @@ export function LoanEditor({ loan, properties, onSave, onDelete, allowAssociatio
 export default function LoansWorkspace({ loans = [], properties = [], onSave, onDelete }) {
   const [expandedId, setExpandedId] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [groupByBtl, setGroupByBtl] = useState(true)
+  const [sortOrder, setSortOrder] = useState('expiry-asc')
+  const [collapsedGroups, setCollapsedGroups] = useState([])
+  const displayGroups = useMemo(() => groupLoans(loans, properties, sortOrder, groupByBtl), [loans, properties, sortOrder, groupByBtl])
+  const toggleGroup = (id) => setCollapsedGroups((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
   const propertyMap = useMemo(() => new Map(properties.map((property) => [property.id, property])), [properties])
 
   const addLoan = () => {
@@ -135,6 +141,10 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
   return <>
     <section className="loans-workspace">
       <header className="panel loans-toolbar copy-actions-only">
+        <div className="loan-view-controls">
+          <label className="loan-view-field"><span>View</span><select aria-label="Group loans" value={groupByBtl ? 'btl' : 'all'} onChange={(event) => setGroupByBtl(event.target.value === 'btl')}><option value="btl">Group by BTL</option><option value="all">All loans</option></select></label>
+          <label className="loan-view-field"><span>Sort by</span><select aria-label="Sort loans" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>{LOAN_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        </div>
         <button type="button" className="primary-button" onClick={addLoan}><Plus size={16} /> Add loan</button>
       </header>
 
@@ -145,7 +155,16 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
           <span>Loan / BTL</span><span>Loan balance</span><span>Rate</span><span>Fixed period</span><span>Monthly payment</span><span>LTV band</span><span />
         </div>
 
-        {loans.map((loan) => {
+        {displayGroups.map((group) => {
+          const totals = loanGroupTotals(group.loans)
+          const collapsed = groupByBtl && collapsedGroups.includes(group.id)
+          return <React.Fragment key={group.id}>
+            {groupByBtl && <button type="button" className="loan-group-heading" aria-expanded={!collapsed} aria-label={`${group.name}, ${totals.count} loans`} onClick={() => toggleGroup(group.id)}>
+              <span className="loan-group-title"><strong>{group.name}</strong><small>{totals.count} loan{totals.count === 1 ? '' : 's'}</small></span>
+              <span className="loan-group-totals"><span><small>Balance</small><strong>{currency(totals.balance)}</strong></span><span><small>Monthly payment</small><strong>{currency(totals.monthlyPayment)}</strong></span></span>
+              {collapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+            </button>}
+            {!collapsed && group.loans.map((loan) => {
           const property = propertyMap.get(loan.propertyId) || null
           const fixed = fixedLabel(loan)
           const actual = actualLtv(loan, property)
@@ -180,6 +199,8 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
             </button>
             {expanded && <LoanEditor loan={loan} properties={properties} onSave={onSave} onDelete={() => setDeleteTarget(loan)} />}
           </article>
+            })}
+          </React.Fragment>
         })}
       </div>}
     </section>

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
 import { useBankPerformanceData } from './useBankPerformanceData.js'
+import { hasChartValue, overlayActualBankSeries } from './actualPerformanceSeries.js'
 import {
   DEFAULT_PERFORMANCE_SERIES,
   PERFORMANCE_SCENARIOS,
@@ -68,7 +69,7 @@ function MetricBar({ keys, visibleSeries, scope, onToggle }) {
   </div>
 }
 
-function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performance chart', height = 360 }) {
+export function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performance chart', height = 360 }) {
   const points = model.points || []
   const [activeIndex, setActiveIndex] = useState(null)
   const width = chartWidthFor(points.length)
@@ -76,10 +77,10 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
   const plotWidth = width - pad.left - pad.right
   const plotHeight = height - pad.top - pad.bottom
   const series = PERFORMANCE_SERIES.filter((item) => visibleSeries.includes(item.key))
-  const capitalSeries = series.filter((item) => item.axis === 'capital' && points.some((point) => Number.isFinite(Number(point[item.key]))))
-  const flowSeries = series.filter((item) => item.axis === 'flow' && points.some((point) => Number.isFinite(Number(point[item.key]))))
-  const capitalAxis = niceCurrencyAxis(points.flatMap((point) => capitalSeries.map((item) => point[item.key])).filter((value) => value != null), 5)
-  const flowAxis = niceCurrencyAxis(points.flatMap((point) => flowSeries.map((item) => point[item.key])).filter((value) => value != null), 5)
+  const capitalSeries = series.filter((item) => item.axis === 'capital' && points.some((point) => hasChartValue(point[item.key])))
+  const flowSeries = series.filter((item) => item.axis === 'flow' && points.some((point) => hasChartValue(point[item.key])))
+  const capitalAxis = niceCurrencyAxis(points.flatMap((point) => capitalSeries.map((item) => point[item.key])).filter(hasChartValue), 5)
+  const flowAxis = niceCurrencyAxis(points.flatMap((point) => flowSeries.map((item) => point[item.key])).filter(hasChartValue), 5)
   const xTicks = performanceXAxisTicks(points)
   const clampedIndex = activeIndex == null ? null : Math.min(activeIndex, Math.max(0, points.length - 1))
   const active = clampedIndex == null ? null : points[clampedIndex]
@@ -95,7 +96,7 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
     points.forEach((point, index) => {
       if (index < startIndex || index > endIndex) return
       const value = point[item.key]
-      if (!Number.isFinite(Number(value))) {
+      if (!hasChartValue(value)) {
         drawing = false
         return
       }
@@ -120,7 +121,7 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
 
   if (!points.length) return <div className="performance-v2-empty-chart">Add an active BTL to model Performance.</div>
 
-  const readoutRows = active ? series.filter((item) => Number.isFinite(Number(active[item.key]))) : []
+  const readoutRows = active ? series.filter((item) => hasChartValue(active[item.key])) : []
   const todayX = Number.isFinite(Number(model.todayIndex)) ? x(model.todayIndex) : null
   const todayIndex = Number.isFinite(Number(model.todayIndex))
     ? Math.max(0, Math.min(points.length - 1, Math.trunc(Number(model.todayIndex))))
@@ -175,7 +176,7 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
 
         {series.map((item) => {
           if (item.actual) {
-            const d = pathFor(item)
+            const d = pathFor(item, 0, todayIndex)
             return d ? <path
               key={item.key}
               className={`performance-v2-line actual-series series-${SERIES_CLASS[item.key]}`}
@@ -202,7 +203,7 @@ function PerformanceChart({ model, visibleSeries, scope, ariaLabel = 'Performanc
         {active && <g className="performance-v2-scrubber" aria-hidden="true">
           <line className="performance-v2-hover-guide" x1={x(clampedIndex)} x2={x(clampedIndex)} y1={pad.top} y2={height - pad.bottom} />
           {series.map((item) => {
-            if (!Number.isFinite(Number(active[item.key]))) return null
+            if (!hasChartValue(active[item.key])) return null
             const axis = item.axis === 'flow' ? flowAxis : capitalAxis
             return <circle key={item.key} className={`series-${SERIES_CLASS[item.key]}`} cx={x(clampedIndex)} cy={yFor(active[item.key], axis)} r="4.2" />
           })}
@@ -273,15 +274,7 @@ export default function PerformanceWorkspace({
     fromMonth: model.startMonth,
     toMonth: model.todayMonth,
   }), [bankData.transactions, scope, model.startMonth, model.todayMonth])
-  const actualBankByMonth = useMemo(() => new Map(actualBankSeries.map((point) => [point.date, point])), [actualBankSeries])
-  const chartModel = useMemo(() => ({
-    ...model,
-    points: model.points.map((point) => ({
-      ...point,
-      actualBankCashflow: actualBankByMonth.get(point.date)?.value ?? null,
-      actualBankAccumulation: actualBankByMonth.get(point.date)?.accumulated ?? null,
-    })),
-  }), [model, actualBankByMonth])
+  const chartModel = useMemo(() => overlayActualBankSeries(model, actualBankSeries), [model, actualBankSeries])
   const assumptions = resolvePerformanceAssumptions(settings, scope)
   const scopedProperty = activeProperties.find((property) => property.id === scope) || null
   const visibleUpdates = updates.filter((entry) => entry.kind === updateKind && (scope === 'portfolio' || entry.propertyId === scope))
