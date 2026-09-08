@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import './loanPropertyCards.css'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { addMonths, currency, shortDate } from './calculations.js'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
@@ -151,20 +152,24 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
       {loans.length === 0 && <div className="loan-empty-state"><b>No loans recorded</b><span>Add one manually, or edit mortgage details on a BTL to create its linked loan.</span></div>}
 
       {loans.length > 0 && <div className="loans-list">
-        <div className="loan-list-head" aria-hidden="true">
+        <div className="loan-list-head" aria-hidden="true" hidden={groupByBtl}>
           <span>Loan / BTL</span><span>Loan balance</span><span>Rate</span><span>Fixed period</span><span>Monthly payment</span><span>LTV band</span><span />
         </div>
 
         {displayGroups.map((group) => {
           const totals = loanGroupTotals(group.loans)
           const collapsed = groupByBtl && collapsedGroups.includes(group.id)
-          return <React.Fragment key={group.id}>
-            {groupByBtl && <button type="button" className="loan-group-heading" aria-expanded={!collapsed} aria-label={`${group.name}, ${totals.count} loans`} onClick={() => toggleGroup(group.id)}>
+          return <section className={groupByBtl ? "loan-property-card" : "loan-ungrouped-list"} data-loan-group={group.id} key={group.id}>
+            {groupByBtl && <button type="button" className="loan-group-heading" aria-controls={`loan-group-${group.id}`} aria-expanded={!collapsed} aria-label={`${group.name}, ${totals.count} loans`} onClick={() => toggleGroup(group.id)}>
               <span className="loan-group-title"><strong>{group.name}</strong><small>{totals.count} loan{totals.count === 1 ? '' : 's'}</small></span>
               <span className="loan-group-totals"><span><small>Balance</small><strong>{currency(totals.balance)}</strong></span><span><small>Monthly payment</small><strong>{currency(totals.monthlyPayment)}</strong></span></span>
               {collapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
             </button>}
-            {!collapsed && group.loans.map((loan) => {
+            {!collapsed && <div className="loan-group-body" id={`loan-group-${group.id}`}>
+              {groupByBtl && <div className="loan-list-head" aria-hidden="true">
+                <span>Loan / BTL</span><span>Loan balance</span><span>Rate</span><span>Fixed period</span><span>Monthly payment</span><span>LTV band</span><span />
+              </div>}
+            {group.loans.map((loan) => {
           const property = propertyMap.get(loan.propertyId) || null
           const fixed = fixedLabel(loan)
           const actual = actualLtv(loan, property)
@@ -200,7 +205,8 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
             {expanded && <LoanEditor loan={loan} properties={properties} onSave={onSave} onDelete={() => setDeleteTarget(loan)} />}
           </article>
             })}
-          </React.Fragment>
+            </div>}
+          </section>
         })}
       </div>}
     </section>

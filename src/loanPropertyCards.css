@@ -1,0 +1,109 @@
+/* Loans: one visual surface per property, with subordinate loan rows. */
+.loans-list .loan-list-head[hidden] { display: none !important; }
+.loans-list .loan-property-card {
+  background: #fff;
+  border: 1px solid var(--line, #d6e0e8);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 8px rgba(22, 35, 49, .025);
+}
+.loans-list .loan-property-card .loan-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  margin: 0;
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  text-align: left;
+}
+.loans-list .loan-property-card .loan-group-heading:hover {
+  background: #f7f9fb;
+}
+.loans-list .loan-property-card .loan-group-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.loans-list .loan-property-card .loan-group-title strong { font-size: 16px; }
+.loans-list .loan-property-card .loan-group-title small { font-size: 12px; }
+.loans-list .loan-property-card .loan-group-totals {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 3vw, 36px);
+  margin-left: auto;
+}
+.loans-list .loan-property-card .loan-group-totals > span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  white-space: nowrap;
+}
+.loans-list .loan-property-card .loan-group-totals small { font-size: 12px; }
+.loans-list .loan-property-card .loan-group-totals strong { font-size: 15px; }
+.loans-list .loan-property-card .loan-group-body {
+  border-top: 1px solid var(--line, #d6e0e8);
+  background: #fff;
+}
+.loans-list .loan-property-card .loan-list-head {
+  padding: 11px 18px;
+  margin: 0;
+  border-bottom: 1px solid var(--line, #d6e0e8);
+  background: #f7f9fb;
+}
+.loans-list .loan-property-card .loan-row {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  overflow: visible;
+}
+.loans-list .loan-property-card .loan-row + .loan-row {
+  border-top: 1px solid var(--line, #d6e0e8);
+}
+.loans-list .loan-property-card .loan-summary-row {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.loans-list .loan-property-card .loan-summary-row:hover {
+  background: #f7f9fb;
+}
+.loans-list .loan-property-card .loan-row.expanded {
+  background: #fff;
+}
+.loans-list .loan-property-card .loan-editor {
+  border-top: 1px solid var(--line, #d6e0e8);
+}
+.loans-list .loan-property-card .loan-row-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 700px) {
+  .loans-list .loan-property-card .loan-group-heading {
+    padding: 15px 14px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .loans-list .loan-property-card .loan-group-title { flex-basis: 100%; }
+  .loans-list .loan-property-card .loan-group-totals {
+    width: calc(100% - 30px);
+    margin-left: 0;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .loans-list .loan-property-card .loan-group-totals > span { align-items: flex-start; }
+  .loans-list .loan-property-card .loan-group-totals strong { font-size: 14px; }
+  .loans-list .loan-property-card .loan-list-head { display: none; }
+}
