@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Download, ExternalLink, FileImage, FileText, LoaderCircle, Minus, Pencil, Plus, X } from 'lucide-react'
 import { createStoredDocumentUrl } from './documentStorage.js'
@@ -208,7 +209,7 @@ export default function DocumentViewer({ document: documentMeta, onClose, onRena
       {renaming && <form className="document-viewer-rename-panel" onSubmit={saveRename}>
         <label htmlFor="document-viewer-rename"><span>File name</span></label>
         <div>
-          <input id="document-viewer-rename" autoFocus value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} onFocus={(event) => event.currentTarget.select()} />
+          <BrainDrainNumericInput id="document-viewer-rename" autoFocus value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} onFocus={(event) => event.currentTarget.select()} />
           <button type="button" className="document-viewer-rename-cancel" onClick={() => { setRenaming(false); setRenameError('') }}>Cancel</button>
           <button type="submit" className="document-viewer-rename-save"><Check size={16} /> Save</button>
         </div>

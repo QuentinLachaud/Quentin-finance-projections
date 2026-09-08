@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
@@ -230,10 +231,10 @@ function UpdateModal({ draft, setDraft, properties, updates, onSave, onClose }) 
         <option value="">Choose BTL</option>
         {properties.map((property) => <option key={property.id} value={property.id}>{propertyName(property)}</option>)}
       </select></label>
-      <label>{draft.kind === 'rent' ? 'Monthly rent' : 'Valuation'}<div className="performance-v2-money-input"><span>£</span><input type="number" min="0" step={draft.kind === 'rent' ? '1' : '1000'} value={draft.value} onChange={(event) => setDraft({ ...draft, value: event.target.value })} /></div></label>
+      <label>{draft.kind === 'rent' ? 'Monthly rent' : 'Valuation'}<div className="performance-v2-money-input"><span>£</span><BrainDrainNumericInput type="number" min="0" step={draft.kind === 'rent' ? '1' : '1000'} value={draft.value} onChange={(event) => setDraft({ ...draft, value: event.target.value })} /></div></label>
       <div className="performance-v2-modal-dates">
-        <label>From<input type="month" value={draft.startMonth} onChange={(event) => setDraft({ ...draft, startMonth: event.target.value })} /></label>
-        <label>To <small>optional</small><input type="month" value={draft.endMonth || ''} onChange={(event) => setDraft({ ...draft, endMonth: event.target.value })} /></label>
+        <label>From<BrainDrainNumericInput type="month" value={draft.startMonth} onChange={(event) => setDraft({ ...draft, startMonth: event.target.value })} /></label>
+        <label>To <small>optional</small><BrainDrainNumericInput type="month" value={draft.endMonth || ''} onChange={(event) => setDraft({ ...draft, endMonth: event.target.value })} /></label>
       </div>
       {error && <p className="performance-v2-form-error" role="alert">{error}</p>}
       <div className="performance-v2-modal-actions">
@@ -419,7 +420,7 @@ export default function PerformanceWorkspace({
         <div className="performance-v2-chart-head">
           <div><span className="performance-v2-control-label">Monthly</span><h2>Monthly performance</h2><p>Past compares model with Banking actuals · future is the {model.scenario.label} estimate</p></div>
           <label className={`performance-v2-switch ${!isCompanyPortfolio ? 'disabled' : ''}`}>
-            <input type="checkbox" checked={excludeExtractions} disabled={!isCompanyPortfolio} onChange={(event) => setExcludeExtractions(event.target.checked)} />
+            <BrainDrainNumericInput type="checkbox" checked={excludeExtractions} disabled={!isCompanyPortfolio} onChange={(event) => setExcludeExtractions(event.target.checked)} />
             <span aria-hidden="true" /><b>Exclude extractions</b><small>{isCompanyPortfolio ? 'Shows true company cash flow' : 'Portfolio companies only'}</small>
           </label>
         </div>
@@ -455,10 +456,10 @@ export default function PerformanceWorkspace({
         {scope !== 'portfolio' && <button type="button" className="performance-v2-text-button" onClick={resetScopeInputs}>Use portfolio inputs</button>}
       </div>
       <div className="performance-v2-input-grid">
-        <label>Rent growth<div className="performance-v2-percent-input"><input type="number" step="0.1" value={pctInput(assumptions.rentGrowthRate)} onChange={(event) => writeModelInput('rentGrowthRate', Number(event.target.value || 0) / 100)} /><span>% / yr</span></div></label>
-        <label>HPI / appreciation<div className="performance-v2-percent-input"><input type="number" step="0.1" value={pctInput(assumptions.appreciationRate)} onChange={(event) => writeModelInput('appreciationRate', Number(event.target.value || 0) / 100)} /><span>% / yr</span></div></label>
-        <label>Rate shock<div className="performance-v2-percent-input"><input type="number" step="0.1" value={pctInput(assumptions.rateShock)} onChange={(event) => writeModelInput('rateShock', Number(event.target.value || 0) / 100)} /><span>pp</span></div><small>Additive to current mortgage rate</small></label>
-        <label>Shock starts <small>optional</small><input type="month" value={assumptions.rateShockStartMonth || ''} onChange={(event) => writeShockStart(event.target.value)} /><small>Blank = immediately</small></label>
+        <label>Rent growth<div className="performance-v2-percent-input"><BrainDrainNumericInput type="number" step="0.1" value={pctInput(assumptions.rentGrowthRate)} onChange={(event) => writeModelInput('rentGrowthRate', Number(event.target.value || 0) / 100)} /><span>% / yr</span></div></label>
+        <label>HPI / appreciation<div className="performance-v2-percent-input"><BrainDrainNumericInput type="number" step="0.1" value={pctInput(assumptions.appreciationRate)} onChange={(event) => writeModelInput('appreciationRate', Number(event.target.value || 0) / 100)} /><span>% / yr</span></div></label>
+        <label>Rate shock<div className="performance-v2-percent-input"><BrainDrainNumericInput type="number" step="0.1" value={pctInput(assumptions.rateShock)} onChange={(event) => writeModelInput('rateShock', Number(event.target.value || 0) / 100)} /><span>pp</span></div><small>Additive to current mortgage rate</small></label>
+        <label>Shock starts <small>optional</small><BrainDrainNumericInput type="month" value={assumptions.rateShockStartMonth || ''} onChange={(event) => writeShockStart(event.target.value)} /><small>Blank = immediately</small></label>
       </div>
     </article>
 

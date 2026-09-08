@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, CalendarClock, Check, FileText, Home, Landmark, Pencil, Plus,
@@ -109,10 +110,10 @@ export function TimelineEventEditor({ event, contractors = [], allowDelete = fal
     <section className="timeline-editor" role="dialog" aria-modal="true" aria-labelledby="timeline-editor-title">
       <header><div><h2 id="timeline-editor-title">{allowDelete ? 'Edit event' : 'Add event'}</h2></div><button type="button" className="icon-button" onClick={onCancel} aria-label="Close"><X size={19} /></button></header>
       <div className="timeline-editor-body">
-        <label><span>Date</span><input type="date" required max={dateOnly(new Date())} value={draft.occurredAt || ''} onChange={(e) => setDraft((current) => ({ ...current, occurredAt: e.target.value }))} /></label>
+        <label><span>Date</span><BrainDrainNumericInput type="date" required max={dateOnly(new Date())} value={draft.occurredAt || ''} onChange={(e) => setDraft((current) => ({ ...current, occurredAt: e.target.value }))} /></label>
         <label><span>Type</span><select value={draft.manualType || 'maintenance'} onChange={(e) => updateType(e.target.value)}>{MANUAL_EVENT_TYPES.map((type) => <option value={type.id} key={type.id}>{type.label}</option>)}</select></label>
-        <label className="timeline-editor-wide"><span>Title</span><input autoFocus type="text" required value={draft.title || ''} onChange={(e) => setDraft((current) => ({ ...current, title: e.target.value }))} placeholder="What happened?" /></label>
-        <label><span>Cost <small>Optional</small></span><div className="timeline-cost-input"><i>£</i><input type="number" min="0" step="0.01" value={draft.amount ?? ''} onChange={(e) => setDraft((current) => ({ ...current, amount: e.target.value }))} /></div></label>
+        <label className="timeline-editor-wide"><span>Title</span><BrainDrainNumericInput autoFocus type="text" required value={draft.title || ''} onChange={(e) => setDraft((current) => ({ ...current, title: e.target.value }))} placeholder="What happened?" /></label>
+        <label><span>Cost <small>Optional</small></span><div className="timeline-cost-input"><i>£</i><BrainDrainNumericInput type="number" min="0" step="0.01" value={draft.amount ?? ''} onChange={(e) => setDraft((current) => ({ ...current, amount: e.target.value }))} /></div></label>
         <label><span>Contractor <small>Optional</small></span><select value={draft.contractorId || ''} onChange={(e) => setDraft((current) => ({ ...current, contractorId: e.target.value }))}><option value="">None</option>{contractors.map((contractor) => <option value={contractor.id} key={contractor.id}>{contractor.name || [contractor.firstName, contractor.lastName].filter(Boolean).join(' ') || contractor.companyName || 'Contractor'}</option>)}</select></label>
         <label className="timeline-editor-wide"><span>Notes <small>Optional</small></span><textarea rows={4} value={draft.details || ''} onChange={(e) => setDraft((current) => ({ ...current, details: e.target.value }))} /></label>
       </div>

@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownRight, ArrowUpRight, Building2, CalendarClock, Check, ChevronDown, CircleHelp,
@@ -624,13 +625,13 @@ function ModelInputFields({ settings, onSettingChange, onPercentChange, compact 
   const isPrivate = settings.accountType === 'private'
   return <div className={compact ? 'sidebar-input-list' : 'assumptions-grid'}>{modelInputFields.map(([key, label, suffix, type, scope, help]) => {
     const disabled = scope === 'company' && isPrivate
-    return <label key={key} className={disabled ? 'not-applicable' : ''} title={disabled ? 'Not used for private landlords.' : undefined}><span>{label}{help && <button type="button" className="model-help" aria-label={`${label}: ${help}`} data-tooltip={help}><CircleHelp size={13} /></button>}</span><div><input aria-label={label} disabled={disabled} type="number" step={type === 'percent' ? '0.1' : 'any'} value={type === 'percent' ? percentInputValue(settings[key]) : settings[key]} onChange={(event) => type === 'percent' ? onPercentChange(key, event.target.value) : onSettingChange(key, Number(event.target.value))} /><b>{suffix}</b></div></label>
+    return <label key={key} className={disabled ? 'not-applicable' : ''} title={disabled ? 'Not used for private landlords.' : undefined}><span>{label}{help && <button type="button" className="model-help" aria-label={`${label}: ${help}`} data-tooltip={help}><CircleHelp size={13} /></button>}</span><div><BrainDrainNumericInput aria-label={label} disabled={disabled} type="number" step={type === 'percent' ? '0.1' : 'any'} value={type === 'percent' ? percentInputValue(settings[key]) : settings[key]} onChange={(event) => type === 'percent' ? onPercentChange(key, event.target.value) : onSettingChange(key, Number(event.target.value))} /><b>{suffix}</b></div></label>
   })}</div>
 }
 
 function PrivateLandlordInputs({ settings, onSettingChange, compact = false }) {
   if (settings.accountType !== 'private') return null
-  const moneyField = (key, label, note) => <label><span>{label}</span><div className="private-income-field"><b>£</b><input aria-label={label} type="number" min="0" step="100" value={Number(settings[key] || 0)} onChange={(event) => onSettingChange(key, Number(event.target.value))} /></div>{note && <small>{note}</small>}</label>
+  const moneyField = (key, label, note) => <label><span>{label}</span><div className="private-income-field"><b>£</b><BrainDrainNumericInput aria-label={label} type="number" min="0" step="100" value={Number(settings[key] || 0)} onChange={(event) => onSettingChange(key, Number(event.target.value))} /></div>{note && <small>{note}</small>}</label>
   return <section className={`private-tax-inputs ${compact ? 'compact' : ''}`}><header><PoundSterling size={15} /><div><b>Private landlord tax</b><small>Tax-year-aware planning assumptions</small></div></header>{moneyField('grossAnnualIncome', 'Other gross annual income', 'Before property income; excludes savings and dividends.')}{!Number(settings.grossAnnualIncome) && <small className="tax-input-warning">Currently assumes you have no other taxable income.</small>}{moneyField('propertyLossBroughtForward', 'Property loss brought forward', 'Unused loss from the same property business.')}{moneyField('financeCostsBroughtForward', 'Finance costs brought forward', 'Unused restricted residential finance costs from earlier tax years.')}<div className="tax-jurisdiction"><span>Tax jurisdiction</span><div><button className={settings.taxJurisdiction !== 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'england')}>England / Wales / NI</button><button className={settings.taxJurisdiction === 'scotland' ? 'active' : ''} onClick={() => onSettingChange('taxJurisdiction', 'scotland')}>Scotland</button></div></div></section>
 }
 
@@ -698,7 +699,7 @@ function CompaniesHouseWorkspace({ settings, onSettingChange }) {
 
   if (settings.companyNumber && status === 'loading' && !details) return <div className="app-inline-loading"><RefreshCw /><b>Checking Companies House…</b></div>
 
-  if (!settings.companyNumber || !details) return <div className="companies-house-workspace"><section className="panel ch-search-panel"><span className="ch-mark"><Landmark /></span><span className="kicker">OFFICIAL PUBLIC REGISTER</span><h2>Connect your company</h2><p>Search by company name, then confirm the exact legal entity. The app saves its unique company number, not an ambiguous name.</p><form onSubmit={searchCompanies}><label><Search /><input aria-label="Companies House company name" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Company name" /></label><button className="primary-button" disabled={status === 'searching' || query.trim().length < 2}>{status === 'searching' ? 'Searching…' : 'Search Companies House'}</button></form>{error && <p className="ch-error">{error}</p>}{results.length > 0 && <div className="ch-search-results">{results.map((company) => <button key={company.company_number} onClick={() => selectCompany(company)}><span><b>{company.title}</b><small>{company.company_number} · {company.company_status || 'Status unavailable'}</small><small>{formatCompanyAddress(company.address)}</small></span><ArrowUpRight /></button>)}</div>}</section></div>
+  if (!settings.companyNumber || !details) return <div className="companies-house-workspace"><section className="panel ch-search-panel"><span className="ch-mark"><Landmark /></span><span className="kicker">OFFICIAL PUBLIC REGISTER</span><h2>Connect your company</h2><p>Search by company name, then confirm the exact legal entity. The app saves its unique company number, not an ambiguous name.</p><form onSubmit={searchCompanies}><label><Search /><BrainDrainNumericInput aria-label="Companies House company name" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Company name" /></label><button className="primary-button" disabled={status === 'searching' || query.trim().length < 2}>{status === 'searching' ? 'Searching…' : 'Search Companies House'}</button></form>{error && <p className="ch-error">{error}</p>}{results.length > 0 && <div className="ch-search-results">{results.map((company) => <button key={company.company_number} onClick={() => selectCompany(company)}><span><b>{company.title}</b><small>{company.company_number} · {company.company_status || 'Status unavailable'}</small><small>{formatCompanyAddress(company.address)}</small></span><ArrowUpRight /></button>)}</div>}</section></div>
 
   const { profile, filings, officers, psc, charges, fetchedAt } = details
   const deadlines = companyDeadlines(profile)
@@ -748,7 +749,7 @@ function PrivateIncomePrompt({ currentIncome = 0, onConfirm, onCancel }) {
       <p>One tax input is needed before the app can model the private-landlord view reliably.</p>
       <label className="account-income-field">
         <span>Annual gross income</span>
-        <div className="account-income-money"><b>£</b><input autoFocus aria-label="Annual gross income" type="number" min="0" step="100" inputMode="decimal" value={income} onChange={(event) => setIncome(event.target.value)} /></div>
+        <div className="account-income-money"><b>£</b><BrainDrainNumericInput autoFocus aria-label="Annual gross income" type="number" min="0" step="100" inputMode="decimal" value={income} onChange={(event) => setIncome(event.target.value)} /></div>
         <small>Salary and other taxable non-property income before property rent. Savings and dividends are not represented by this input.</small>
       </label>
       <button type="button" className="account-income-zero" onClick={() => onConfirm(0)}>I have £0 other income</button>
@@ -771,7 +772,7 @@ function AccountProfileEditor({ settings, onChange }) {
     <div className="sidebar-disclosure-body">
       {isPrivate
         ? <p className="sidebar-profile-mode-note">Ownership mode is controlled from the top bar so you can compare Private and Ltd views quickly.</p>
-        : <label><span>Company name <small>optional</small></span><input value={settings.companyName || ''} onChange={(event) => onChange('companyName', event.target.value)} placeholder="Property company" /></label>}
+        : <label><span>Company name <small>optional</small></span><BrainDrainNumericInput value={settings.companyName || ''} onChange={(event) => onChange('companyName', event.target.value)} placeholder="Property company" /></label>}
     </div>
   </details>
 }
@@ -780,7 +781,7 @@ function AccountSetupModal({ onComplete }) {
   const [accountType, setAccountType] = useState('company')
   const [companyName, setCompanyName] = useState('')
   const isPrivate = accountType === 'private'
-  return <div className="setup-layer"><section className="setup-modal" role="dialog" aria-modal="true" aria-labelledby="setup-title"><span className="setup-icon">{isPrivate ? <Home /> : <Building2 />}</span><span className="kicker">ONE QUICK DETAIL</span><h2 id="setup-title">How do you hold your properties?</h2><p>This keeps company-only fields out of the way when they do not apply.</p><div className="setup-account-types"><button className={!isPrivate ? 'active' : ''} onClick={() => setAccountType('company')}><Building2 /><span><b>Limited company</b><small>Company costs and corporation tax</small></span><Check /></button><button className={isPrivate ? 'active' : ''} onClick={() => setAccountType('private')}><Home /><span><b>Private landlord</b><small>Personal property portfolio</small></span><Check /></button></div>{!isPrivate && <label className="setup-company-name"><span>Company name <small>optional</small></span><input autoFocus value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="e.g. Quark Holdings" /></label>}<button className="primary-button setup-continue" onClick={() => onComplete({ accountType, companyName: isPrivate ? '' : companyName.trim(), onboardingComplete: true })}>Continue to portfolio <ArrowUpRight size={17} /></button></section></div>
+  return <div className="setup-layer"><section className="setup-modal" role="dialog" aria-modal="true" aria-labelledby="setup-title"><span className="setup-icon">{isPrivate ? <Home /> : <Building2 />}</span><span className="kicker">ONE QUICK DETAIL</span><h2 id="setup-title">How do you hold your properties?</h2><p>This keeps company-only fields out of the way when they do not apply.</p><div className="setup-account-types"><button className={!isPrivate ? 'active' : ''} onClick={() => setAccountType('company')}><Building2 /><span><b>Limited company</b><small>Company costs and corporation tax</small></span><Check /></button><button className={isPrivate ? 'active' : ''} onClick={() => setAccountType('private')}><Home /><span><b>Private landlord</b><small>Personal property portfolio</small></span><Check /></button></div>{!isPrivate && <label className="setup-company-name"><span>Company name <small>optional</small></span><BrainDrainNumericInput autoFocus value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="e.g. Quark Holdings" /></label>}<button className="primary-button setup-continue" onClick={() => onComplete({ accountType, companyName: isPrivate ? '' : companyName.trim(), onboardingComplete: true })}>Continue to portfolio <ArrowUpRight size={17} /></button></section></div>
 }
 
 function PropertyFinancingSummary({ property, variant = 'card' }) {
@@ -812,7 +813,7 @@ function ModelControls({ settings, onChange, compact = false }) {
   ]
   return (
     <div className={`model-controls ${compact ? 'compact' : ''}`}>
-      {controls.map(([key, label, disabled, help]) => <label key={key} className={`${settings[key] ? 'selected' : ''} ${disabled ? 'not-applicable' : ''}`} title={help}><input disabled={disabled} type="checkbox" checked={Boolean(settings[key])} onChange={(event) => onChange(key, event.target.checked)} /><i><Check size={12} /></i><span>{label}</span><span className="model-help" data-tooltip={help} aria-hidden="true"><CircleHelp size={13} /></span></label>)}
+      {controls.map(([key, label, disabled, help]) => <label key={key} className={`${settings[key] ? 'selected' : ''} ${disabled ? 'not-applicable' : ''}`} title={help}><BrainDrainNumericInput disabled={disabled} type="checkbox" checked={Boolean(settings[key])} onChange={(event) => onChange(key, event.target.checked)} /><i><Check size={12} /></i><span>{label}</span><span className="model-help" data-tooltip={help} aria-hidden="true"><CircleHelp size={13} /></span></label>)}
     </div>
   )
 }
@@ -1071,7 +1072,7 @@ function ProjectionExplorer({ properties, settings, portfolio, onSettingChange }
         >{label}</button>)}
       </div>
       <label className="per-flat-toggle">
-        <input type="checkbox" checked={perFlat} onChange={(event) => setPerFlat(event.target.checked)} />
+        <BrainDrainNumericInput type="checkbox" checked={perFlat} onChange={(event) => setPerFlat(event.target.checked)} />
         <i />
         <span>Per flat</span>
       </label>
@@ -1196,8 +1197,8 @@ function LineItemsEditor({
             <ChevronDown className="mobile-detail-chevron" size={18} />
           </summary>
           <div className="cashflow-line-fields">
-            <label className="cashflow-enabled"><input disabled={disabled} type="checkbox" checked={item.enabled !== false} onChange={(event) => onChange(item.id, 'enabled', event.target.checked)} /><i><Check size={12} /></i></label>
-            <label className="cashflow-name"><span>Description</span><input disabled={disabled} value={item.name} onChange={(event) => onChange(item.id, 'name', event.target.value)} placeholder="New recurring item" /></label>
+            <label className="cashflow-enabled"><BrainDrainNumericInput disabled={disabled} type="checkbox" checked={item.enabled !== false} onChange={(event) => onChange(item.id, 'enabled', event.target.checked)} /><i><Check size={12} /></i></label>
+            <label className="cashflow-name"><span>Description</span><BrainDrainNumericInput disabled={disabled} value={item.name} onChange={(event) => onChange(item.id, 'name', event.target.value)} placeholder="New recurring item" /></label>
             <label>
               <span>Amount</span>
               <MoneyPeriodInput
@@ -1210,7 +1211,7 @@ function LineItemsEditor({
               />
             </label>
             <label className="cashflow-tax"><span>Tax treatment</span><select disabled={disabled} value={item.taxDeductible === true ? 'deductible' : 'non-deductible'} onChange={(event) => onChange(item.id, 'taxDeductible', event.target.value === 'deductible')}><option value="non-deductible">Non-deductible</option><option value="deductible">Deductible</option></select></label>
-            {timed && <label><span>Months remaining</span><input disabled={disabled} type="number" min="0" step="1" value={item.monthsRemaining || ''} onChange={(event) => onChange(item.id, 'monthsRemaining', Number(event.target.value))} placeholder="Ongoing" /></label>}
+            {timed && <label><span>Months remaining</span><BrainDrainNumericInput disabled={disabled} type="number" min="0" step="1" value={item.monthsRemaining || ''} onChange={(event) => onChange(item.id, 'monthsRemaining', Number(event.target.value))} placeholder="Ongoing" /></label>}
             <button disabled={disabled} className="icon-button cashflow-delete" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.name || 'line item'}`}><Trash2 size={16} /></button>
           </div>
         </details>
@@ -1287,7 +1288,7 @@ function CostsWorkspace({
             </div>
             <div className="cost-category">
               <span>Fixed property costs</span>
-              <label><b>Mortgage payment <small>calculated</small></b><div className="money-input"><i>£</i><input type="number" min="0" step="0.01" value={moneyInputValue(property.monthlyPayment)} readOnly /></div></label>
+              <label><b>Mortgage payment <small>calculated</small></b><div className="money-input"><i>£</i><BrainDrainNumericInput type="number" min="0" step="0.01" value={moneyInputValue(property.monthlyPayment)} readOnly /></div></label>
               {propertyCostFields.filter(([, , group]) => group === 'fixed').map(([key, label]) => <label key={key}>
                 <b>{label}</b>
                 {propertyMoneyInput({
@@ -1457,7 +1458,7 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
     {properties.length > 0 && tenants.length === 0 && <section className="panel tenants-empty"><Users /><h2>No tenants yet</h2><p>Add a tenant here, or enter tenant details while creating or editing a BTL.</p><button className="secondary-button" onClick={startNew}><Plus size={16} /> Add your first tenant</button></section>}
     <section className="tenant-grid">{currentTenants.map(tenantCard)}</section>
     {archivedTenants.length > 0 && <details className="panel archived-tenants"><summary><span><b>Archived tenants</b><small>{archivedTenants.length} historical {archivedTenants.length === 1 ? 'record' : 'records'}</small></span><ChevronDown size={18} /></summary><section className="tenant-grid">{archivedTenants.map(tenantCard)}</section></details>}
-    {draft && <div className="tenant-editor-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDraft(null)}><form className="panel tenant-editor" onSubmit={submit}><header><div><span className="kicker">TENANT RECORD</span><h2>{tenants.some((tenant) => tenant.id === draft.id) ? 'Edit tenant' : 'Add tenant'}</h2></div><button type="button" className="icon-button" onClick={() => setDraft(null)} aria-label="Close tenant editor"><X /></button></header><label className="tenant-property-field"><span>Linked BTL <b>Required</b></span><select required value={draft.propertyId} onChange={(event) => setDraft((current) => ({ ...current, propertyId: event.target.value }))}><option value="" disabled>Select a property</option>{properties.map((property) => <option value={property.id} key={property.id}>{property.name} — {formatPropertyAddress(property.flatNumber, property.address) || property.postcode || 'Address not set'}</option>)}</select></label><div className="tenant-form-grid">{tenantFields.map(([key, label, type]) => <label key={key}><span>{label}{type === 'rent-day' && <b>Required</b>}</span>{type === 'rent-day' ? <select required value={draft[key] ?? ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: Number(event.target.value) }))}><option value="" disabled>Select day</option>{tenantRentPaymentDays.map((day) => <option key={day} value={day}>{day}</option>)}</select> : <input type={type} value={draft[key] || ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} />}</label>)}</div><footer><button type="button" className="secondary-button" onClick={() => setDraft(null)}>Cancel</button><button className="primary-button"><Check size={16} /> Save tenant</button></footer></form></div>}
+    {draft && <div className="tenant-editor-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDraft(null)}><form className="panel tenant-editor" onSubmit={submit}><header><div><span className="kicker">TENANT RECORD</span><h2>{tenants.some((tenant) => tenant.id === draft.id) ? 'Edit tenant' : 'Add tenant'}</h2></div><button type="button" className="icon-button" onClick={() => setDraft(null)} aria-label="Close tenant editor"><X /></button></header><label className="tenant-property-field"><span>Linked BTL <b>Required</b></span><select required value={draft.propertyId} onChange={(event) => setDraft((current) => ({ ...current, propertyId: event.target.value }))}><option value="" disabled>Select a property</option>{properties.map((property) => <option value={property.id} key={property.id}>{property.name} — {formatPropertyAddress(property.flatNumber, property.address) || property.postcode || 'Address not set'}</option>)}</select></label><div className="tenant-form-grid">{tenantFields.map(([key, label, type]) => <label key={key}><span>{label}{type === 'rent-day' && <b>Required</b>}</span>{type === 'rent-day' ? <select required value={draft[key] ?? ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: Number(event.target.value) }))}><option value="" disabled>Select day</option>{tenantRentPaymentDays.map((day) => <option key={day} value={day}>{day}</option>)}</select> : <BrainDrainNumericInput type={type} value={draft[key] || ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} />}</label>)}</div><footer><button type="button" className="secondary-button" onClick={() => setDraft(null)}>Cancel</button><button className="primary-button"><Check size={16} /> Save tenant</button></footer></form></div>}
   </div>
 }
 
@@ -1497,7 +1498,7 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
   const renderField = ([key, label, type, optional = false]) => <label key={key} className={type === 'text' && ['address', 'depositHeld', 'tenantOccupation'].includes(key) ? 'wide' : ''}>
     <span>{label}{optional && <small>Optional</small>}</span>
     <div className={type === 'percent' ? 'input-suffix' : ''}>
-      <input
+      <BrainDrainNumericInput
         data-property-field={key}
         type={type === 'percent' || type === 'optional-number' ? 'number' : type}
         step={type === 'percent' ? '0.1' : ['number', 'optional-number'].includes(type) ? 'any' : undefined}
@@ -2123,7 +2124,7 @@ function PortfolioApp({ user }) {
                 className="property-nav-visibility"
                 title={p.active ? `Exclude ${p.name} from portfolio calculations and other workspaces` : `Include ${p.name} in portfolio calculations and other workspaces`}
               >
-                <input
+                <BrainDrainNumericInput
                   aria-label={p.active ? `Exclude ${p.name}` : `Include ${p.name}`}
                   type="checkbox"
                   checked={Boolean(p.active)}
@@ -2353,7 +2354,7 @@ function PortfolioApp({ user }) {
                     Full details
                   </button>
                 </div>}
-                {propertyWorkspaceView === 'compare' && <label className="properties-search"><Search size={17} /><input placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>}
+                {propertyWorkspaceView === 'compare' && <label className="properties-search"><Search size={17} /><BrainDrainNumericInput placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>}
                 <button className="primary-button small properties-new-button" onClick={addProperty}><Plus size={16} /> New BTL</button>
               </div>
             </section>

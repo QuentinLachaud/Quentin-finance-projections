@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useMemo, useRef, useState } from 'react'
 import {
   Archive,
@@ -67,7 +68,7 @@ function CredentialRow({
 
     <label className="credential-field credential-label-field">
       <span>Label</span>
-      <input
+      <BrainDrainNumericInput
         value={item.label}
         placeholder="e.g. Government Gateway ID"
         onChange={(event) => onChange('label', event.target.value)}
@@ -77,7 +78,7 @@ function CredentialRow({
     <label className="credential-field credential-value-field">
       <span>Value</span>
       <div className="credential-value-input">
-        <input
+        <BrainDrainNumericInput
           type={item.sensitive && !revealed ? 'password' : 'text'}
           value={item.value}
           autoComplete="off"
@@ -99,7 +100,7 @@ function CredentialRow({
 
     <label className="credential-field credential-notes-field">
       <span>Notes <small>optional</small></span>
-      <input
+      <BrainDrainNumericInput
         value={item.notes}
         placeholder="What this is for"
         onChange={(event) => onChange('notes', event.target.value)}
@@ -220,7 +221,7 @@ export default function CredentialsWorkspace({ credentials = [], onChange }) {
       <div><Archive size={18} /><span><b>{archivedTotal}</b> archived</span></div>
       <label className="credentials-search">
         <Search size={17} />
-        <input
+        <BrainDrainNumericInput
           aria-label="Search IDs and credentials"
           value={query}
           onChange={(event) => setQuery(event.target.value)}

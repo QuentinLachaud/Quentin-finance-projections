@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, ChevronRight, Download, ExternalLink, FileImage, FileText, FileUp, Plus, RotateCcw, Search, SlidersHorizontal, Trash2, Upload, X } from 'lucide-react'
 import {
@@ -188,10 +189,10 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
           <button type="button" onClick={() => exportExpenseReport('xlsx')}>XLSX</button>
           <button type="button" onClick={() => exportExpenseReport('pdf')}>PDF</button>
         </div>
-        <input ref={importRef} type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain" hidden onChange={importFile} />
-        <input ref={documentFileRef} type="file" accept={DOCUMENT_FILE_ACCEPT} hidden onChange={selectDocument('file')} />
-        <input ref={imageFileRef} type="file" accept={DOCUMENT_IMAGE_ACCEPT} hidden onChange={selectDocument('image')} />
-        <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={selectDocument('photo')} />
+        <BrainDrainNumericInput ref={importRef} type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain" hidden onChange={importFile} />
+        <BrainDrainNumericInput ref={documentFileRef} type="file" accept={DOCUMENT_FILE_ACCEPT} hidden onChange={selectDocument('file')} />
+        <BrainDrainNumericInput ref={imageFileRef} type="file" accept={DOCUMENT_IMAGE_ACCEPT} hidden onChange={selectDocument('image')} />
+        <BrainDrainNumericInput ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={selectDocument('photo')} />
         <button className="secondary-button small desktop-expense-transfer" onClick={() => importRef.current?.click()}><Upload size={15} /> Import CSV / TSV</button>
         <button className="secondary-button small mobile-expense-transfer-button" onClick={() => setMobileTransferOpen(true)}><Download size={15} /> Import / Export</button>
         <button className="primary-button small" onClick={() => setAddMenuOpen(true)}><Plus size={15} /> Add</button>
@@ -218,15 +219,15 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
     </section>
 
     <section className={`panel expenses-filter-panel ${mobileFiltersOpen ? 'mobile-filters-open' : ''}`}>
-      <div className="expenses-search"><Search size={16} /><input value={filters.query} onChange={(event) => setFilter('query', event.target.value)} placeholder="Search documents & expenses…" /></div>
+      <div className="expenses-search"><Search size={16} /><BrainDrainNumericInput value={filters.query} onChange={(event) => setFilter('query', event.target.value)} placeholder="Search documents & expenses…" /></div>
       <button type="button" className="mobile-expense-filter-toggle" aria-expanded={mobileFiltersOpen} onClick={() => setMobileFiltersOpen((current) => !current)}>
         <SlidersHorizontal size={15} />
         <span>Filters</span>
         {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
       </button>
       <div className="expenses-filter-fields">
-        <label><span>From</span><input type="date" value={filters.from} onChange={(event) => setFilter('from', event.target.value)} /></label>
-        <label><span>To</span><input type="date" value={filters.to} onChange={(event) => setFilter('to', event.target.value)} /></label>
+        <label><span>From</span><BrainDrainNumericInput type="date" value={filters.from} onChange={(event) => setFilter('from', event.target.value)} /></label>
+        <label><span>To</span><BrainDrainNumericInput type="date" value={filters.to} onChange={(event) => setFilter('to', event.target.value)} /></label>
         <label><span>Property</span><select value={filters.property} onChange={(event) => setFilter('property', event.target.value)}><option value="__all__">All</option>{allPropertyValues.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
         <label><span>Type</span><select value={filters.type} onChange={(event) => setFilter('type', event.target.value)}><option value="__all__">All</option><option value="income">Income</option><option value="expense">Expense</option><option value="neutral">Zero</option><option value="unspecified">Unspecified</option></select></label>
         <label><span>Category</span><select value={filters.category} onChange={(event) => setFilter('category', event.target.value)}><option value="__all__">All</option>{categories.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
@@ -241,17 +242,17 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
           <thead><tr><th>Date</th><th>Property</th><th>Type</th><th>Category</th><th>Amount (£)</th><th>Description</th><th>Document</th><th>Contractor</th><th>Recurrence</th><th>Notes</th><th>Receipt Link</th><th /></tr></thead>
           <tbody>
             {filtered.map((item) => <tr key={item.id}>
-              <td><input type="date" value={item.date || ''} onChange={(event) => update(item.id, 'date', event.target.value)} /></td>
-              <td><input list="expense-property-options" value={item.property || ''} onChange={(event) => update(item.id, 'property', event.target.value)} /></td>
+              <td><BrainDrainNumericInput type="date" value={item.date || ''} onChange={(event) => update(item.id, 'date', event.target.value)} /></td>
+              <td><BrainDrainNumericInput list="expense-property-options" value={item.property || ''} onChange={(event) => update(item.id, 'property', event.target.value)} /></td>
               <td><TypeBadge amount={item.amount} /></td>
-              <td><input value={item.category || ''} onChange={(event) => update(item.id, 'category', event.target.value)} /></td>
-              <td className="expense-amount-cell"><input type="number" step="0.01" value={item.amount ?? ''} onChange={(event) => update(item.id, 'amount', event.target.value === '' ? '' : Number(event.target.value))} /></td>
-              <td><input value={item.description || ''} onChange={(event) => update(item.id, 'description', event.target.value)} /></td>
+              <td><BrainDrainNumericInput value={item.category || ''} onChange={(event) => update(item.id, 'category', event.target.value)} /></td>
+              <td className="expense-amount-cell"><BrainDrainNumericInput type="number" step="0.01" value={item.amount ?? ''} onChange={(event) => update(item.id, 'amount', event.target.value === '' ? '' : Number(event.target.value))} /></td>
+              <td><BrainDrainNumericInput value={item.description || ''} onChange={(event) => update(item.id, 'description', event.target.value)} /></td>
               <td>{item.document ? <button type="button" className="expense-document-cell expense-document-open" onClick={() => openDocument(item)} aria-label={`Open ${item.document.title || 'document'}`}><span className="expense-document-icon"><FileText size={15} /></span><span><b>{normalizeDocumentMeta(item.document)?.fileName || normalizeDocumentMeta(item.document)?.title || 'Document'}</b><small>{normalizeDocumentMeta(item.document)?.type}</small></span><ChevronRight size={13} /></button> : <span className="expense-document-empty">—</span>}</td>
               <td><span className="expense-contractor-label">{contractorLabelFor(item)}</span></td>
-              <td><input value={item.recurrence || ''} onChange={(event) => update(item.id, 'recurrence', event.target.value)} /></td>
-              <td><input value={item.notes || ''} onChange={(event) => update(item.id, 'notes', event.target.value)} /></td>
-              <td><div className="expense-receipt-field"><input value={item.receiptLink || ''} onChange={(event) => update(item.id, 'receiptLink', event.target.value)} />{isReceiptUrl(item.receiptLink) && <a href={item.receiptLink} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink size={14} /></a>}</div></td>
+              <td><BrainDrainNumericInput value={item.recurrence || ''} onChange={(event) => update(item.id, 'recurrence', event.target.value)} /></td>
+              <td><BrainDrainNumericInput value={item.notes || ''} onChange={(event) => update(item.id, 'notes', event.target.value)} /></td>
+              <td><div className="expense-receipt-field"><BrainDrainNumericInput value={item.receiptLink || ''} onChange={(event) => update(item.id, 'receiptLink', event.target.value)} />{isReceiptUrl(item.receiptLink) && <a href={item.receiptLink} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink size={14} /></a>}</div></td>
               <td><button className="icon-button danger" onClick={() => remove(item.id)} aria-label="Delete expense entry"><Trash2 size={15} /></button></td>
             </tr>)}
             {!filtered.length && <tr><td colSpan="11" className="expenses-empty">No entries match these filters.</td></tr>}
@@ -272,16 +273,16 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
             </div>
           </summary>
           <div className="expense-mobile-fields">
-            <label><span>Date</span><input type="date" value={item.date || ''} onChange={(event) => update(item.id, 'date', event.target.value)} /></label>
-            <label><span>Amount (£)</span><input type="number" step="0.01" value={item.amount ?? ''} onChange={(event) => update(item.id, 'amount', event.target.value === '' ? '' : Number(event.target.value))} /></label>
-            <label className="expense-mobile-wide"><span>Description</span><input value={item.description || ''} onChange={(event) => update(item.id, 'description', event.target.value)} /></label>
-            <label><span>Property</span><input list="expense-property-options" value={item.property || ''} onChange={(event) => update(item.id, 'property', event.target.value)} /></label>
-            <label><span>Category</span><input value={item.category || ''} onChange={(event) => update(item.id, 'category', event.target.value)} /></label>
-            <label><span>Recurrence</span><input value={item.recurrence || ''} onChange={(event) => update(item.id, 'recurrence', event.target.value)} /></label>
+            <label><span>Date</span><BrainDrainNumericInput type="date" value={item.date || ''} onChange={(event) => update(item.id, 'date', event.target.value)} /></label>
+            <label><span>Amount (£)</span><BrainDrainNumericInput type="number" step="0.01" value={item.amount ?? ''} onChange={(event) => update(item.id, 'amount', event.target.value === '' ? '' : Number(event.target.value))} /></label>
+            <label className="expense-mobile-wide"><span>Description</span><BrainDrainNumericInput value={item.description || ''} onChange={(event) => update(item.id, 'description', event.target.value)} /></label>
+            <label><span>Property</span><BrainDrainNumericInput list="expense-property-options" value={item.property || ''} onChange={(event) => update(item.id, 'property', event.target.value)} /></label>
+            <label><span>Category</span><BrainDrainNumericInput value={item.category || ''} onChange={(event) => update(item.id, 'category', event.target.value)} /></label>
+            <label><span>Recurrence</span><BrainDrainNumericInput value={item.recurrence || ''} onChange={(event) => update(item.id, 'recurrence', event.target.value)} /></label>
             {item.document && <button type="button" className="expense-mobile-wide expense-document-cell expense-document-open" onClick={() => openDocument(item)}><span className="expense-document-icon"><FileText size={16} /></span><span><b>{item.document.fileName || item.document.title}</b><small>{item.document.type} · {item.document.association?.label || 'Unassigned'}</small></span><ChevronRight size={14} /></button>}
             {item.document?.contractorId && <div className="expense-mobile-wide expense-contractor-mobile"><span>Contractor</span><b>{contractorLabelFor(item)}</b></div>}
-            <label className="expense-mobile-wide"><span>Receipt link</span><div className="expense-receipt-field"><input value={item.receiptLink || ''} onChange={(event) => update(item.id, 'receiptLink', event.target.value)} />{isReceiptUrl(item.receiptLink) && <a href={item.receiptLink} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink size={14} /></a>}</div></label>
-            <label className="expense-mobile-wide"><span>Notes</span><input value={item.notes || ''} onChange={(event) => update(item.id, 'notes', event.target.value)} /></label>
+            <label className="expense-mobile-wide"><span>Receipt link</span><div className="expense-receipt-field"><BrainDrainNumericInput value={item.receiptLink || ''} onChange={(event) => update(item.id, 'receiptLink', event.target.value)} />{isReceiptUrl(item.receiptLink) && <a href={item.receiptLink} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink size={14} /></a>}</div></label>
+            <label className="expense-mobile-wide"><span>Notes</span><BrainDrainNumericInput value={item.notes || ''} onChange={(event) => update(item.id, 'notes', event.target.value)} /></label>
             <button className="danger-button expense-mobile-delete" onClick={() => remove(item.id)}><Trash2 size={15} /> Delete entry</button>
           </div>
         </details>)}
@@ -341,8 +342,8 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
         </header>
 
         <div className="expense-modal-required">
-          <label><span>Date <b>Required</b></span><input autoFocus required type="date" value={draftExpense.date || ''} onChange={(event) => updateDraft('date', event.target.value)} /></label>
-          <label><span>Amount <b>Required</b></span><div className="expense-modal-money"><i>£</i><input required type="number" min="0.01" step="0.01" inputMode="decimal" value={draftExpense.amount ?? ''} onChange={(event) => updateDraft('amount', event.target.value === '' ? '' : Number(event.target.value))} placeholder="0.00" /></div></label>
+          <label><span>Date <b>Required</b></span><BrainDrainNumericInput autoFocus required type="date" value={draftExpense.date || ''} onChange={(event) => updateDraft('date', event.target.value)} /></label>
+          <label><span>Amount <b>Required</b></span><div className="expense-modal-money"><i>£</i><BrainDrainNumericInput required type="number" min="0.01" step="0.01" inputMode="decimal" value={draftExpense.amount ?? ''} onChange={(event) => updateDraft('amount', event.target.value === '' ? '' : Number(event.target.value))} placeholder="0.00" /></div></label>
         </div>
 
         <div className="expense-modal-type" role="group" aria-label="Entry type">
@@ -351,11 +352,11 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
         </div>
 
         <div className="expense-modal-fields">
-          <label className="expense-modal-description"><span>Description</span><input value={draftExpense.description || ''} onChange={(event) => updateDraft('description', event.target.value)} placeholder="What was this for?" /></label>
-          <label><span>Property</span><input list="expense-property-options" value={draftExpense.property || ''} onChange={(event) => updateDraft('property', event.target.value)} placeholder="All" /></label>
-          <label><span>Category</span><input value={draftExpense.category || ''} onChange={(event) => updateDraft('category', event.target.value)} placeholder="Repairs, insurance…" /></label>
-          <label><span>Recurrence</span><input value={draftExpense.recurrence || ''} onChange={(event) => updateDraft('recurrence', event.target.value)} placeholder="One-off, monthly…" /></label>
-          <label className="expense-modal-receipt"><span>Receipt link</span><input type="url" value={draftExpense.receiptLink || ''} onChange={(event) => updateDraft('receiptLink', event.target.value)} placeholder="https://…" /></label>
+          <label className="expense-modal-description"><span>Description</span><BrainDrainNumericInput value={draftExpense.description || ''} onChange={(event) => updateDraft('description', event.target.value)} placeholder="What was this for?" /></label>
+          <label><span>Property</span><BrainDrainNumericInput list="expense-property-options" value={draftExpense.property || ''} onChange={(event) => updateDraft('property', event.target.value)} placeholder="All" /></label>
+          <label><span>Category</span><BrainDrainNumericInput value={draftExpense.category || ''} onChange={(event) => updateDraft('category', event.target.value)} placeholder="Repairs, insurance…" /></label>
+          <label><span>Recurrence</span><BrainDrainNumericInput value={draftExpense.recurrence || ''} onChange={(event) => updateDraft('recurrence', event.target.value)} placeholder="One-off, monthly…" /></label>
+          <label className="expense-modal-receipt"><span>Receipt link</span><BrainDrainNumericInput type="url" value={draftExpense.receiptLink || ''} onChange={(event) => updateDraft('receiptLink', event.target.value)} placeholder="https://…" /></label>
           <label className="expense-modal-notes"><span>Notes</span><textarea value={draftExpense.notes || ''} onChange={(event) => updateDraft('notes', event.target.value)} rows="3" placeholder="Optional notes" /></label>
         </div>
 

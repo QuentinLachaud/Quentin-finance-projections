@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useMemo, useState } from 'react'
 import { FileText, X } from 'lucide-react'
 import { createExpense } from './expenses.js'
@@ -85,14 +86,14 @@ export default function DocumentCaptureSheet({ file, sourceMode = 'file', proper
 
       <div className="document-primary-fields">
         <label><span>Document type</span><select autoFocus required value={draft.documentType} onChange={(event) => update('documentType', event.target.value)}>{DOCUMENT_TYPES.map((type) => <option key={type}>{type}</option>)}</select></label>
-        <label><span>Title</span><input required value={draft.title} onChange={(event) => update('title', event.target.value)} placeholder="e.g. Gas safety invoice" /></label>
+        <label><span>Title</span><BrainDrainNumericInput required value={draft.title} onChange={(event) => update('title', event.target.value)} placeholder="e.g. Gas safety invoice" /></label>
       </div>
 
       <div className="document-secondary-grid">
-        <label><span>Date</span><input required type="date" value={draft.date} onChange={(event) => update('date', event.target.value)} /></label>
+        <label><span>Date</span><BrainDrainNumericInput required type="date" value={draft.date} onChange={(event) => update('date', event.target.value)} /></label>
         <label><span>Association</span><select value={draft.association} onChange={(event) => update('association', event.target.value)}><option value="unassigned">Unassigned</option><option value="company">{companyName || 'Company'}</option>{properties.map((property) => <option key={property.id} value={`property:${property.id}`}>{property.name || 'BTL'}</option>)}</select></label>
         <label><span>Contractor</span><select value={draft.contractorId} onChange={(event) => update('contractorId', event.target.value)}><option value="">No contractor</option>{contractors.map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name || [contractor.firstName, contractor.lastName].filter(Boolean).join(' ') || contractor.companyName || 'Contractor'}</option>)}</select></label>
-        <label><span>Category</span><input value={draft.category} onChange={(event) => update('category', event.target.value)} placeholder="Repairs, compliance…" /></label>
+        <label><span>Category</span><BrainDrainNumericInput value={draft.category} onChange={(event) => update('category', event.target.value)} placeholder="Repairs, compliance…" /></label>
       </div>
 
       <fieldset className="document-tags"><legend>Tags</legend><div>{contractorTags.map((tag) => <button key={tag.id} type="button" className={draft.tagIds.includes(tag.id) ? 'active' : ''} aria-pressed={draft.tagIds.includes(tag.id)} onClick={() => toggleTag(tag.id)}>{tag.label}</button>)}</div></fieldset>
@@ -100,10 +101,10 @@ export default function DocumentCaptureSheet({ file, sourceMode = 'file', proper
       <section className="document-money-section">
         <div className="document-money-heading"><strong>Financial details</strong><small>Optional. Nothing is read or inferred from the file.</small></div>
         <div className="document-money-row">
-          <label><span>Amount</span><div className="expense-modal-money"><i>£</i><input type="number" min="0.01" step="0.01" inputMode="decimal" value={draft.amount} onChange={(event) => update('amount', event.target.value === '' ? '' : Number(event.target.value))} placeholder="Leave blank" /></div></label>
+          <label><span>Amount</span><div className="expense-modal-money"><i>£</i><BrainDrainNumericInput type="number" min="0.01" step="0.01" inputMode="decimal" value={draft.amount} onChange={(event) => update('amount', event.target.value === '' ? '' : Number(event.target.value))} placeholder="Leave blank" /></div></label>
           <div className="expense-modal-type" role="group" aria-label="Entry type"><button type="button" className={draft.entryType === 'expense' ? 'active' : ''} onClick={() => update('entryType', 'expense')}>Expense</button><button type="button" className={draft.entryType === 'income' ? 'active' : ''} onClick={() => update('entryType', 'income')}>Income</button></div>
         </div>
-        <div className="document-notes-row"><label><span>Recurrence</span><input value={draft.recurrence} onChange={(event) => update('recurrence', event.target.value)} placeholder="One-off, monthly…" /></label><label><span>Notes</span><textarea rows="2" value={draft.notes} onChange={(event) => update('notes', event.target.value)} placeholder="Optional notes" /></label></div>
+        <div className="document-notes-row"><label><span>Recurrence</span><BrainDrainNumericInput value={draft.recurrence} onChange={(event) => update('recurrence', event.target.value)} placeholder="One-off, monthly…" /></label><label><span>Notes</span><textarea rows="2" value={draft.notes} onChange={(event) => update('notes', event.target.value)} placeholder="Optional notes" /></label></div>
       </section>
 
       {error && <p className="document-capture-error" role="alert">{error}</p>}

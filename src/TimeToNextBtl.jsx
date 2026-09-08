@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { currency, projectPortfolio } from './calculations.js'
@@ -85,11 +86,11 @@ export function PurchaseAssumptionsSheet({ draft, onChange, onCancel, onSave }) 
       </header>
       <div className="next-btl-sheet-body">
         <label className="next-btl-field"><span>Purchase tax regime</span><select value={normalized.jurisdiction} onChange={(event) => onChange({ ...draft, jurisdiction: event.target.value })}>{acquisitionJurisdictions.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>
-        <label className="next-btl-field"><span>LTV</span><div><input aria-label="Next BTL LTV" type="number" min="0" max="100" step="1" value={draft.ltv} onChange={setNumber('ltv')} /><em>%</em></div></label>
-        {normalized.jurisdiction === 'scotland' && <label className="next-btl-field"><span>ADS</span><div><input aria-label="Next BTL ADS" type="number" min="0" step=".1" value={draft.adsRate} onChange={setNumber('adsRate')} /><em>%</em></div></label>}
-        <label className="next-btl-field"><span>Solicitor / legal fees</span><div><b>£</b><input aria-label="Next BTL legal fees" type="number" min="0" step="50" value={draft.legalFees} onChange={setNumber('legalFees')} /></div></label>
-        <label className="next-btl-field"><span>Mortgage product fee</span><div><b>£</b><input aria-label="Next BTL mortgage fee" type="number" min="0" step="50" value={draft.mortgageFee} onChange={setNumber('mortgageFee')} /></div></label>
-        <label className="next-btl-switch-row"><span><b>Add mortgage fee to loan</b><small>Turn off to include it in completion cash.</small></span><input aria-label="Add next BTL mortgage fee to loan" type="checkbox" checked={draft.mortgageFeeAddedToLoan !== false} onChange={(event) => onChange({ ...draft, mortgageFeeAddedToLoan: event.target.checked })} /><i /></label>
+        <label className="next-btl-field"><span>LTV</span><div><BrainDrainNumericInput aria-label="Next BTL LTV" type="number" min="0" max="100" step="1" value={draft.ltv} onChange={setNumber('ltv')} /><em>%</em></div></label>
+        {normalized.jurisdiction === 'scotland' && <label className="next-btl-field"><span>ADS</span><div><BrainDrainNumericInput aria-label="Next BTL ADS" type="number" min="0" step=".1" value={draft.adsRate} onChange={setNumber('adsRate')} /><em>%</em></div></label>}
+        <label className="next-btl-field"><span>Solicitor / legal fees</span><div><b>£</b><BrainDrainNumericInput aria-label="Next BTL legal fees" type="number" min="0" step="50" value={draft.legalFees} onChange={setNumber('legalFees')} /></div></label>
+        <label className="next-btl-field"><span>Mortgage product fee</span><div><b>£</b><BrainDrainNumericInput aria-label="Next BTL mortgage fee" type="number" min="0" step="50" value={draft.mortgageFee} onChange={setNumber('mortgageFee')} /></div></label>
+        <label className="next-btl-switch-row"><span><b>Add mortgage fee to loan</b><small>Turn off to include it in completion cash.</small></span><BrainDrainNumericInput aria-label="Add next BTL mortgage fee to loan" type="checkbox" checked={draft.mortgageFeeAddedToLoan !== false} onChange={(event) => onChange({ ...draft, mortgageFeeAddedToLoan: event.target.checked })} /><i /></label>
       </div>
     </form>
   </div>
@@ -431,7 +432,7 @@ export default function TimeToNextBtl({
           </div>
           {usingSavedAcquisition
             ? <label className="next-btl-field prominent saved-target"><span>Saved acquisition</span><select aria-label="Saved acquisition target" value={selectedAcquisitionId} onChange={(event) => setSelectedAcquisitionId(event.target.value)}>{savedAcquisitions.map((item) => <option value={item.id} key={item.id}>{item.name || 'Untitled acquisition'} · {currency(item.purchasePrice)}</option>)}</select><small>Price and funding assumptions stay linked to the selected acquisition card.</small></label>
-            : <label className="next-btl-field prominent"><span>BTL price today</span><div><b>£</b><input aria-label="BTL price today" inputMode="numeric" type="number" min="0" step="1000" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value === '' ? '' : Number(event.target.value))} /></div>{!savedAcquisitions.length && <small>Add an acquisition below to use a saved card instead.</small>}</label>}
+            : <label className="next-btl-field prominent"><span>BTL price today</span><div><b>£</b><BrainDrainNumericInput aria-label="BTL price today" inputMode="numeric" type="number" min="0" step="1000" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value === '' ? '' : Number(event.target.value))} /></div>{!savedAcquisitions.length && <small>Add an acquisition below to use a saved card instead.</small>}</label>}
         </div>
 
         <div className="next-btl-control-group">
@@ -441,13 +442,13 @@ export default function TimeToNextBtl({
           </div>
         </div>
 
-        <label className="next-btl-switch-row"><span><b>Preserve 6-month buffer</b><small>Only cash above six months of current operating costs can fund the purchase.</small></span><input aria-label="Preserve 6-month buffer" type="checkbox" checked={preserveBuffer} onChange={(event) => setPreserveBuffer(event.target.checked)} /><i /></label>
+        <label className="next-btl-switch-row"><span><b>Preserve 6-month buffer</b><small>Only cash above six months of current operating costs can fund the purchase.</small></span><BrainDrainNumericInput aria-label="Preserve 6-month buffer" type="checkbox" checked={preserveBuffer} onChange={(event) => setPreserveBuffer(event.target.checked)} /><i /></label>
 
-        <label className={`next-btl-switch-row ${isCompany ? '' : 'disabled'}`}><span><b>Include extraction</b><small>{isCompany ? 'Assumes extracted cash remains or becomes available again for acquisition funding.' : 'Not applicable to a private-landlord portfolio.'}</small></span><input aria-label="Include extraction" type="checkbox" disabled={!isCompany} checked={isCompany && includeExtraction} onChange={(event) => setIncludeExtraction(event.target.checked)} /><i /></label>
+        <label className={`next-btl-switch-row ${isCompany ? '' : 'disabled'}`}><span><b>Include extraction</b><small>{isCompany ? 'Assumes extracted cash remains or becomes available again for acquisition funding.' : 'Not applicable to a private-landlord portfolio.'}</small></span><BrainDrainNumericInput aria-label="Include extraction" type="checkbox" disabled={!isCompany} checked={isCompany && includeExtraction} onChange={(event) => setIncludeExtraction(event.target.checked)} /><i /></label>
 
-        <label className="next-btl-switch-row"><span><b>Apply rent growth</b><small>{includeRentGrowth ? `Existing portfolio rent compounds at ${(numberValue(settings.rentGrowthRate) * 100).toFixed(1)}% p.a. while cash builds.` : 'Flat-rent scenario: existing portfolio rent is held constant until purchase.'}</small></span><input aria-label="Apply rent growth to acquisition timing" type="checkbox" checked={includeRentGrowth} onChange={(event) => setIncludeRentGrowth(event.target.checked)} /><i /></label>
+        <label className="next-btl-switch-row"><span><b>Apply rent growth</b><small>{includeRentGrowth ? `Existing portfolio rent compounds at ${(numberValue(settings.rentGrowthRate) * 100).toFixed(1)}% p.a. while cash builds.` : 'Flat-rent scenario: existing portfolio rent is held constant until purchase.'}</small></span><BrainDrainNumericInput aria-label="Apply rent growth to acquisition timing" type="checkbox" checked={includeRentGrowth} onChange={(event) => setIncludeRentGrowth(event.target.checked)} /><i /></label>
 
-        <label className="next-btl-field"><span>BTL appreciation</span><div><input aria-label="BTL appreciation" type="number" min="-20" max="30" step="0.25" value={appreciationPercent} onChange={(event) => setAppreciationPercent(event.target.value === '' ? '' : Number(event.target.value))} /><em>% p.a.</em></div></label>
+        <label className="next-btl-field"><span>BTL appreciation</span><div><BrainDrainNumericInput aria-label="BTL appreciation" type="number" min="-20" max="30" step="0.25" value={appreciationPercent} onChange={(event) => setAppreciationPercent(event.target.value === '' ? '' : Number(event.target.value))} /><em>% p.a.</em></div></label>
 
         <div className="next-btl-surplus-card" aria-label="Starting surplus cash">
           <span>Starting surplus cash</span>
@@ -494,12 +495,12 @@ export default function TimeToNextBtl({
                   return <div className={`next-btl-equity-property ${row.option.enabled ? 'included' : ''}`} key={row.key}>
                     <div className="next-btl-equity-property-head">
                       <label className="next-btl-equity-switch" title={`Include ${name} potential equity release`}>
-                        <input aria-label={`Include ${name} potential equity release`} type="checkbox" checked={row.option.enabled === true} onChange={(event) => updateEquityReleaseOption(row.key, { enabled: event.target.checked })} /><i />
+                        <BrainDrainNumericInput aria-label={`Include ${name} potential equity release`} type="checkbox" checked={row.option.enabled === true} onChange={(event) => updateEquityReleaseOption(row.key, { enabled: event.target.checked })} /><i />
                       </label>
                       <span className="next-btl-equity-name"><b>{name}</b><small>{currency(row.detail.currentValue)} value · {(row.detail.currentLtv * 100).toFixed(1)}% current LTV</small></span>
                       <span className="next-btl-equity-now"><span>Potential now</span><b>{currency(row.detail.release)}</b></span>
                     </div>
-                    <label className="next-btl-equity-ltv"><span>Refinance to</span><div><input aria-label={`${name} target equity release LTV`} type="number" min="0" max="100" step="1" inputMode="decimal" value={targetPercent} onChange={(event) => updateEquityReleaseOption(row.key, { targetLtv: event.target.value === '' ? '' : Number(event.target.value) })} onBlur={() => row.option.targetLtv === '' && updateEquityReleaseOption(row.key, { targetLtv: DEFAULT_EQUITY_RELEASE_TARGET_LTV * 100 })} /><em>% LTV</em></div></label>
+                    <label className="next-btl-equity-ltv"><span>Refinance to</span><div><BrainDrainNumericInput aria-label={`${name} target equity release LTV`} type="number" min="0" max="100" step="1" inputMode="decimal" value={targetPercent} onChange={(event) => updateEquityReleaseOption(row.key, { targetLtv: event.target.value === '' ? '' : Number(event.target.value) })} onBlur={() => row.option.targetLtv === '' && updateEquityReleaseOption(row.key, { targetLtv: DEFAULT_EQUITY_RELEASE_TARGET_LTV * 100 })} /><em>% LTV</em></div></label>
                   </div>
                 })}</div>
               : <p className="next-btl-advanced-note">No included BTLs are available for hypothetical equity release.</p>}

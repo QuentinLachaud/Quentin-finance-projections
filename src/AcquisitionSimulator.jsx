@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, ChevronDown, ChevronUp, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { acquisitionCosts, acquisitionJurisdictions, createAcquisition, nextAcquisitionName, prependAcquisition, reorderAcquisitions } from './acquisition.js'
@@ -40,24 +41,24 @@ export function AcquisitionEditorModal({ draft, mode, warning = '', onChange, on
         <button type="submit" className="confirm" disabled={!valid}>Confirm</button>
       </header>
       <div className="acq-sheet-scroll">
-        <section className="acq-sheet-group name"><label><span>Acquisition name</span><input aria-label="Acquisition name" value={draft.name} onChange={set('name')} /></label></section>
+        <section className="acq-sheet-group name"><label><span>Acquisition name</span><BrainDrainNumericInput aria-label="Acquisition name" value={draft.name} onChange={set('name')} /></label></section>
         {warning && <p className="acq-sheet-warning">{warning}</p>}
         <section className="acq-sheet-group">
           <header><b>Property assumptions</b></header>
           <div className="acq-sheet-grid">
-            <InputShell label="Purchase price" prefix="£"><input aria-label="Purchase price" type="number" min="0" step="1000" placeholder="200,000" value={draft.purchasePrice} onChange={set('purchasePrice')} /></InputShell>
-            <InputShell label="Expected rent per month" prefix="£"><input aria-label="Expected rent per month" type="number" min="0" step="50" placeholder="1,200" value={draft.expectedMonthlyRent} onChange={set('expectedMonthlyRent')} /></InputShell>
+            <InputShell label="Purchase price" prefix="£"><BrainDrainNumericInput aria-label="Purchase price" type="number" min="0" step="1000" placeholder="200,000" value={draft.purchasePrice} onChange={set('purchasePrice')} /></InputShell>
+            <InputShell label="Expected rent per month" prefix="£"><BrainDrainNumericInput aria-label="Expected rent per month" type="number" min="0" step="50" placeholder="1,200" value={draft.expectedMonthlyRent} onChange={set('expectedMonthlyRent')} /></InputShell>
           </div>
         </section>
         <section className="acq-sheet-group">
           <header><b>Funding & purchase costs</b></header>
           <div className="acq-sheet-grid funding">
             <label className="acq-sheet-field jurisdiction"><span>Purchase tax regime</span><select aria-label="Purchase tax regime" value={draft.jurisdiction} onChange={set('jurisdiction')}>{acquisitionJurisdictions.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>
-            <InputShell label="LTV" suffix="%"><input aria-label="LTV" type="number" min="0" max="100" step="1" value={draft.ltv} onChange={set('ltv')} /></InputShell>
-            {isScotland && <InputShell label="ADS" suffix="%"><input aria-label="ADS" type="number" min="0" step=".1" value={draft.adsRate} onChange={set('adsRate')} /></InputShell>}
-            <InputShell label="Solicitor / legal fees" prefix="£"><input aria-label="Solicitor / legal fees" type="number" min="0" step="50" value={draft.legalFees} onChange={set('legalFees')} /></InputShell>
-            <InputShell label="Mortgage product fee" prefix="£"><input aria-label="Mortgage product fee" type="number" min="0" step="50" value={draft.mortgageFee} onChange={set('mortgageFee')} /></InputShell>
-            <label className="acq-sheet-switch"><span><b>Add mortgage fee to loan</b><small>Turn off to include it in cash required now.</small></span><input aria-label="Add mortgage fee to loan" type="checkbox" checked={Boolean(draft.mortgageFeeAddedToLoan)} onChange={set('mortgageFeeAddedToLoan')} /><i /></label>
+            <InputShell label="LTV" suffix="%"><BrainDrainNumericInput aria-label="LTV" type="number" min="0" max="100" step="1" value={draft.ltv} onChange={set('ltv')} /></InputShell>
+            {isScotland && <InputShell label="ADS" suffix="%"><BrainDrainNumericInput aria-label="ADS" type="number" min="0" step=".1" value={draft.adsRate} onChange={set('adsRate')} /></InputShell>}
+            <InputShell label="Solicitor / legal fees" prefix="£"><BrainDrainNumericInput aria-label="Solicitor / legal fees" type="number" min="0" step="50" value={draft.legalFees} onChange={set('legalFees')} /></InputShell>
+            <InputShell label="Mortgage product fee" prefix="£"><BrainDrainNumericInput aria-label="Mortgage product fee" type="number" min="0" step="50" value={draft.mortgageFee} onChange={set('mortgageFee')} /></InputShell>
+            <label className="acq-sheet-switch"><span><b>Add mortgage fee to loan</b><small>Turn off to include it in cash required now.</small></span><BrainDrainNumericInput aria-label="Add mortgage fee to loan" type="checkbox" checked={Boolean(draft.mortgageFeeAddedToLoan)} onChange={set('mortgageFeeAddedToLoan')} /><i /></label>
           </div>
           <div className="acq-sheet-live"><span>Estimated cash to deploy</span><strong>{currency(costs.cashRequired)}</strong></div>
         </section>

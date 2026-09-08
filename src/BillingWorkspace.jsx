@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useEffect, useState } from 'react'
 import { Check, Crown, ExternalLink, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { PLAN_PRICES } from './billing.js'
@@ -103,7 +104,7 @@ export default function BillingWorkspace({ entitlement, onRefresh, modal = false
     {entitlement?.isAdmin && !modal && <section className="panel owner-access-panel">
       <header><div><span className="kicker">OWNER ONLY</span><h2>Account access</h2><p>Grant or revoke Pro for an existing signed-up account. This control is never sent to ordinary users.</p></div><ShieldCheck /></header>
       <form onSubmit={setManualPlan}>
-        <label><span>Existing account email</span><input type="email" required value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="person@example.com" /></label>
+        <label><span>Existing account email</span><BrainDrainNumericInput type="email" required value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="person@example.com" /></label>
         <label><span>Access level</span><select value={adminPlan} onChange={(event) => setAdminPlan(event.target.value)}><option value="pro">Pro</option><option value="free">Free</option></select></label>
         <button className="primary-button" disabled={Boolean(busy)}><Sparkles size={16} /> {busy === 'admin-set-plan' ? 'Updating…' : 'Update access'}</button>
       </form>

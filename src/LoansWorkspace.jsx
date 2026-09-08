@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { addMonths, currency, shortDate } from './calculations.js'
@@ -44,38 +45,38 @@ export function LoanEditor({ loan, properties, onSave, onDelete, allowAssociatio
 
     <label className="loan-editor-field">
       <span>Lender</span>
-      <input value={loan.lender || ''} onChange={(event) => update({ lender: event.target.value })} />
+      <BrainDrainNumericInput value={loan.lender || ''} onChange={(event) => update({ lender: event.target.value })} />
     </label>
 
     <label className="loan-editor-field">
       <span>Loan amount before fee</span>
-      <div className="loan-input-affix"><b>£</b><input type="number" min="0" step="100" value={loan.principalAmount || 0} onChange={(event) => update({ principalAmount: Number(event.target.value) })} /></div>
+      <div className="loan-input-affix"><b>£</b><BrainDrainNumericInput type="number" min="0" step="100" value={loan.principalAmount || 0} onChange={(event) => update({ principalAmount: Number(event.target.value) })} /></div>
       <small className="loan-derived-balance">Mortgage balance: {currency(costs.effectiveBalance)}{loan.addFeeToLoan && costs.productFee > 0 ? ` incl. ${currency(costs.productFee)} financed fee` : ''}</small>
     </label>
 
     <label className="loan-editor-field">
       <span>Interest rate</span>
-      <div className="loan-input-affix"><input type="number" min="0" step="0.01" value={Number((Number(loan.rate || 0) * 100).toFixed(4))} onChange={(event) => update({ rate: Number(event.target.value) / 100 })} /><b>%</b></div>
+      <div className="loan-input-affix"><BrainDrainNumericInput type="number" min="0" step="0.01" value={Number((Number(loan.rate || 0) * 100).toFixed(4))} onChange={(event) => update({ rate: Number(event.target.value) / 100 })} /><b>%</b></div>
     </label>
 
     <label className="loan-editor-field">
       <span>Fixed from</span>
-      <input type="date" value={loan.fixedStartDate || ''} onChange={(event) => update({ fixedStartDate: event.target.value })} />
+      <BrainDrainNumericInput type="date" value={loan.fixedStartDate || ''} onChange={(event) => update({ fixedStartDate: event.target.value })} />
     </label>
 
     <label className="loan-editor-field">
       <span>Fixed period</span>
-      <div className="loan-input-affix"><input type="number" min="0" step="1" value={loan.fixedRateMonths || 0} onChange={(event) => update({ fixedRateMonths: Number(event.target.value) })} /><b>months</b></div>
+      <div className="loan-input-affix"><BrainDrainNumericInput type="number" min="0" step="1" value={loan.fixedRateMonths || 0} onChange={(event) => update({ fixedRateMonths: Number(event.target.value) })} /><b>months</b></div>
     </label>
 
     <label className="loan-capitalised-toggle">
-      <input type="checkbox" checked={loan.interestOnly !== false} onChange={(event) => update({ interestOnly: event.target.checked })} />
+      <BrainDrainNumericInput type="checkbox" checked={loan.interestOnly !== false} onChange={(event) => update({ interestOnly: event.target.checked })} />
       <span><b>Interest only</b><small>On: monthly payment is interest only. Off: payment includes principal over the remaining mortgage term.</small></span>
     </label>
 
     {loan.interestOnly === false && <label className="loan-editor-field">
       <span>Remaining mortgage term</span>
-      <div className="loan-input-affix"><input type="number" min="1" step="1" value={loan.termMonths || 300} onChange={(event) => update({ termMonths: Number(event.target.value) })} /><b>months</b></div>
+      <div className="loan-input-affix"><BrainDrainNumericInput type="number" min="1" step="1" value={loan.termMonths || 300} onChange={(event) => update({ termMonths: Number(event.target.value) })} /><b>months</b></div>
       <small className="loan-derived-balance">{Math.round(Number(loan.termMonths || 300) / 12 * 10) / 10} years remaining</small>
     </label>}
 
@@ -88,7 +89,7 @@ export function LoanEditor({ loan, properties, onSave, onDelete, allowAssociatio
         </select>
         <div className="loan-input-affix">
           {loan.feeMode === 'amount' && <b>£</b>}
-          <input type="number" min="0" step={loan.feeMode === 'amount' ? '1' : '0.01'} value={loan.feeValue || 0} onChange={(event) => update({ feeValue: Number(event.target.value) })} />
+          <BrainDrainNumericInput type="number" min="0" step={loan.feeMode === 'amount' ? '1' : '0.01'} value={loan.feeValue || 0} onChange={(event) => update({ feeValue: Number(event.target.value) })} />
           {loan.feeMode !== 'amount' && <b>%</b>}
         </div>
       </div>
@@ -103,7 +104,7 @@ export function LoanEditor({ loan, properties, onSave, onDelete, allowAssociatio
     </label>
 
     <label className="loan-capitalised-toggle">
-      <input type="checkbox" checked={Boolean(loan.addFeeToLoan)} onChange={(event) => update({ addFeeToLoan: event.target.checked })} />
+      <BrainDrainNumericInput type="checkbox" checked={Boolean(loan.addFeeToLoan)} onChange={(event) => update({ addFeeToLoan: event.target.checked })} />
       <span><b>Fee added to loan</b><small>When enabled, the product fee increases the mortgage balance and therefore the monthly payment.</small></span>
     </label>
 

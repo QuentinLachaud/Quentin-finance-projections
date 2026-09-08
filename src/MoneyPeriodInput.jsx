@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useRef } from 'react'
 import { currency } from './calculations.js'
 import {
@@ -25,7 +26,7 @@ export default function MoneyPeriodInput({
   return <div className={`money-period-control ${normalizedPeriod}`}>
     <div className="money-input money-period-input">
       <i aria-hidden="true">£</i>
-      <input
+      <BrainDrainNumericInput
         aria-label={ariaLabel}
         disabled={disabled}
         type="number"

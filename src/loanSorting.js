@@ -56,7 +56,43 @@ export function groupLoans(loans = [], properties = [], sort = 'expiry-asc', gro
     const group = groups.get(loan.propertyId)
     ;(group || unlinked).loans.push(loan)
   }
-  return [...groups.values()].filter((group) => group.loans.length).concat(unlinked.loans.length ? [unlinked] : [])
+
+  const populated = [...groups.values()].filter((group) => group.loans.length)
+  const validSort = LOAN_SORT_OPTIONS.some((option) => option.value === sort) ? sort : 'expiry-asc'
+  const [field, direction] = validSort.split('-')
+  const sign = direction === 'desc' ? -1 : 1
+  const groupMetric = (group) => {
+    if (field === 'balance') return loanGroupTotals(group.loans).balance
+    if (field === 'rate') {
+      const weighted = group.loans.reduce((total, loan) => {
+        const balance = Math.max(0, Number(loanDisplayBalance(loan)) || 0)
+        const rate = Number(loan.rate)
+        return { balance: total.balance + balance, interest: total.interest + balance * (Number.isFinite(rate) ? rate : 0) }
+      }, { balance: 0, interest: 0 })
+      if (weighted.balance > 0) return weighted.interest / weighted.balance
+      const rates = group.loans.map((loan) => Number(loan.rate)).filter(Number.isFinite)
+      return rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : 0
+    }
+    const dates = group.loans.map(loanFixedExpiry).filter(Boolean).sort()
+    return dates.length ? (direction === 'desc' ? dates[dates.length - 1] : dates[0]) : null
+  }
+  populated.sort((a, b) => {
+    const first = groupMetric(a)
+    const second = groupMetric(b)
+    if (field === 'expiry') {
+      if (first === null || second === null) {
+        if (first !== second) return first === null ? 1 : -1
+      } else {
+        const difference = first.localeCompare(second) * sign
+        if (difference) return difference
+      }
+    } else {
+      const difference = (first - second) * sign
+      if (difference) return difference
+    }
+    return String(a.name).localeCompare(String(b.name), 'en', { numeric: true }) || String(a.id).localeCompare(String(b.id))
+  })
+  return populated.concat(unlinked.loans.length ? [unlinked] : [])
 }
 
 export function loanGroupTotals(loans = []) {

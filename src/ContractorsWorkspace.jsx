@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useMemo, useState } from 'react'
 import {
   Check, ChevronDown, ChevronUp, Droplets, Flame, Hammer, HardHat, KeyRound,
@@ -61,11 +62,11 @@ export function ContractorEditor({ contractor, properties, tags, documents = [],
 
   return <div className="contractor-editor">
     <div className="contractor-editor-grid">
-      <label><span>Name</span><input value={draft.name} onChange={(event) => update({ name: event.target.value })} autoComplete="name" placeholder="e.g. Sam Smith" /></label>
-      <label><span>Company <small>optional</small></span><input value={draft.companyName} onChange={(event) => update({ companyName: event.target.value })} autoComplete="organization" placeholder="e.g. Smith Gas Ltd" /></label>
+      <label><span>Name</span><BrainDrainNumericInput value={draft.name} onChange={(event) => update({ name: event.target.value })} autoComplete="name" placeholder="e.g. Sam Smith" /></label>
+      <label><span>Company <small>optional</small></span><BrainDrainNumericInput value={draft.companyName} onChange={(event) => update({ companyName: event.target.value })} autoComplete="organization" placeholder="e.g. Smith Gas Ltd" /></label>
 
-      <label><span>Phone number</span><input type="tel" value={draft.phone} onChange={(event) => update({ phone: event.target.value })} autoComplete="tel" /></label>
-      <label><span>Email <small>optional</small></span><input type="email" value={draft.email} onChange={(event) => update({ email: event.target.value })} autoComplete="email" /></label>
+      <label><span>Phone number</span><BrainDrainNumericInput type="tel" value={draft.phone} onChange={(event) => update({ phone: event.target.value })} autoComplete="tel" /></label>
+      <label><span>Email <small>optional</small></span><BrainDrainNumericInput type="email" value={draft.email} onChange={(event) => update({ email: event.target.value })} autoComplete="email" /></label>
 
       <label className="contractor-editor-span"><span>Trade</span><select value={draft.trade} onChange={(event) => update({ trade: event.target.value })}><option value="">Select trade</option>{COMMON_TRADES.map((trade) => <option key={trade} value={trade}>{trade}</option>)}</select></label>
 
@@ -82,7 +83,7 @@ export function ContractorEditor({ contractor, properties, tags, documents = [],
             const propertyId = String(property.id)
             const selected = draft.propertyIds.includes(propertyId)
             return <label key={propertyId} className={selected ? 'is-selected' : ''}>
-              <input type="checkbox" checked={selected} onChange={() => toggleProperty(propertyId)} />
+              <BrainDrainNumericInput type="checkbox" checked={selected} onChange={() => toggleProperty(propertyId)} />
               <span><b>{property.name || 'BTL'}</b><small>{property.postcode || property.address || 'Property'}</small></span>
             </label>
           })}</div>

@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useState } from 'react'
 import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
 import { supabase } from './supabase.js'
@@ -62,8 +63,8 @@ export default function AuthScreen() {
           <div className="auth-divider"><span>or use email</span></div>
 
           <form onSubmit={submit}>
-            <label><span>Email address</span><div><Mail size={17} /><input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div></label>
-            <label><span>Password</span><div><LockKeyhole size={17} /><input type={showPassword ? 'text' : 'password'} autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((shown) => !shown)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+            <label><span>Email address</span><div><Mail size={17} /><BrainDrainNumericInput type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></div></label>
+            <label><span>Password</span><div><LockKeyhole size={17} /><BrainDrainNumericInput type={showPassword ? 'text' : 'password'} autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((shown) => !shown)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
             {error && <p className="auth-message error" role="alert">{error}</p>}
             {message && <p className="auth-message success" role="status">{message}</p>}
             <button className="auth-submit" type="submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'sign-up' ? 'Create account' : 'Sign in'}</button>

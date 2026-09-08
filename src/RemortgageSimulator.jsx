@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, ChevronDown, ChevronUp, Copy, GripVertical, LockKeyhole, Plus, Trash2, X } from 'lucide-react'
 import {
@@ -108,7 +109,7 @@ function FriendlyNumberField({
     <span>{label}</span>
     <div>
       {prefix && <b>{prefix}</b>}
-      <input
+      <BrainDrainNumericInput
         type="text"
         inputMode="decimal"
         value={focused ? draft : formatFriendlyNumber(value, decimals)}
@@ -211,7 +212,7 @@ function ScenarioCard({ title, rateLabel, scenario, property, onChange }) {
             <b>Add fee to loan</b>
             <small>Only financed fees affect monthly cash flow.</small>
           </span>
-          <input
+          <BrainDrainNumericInput
             type="checkbox"
             checked={Boolean(scenario.addFeeToLoan)}
             onChange={(event) => update('addFeeToLoan')(event.target.checked)}
@@ -299,7 +300,7 @@ function MobileSingleValueEditor({
       </header>
       <div className="mobile-remortgage-focused-input">
         {prefix && <b>{prefix}</b>}
-        <input
+        <BrainDrainNumericInput
           autoFocus
           aria-label={title}
           type="text"
@@ -357,7 +358,7 @@ function MobileFeeEditor({ scenario, onCancel, onCommit }) {
 
       <div className="mobile-remortgage-focused-input">
         {draftScenario.feeMode === 'amount' && <b>£</b>}
-        <input
+        <BrainDrainNumericInput
           autoFocus
           aria-label={draftScenario.feeMode === 'amount' ? 'Fee amount' : 'Fee percentage'}
           type="text"
@@ -375,7 +376,7 @@ function MobileFeeEditor({ scenario, onCancel, onCommit }) {
 
       <label className="remortgage-switch-row mobile-remortgage-fee-switch mobile-remortgage-fee-switch-focused">
         <span><b>Add fee to loan</b><small>Off = paid upfront</small></span>
-        <input
+        <BrainDrainNumericInput
           type="checkbox"
           checked={Boolean(draftScenario.addFeeToLoan)}
           onChange={(event) => update('addFeeToLoan', event.target.checked)}
@@ -970,7 +971,7 @@ export default function RemortgageSimulator({
           {expanded && <div className="remortgage-desktop-details">
             <div className="remortgage-comparison-name">
               <span>Comparison name</span>
-              <input
+              <BrainDrainNumericInput
                 aria-label="Comparison name"
                 value={comparison.name || ''}
                 onChange={(event) => updateComparison(

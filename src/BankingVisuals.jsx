@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useState } from 'react'
 import { currency } from './calculations.js'
 import { BANK_CATEGORIES, reconciliationTransactionsForBucket } from './banking.js'
@@ -108,7 +109,7 @@ export function ReconciliationTransactionList({ title, transactions = [], proper
         <div><b>{description}</b><small>{transaction.bookedAt || ''} · {reconciliationCategoryLabels.get(transaction.category) || transaction.category || 'Other'}{propertyName ? ` · ${propertyName}` : ''}</small></div>
         <strong className={amountTone(transaction.amount)}>{currency(transaction.amount)}</strong>
         <label className="bank-inline-exclude" title="Remove this transaction from Banking charts and Performance without deleting the imported record">
-          <input type="checkbox" checked={transaction.excludeFromPerformance === true} aria-label={`Exclude ${description} from analysis`} onChange={() => onToggleExcluded?.(transaction)} />
+          <BrainDrainNumericInput type="checkbox" checked={transaction.excludeFromPerformance === true} aria-label={`Exclude ${description} from analysis`} onChange={() => onToggleExcluded?.(transaction)} />
           <i /><span>{transaction.excludeFromPerformance ? 'Excluded' : 'Exclude'}</span>
         </label>
       </article>

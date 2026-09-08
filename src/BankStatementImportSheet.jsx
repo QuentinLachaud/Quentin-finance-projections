@@ -1,3 +1,4 @@
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import React, { useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, FileUp, X } from 'lucide-react'
 import { supabase } from './supabase.js'
@@ -213,7 +214,7 @@ export default function BankStatementImportSheet({ user, connections, accounts, 
   return <div className="bank-import-layer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="bank-import-sheet" role="dialog" aria-modal="true" aria-labelledby="bank-import-title" onMouseDown={(event) => event.stopPropagation()}>
       <header><div><span className="kicker">TIDE STATEMENTS</span><h2 id="bank-import-title">Import bank history</h2><p>Upload one or many Tide CSV exports or PDF statements. Files are parsed locally; only transaction data is saved.</p></div><button className="icon-button" type="button" onClick={onClose} aria-label="Close statement import"><X size={18} /></button></header>
-      <label className="bank-import-drop"><FileUp size={22} /><b>Choose Tide statements</b><span>CSV preferred · PDF supported · multiple files allowed</span><input type="file" multiple accept=".csv,text/csv,.pdf,application/pdf" onChange={chooseFiles} /></label>
+      <label className="bank-import-drop"><FileUp size={22} /><b>Choose Tide statements</b><span>CSV preferred · PDF supported · multiple files allowed</span><BrainDrainNumericInput type="file" multiple accept=".csv,text/csv,.pdf,application/pdf" onChange={chooseFiles} /></label>
       {status === 'reading' && <p className="bank-import-status">Reading {files.length} statement{files.length === 1 ? '' : 's'}…</p>}
       {error && <p className="bank-error"><AlertTriangle size={16} />{error}</p>}
       {parsed.length > 0 && <div className="bank-import-preview">
