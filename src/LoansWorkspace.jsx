@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react'
-import './loanPropertyCards.css'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { addMonths, currency, shortDate } from './calculations.js'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'

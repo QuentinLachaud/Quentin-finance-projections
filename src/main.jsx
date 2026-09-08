@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './styles.css'
 import './theme.css'
+import './loanPropertyCards.css'
 
 const touchZoomMedia = typeof window !== 'undefined'
   && typeof window.matchMedia === 'function'

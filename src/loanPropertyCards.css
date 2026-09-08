@@ -1,29 +1,41 @@
-/* Loans: one visual surface per property, with subordinate loan rows. */
-.loans-list .loan-list-head[hidden] { display: none !important; }
-.loans-list .loan-property-card {
-  background: #fff;
-  border: 1px solid var(--line, #d6e0e8);
-  border-radius: 16px;
+/* A BTL is one outer surface. Its loans are subordinate, inset items. */
+.loans-workspace .loans-list .loan-list-head[hidden] { display: none; }
+.loans-workspace .loans-list { gap: 16px; }
+
+.loans-workspace .loans-list .loan-property-card {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 14px;
+  background: var(--ui-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .025);
   overflow: hidden;
-  margin-bottom: 14px;
-  box-shadow: 0 2px 8px rgba(22, 35, 49, .025);
 }
-.loans-list .loan-property-card .loan-group-heading {
+
+.loans-workspace .loans-list .loan-property-card > .loan-group-heading {
   display: flex;
   align-items: center;
   gap: 20px;
   width: 100%;
   margin: 0;
-  padding: 18px 20px;
+  padding: 16px 18px;
   border: 0;
   border-radius: 0;
-  background: #fff;
+  background: var(--ui-surface);
+  color: var(--ui-text);
   text-align: left;
 }
-.loans-list .loan-property-card .loan-group-heading:hover {
-  background: #f7f9fb;
+.loans-workspace .loans-list .loan-property-card > .loan-group-heading:hover {
+  background: var(--ui-surface-subtle);
 }
-.loans-list .loan-property-card .loan-group-title {
+.loans-workspace .loans-list .loan-property-card > .loan-group-heading:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -3px;
+}
+.loans-workspace .loans-list .loan-property-card .loan-group-title {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -31,79 +43,101 @@
   flex: 1;
   min-width: 0;
 }
-.loans-list .loan-property-card .loan-group-title strong { font-size: 16px; }
-.loans-list .loan-property-card .loan-group-title small { font-size: 12px; }
-.loans-list .loan-property-card .loan-group-totals {
+.loans-workspace .loans-list .loan-property-card .loan-group-title strong { font-size: 16px; }
+.loans-workspace .loans-list .loan-property-card .loan-group-title small { font-size: 12px; }
+.loans-workspace .loans-list .loan-property-card .loan-group-totals {
   display: flex;
   align-items: center;
   gap: clamp(16px, 3vw, 36px);
   margin-left: auto;
 }
-.loans-list .loan-property-card .loan-group-totals > span {
+.loans-workspace .loans-list .loan-property-card .loan-group-totals > span {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 3px;
   white-space: nowrap;
 }
-.loans-list .loan-property-card .loan-group-totals small { font-size: 12px; }
-.loans-list .loan-property-card .loan-group-totals strong { font-size: 15px; }
-.loans-list .loan-property-card .loan-group-body {
-  border-top: 1px solid var(--line, #d6e0e8);
-  background: #fff;
+.loans-workspace .loans-list .loan-property-card .loan-group-totals small { font-size: 12px; }
+.loans-workspace .loans-list .loan-property-card .loan-group-totals strong {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
 }
-.loans-list .loan-property-card .loan-list-head {
-  padding: 11px 18px;
+
+/* Both the body and every loan must participate in the parent layout. */
+.loans-workspace .loans-list .loan-property-card > .loan-group-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
   margin: 0;
-  border-bottom: 1px solid var(--line, #d6e0e8);
-  background: #f7f9fb;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--ui-line);
+  background: var(--ui-surface-subtle);
 }
-.loans-list .loan-property-card .loan-row {
+.loans-workspace .loans-list .loan-property-card .loan-list-head {
+  min-width: 0;
+  margin: 0;
+  padding: 2px 3px 4px;
+  border: 0;
+  background: transparent;
+}
+.loans-workspace .loans-list .loan-property-card .loan-row,
+.loans-workspace .loans-list .loan-property-card .loan-row.expanded {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--ui-line);
+  border-radius: 10px;
+  background: var(--ui-surface);
+  box-shadow: none;
+  overflow: hidden;
+}
+.loans-workspace .loans-list .loan-property-card .loan-row.expanded {
+  border-color: var(--ui-line-strong);
+}
+.loans-workspace .loans-list .loan-property-card .loan-row + .loan-row {
+  margin-top: 0;
+}
+.loans-workspace .loans-list .loan-property-card .loan-summary-row {
   margin: 0;
   border: 0;
   border-radius: 0;
   box-shadow: none;
   background: transparent;
-  overflow: visible;
 }
-.loans-list .loan-property-card .loan-row + .loan-row {
-  border-top: 1px solid var(--line, #d6e0e8);
+.loans-workspace .loans-list .loan-property-card .loan-summary-row:hover {
+  background: var(--ui-surface-subtle);
 }
-.loans-list .loan-property-card .loan-summary-row {
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
+.loans-workspace .loans-list .loan-property-card .loan-editor {
+  border-top: 1px solid var(--ui-line);
 }
-.loans-list .loan-property-card .loan-summary-row:hover {
-  background: #f7f9fb;
-}
-.loans-list .loan-property-card .loan-row.expanded {
-  background: #fff;
-}
-.loans-list .loan-property-card .loan-editor {
-  border-top: 1px solid var(--line, #d6e0e8);
-}
-.loans-list .loan-property-card .loan-row-chevron {
+.loans-workspace .loans-list .loan-property-card .loan-row-chevron {
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
+@media (max-width: 900px) {
+  .loans-workspace .loans-list .loan-property-card .loan-list-head { display: none; }
+}
 @media (max-width: 700px) {
-  .loans-list .loan-property-card .loan-group-heading {
+  .loans-workspace .loans-list { gap: 12px; }
+  .loans-workspace .loans-list .loan-property-card > .loan-group-heading {
     padding: 15px 14px;
     gap: 10px;
     flex-wrap: wrap;
   }
-  .loans-list .loan-property-card .loan-group-title { flex-basis: 100%; }
-  .loans-list .loan-property-card .loan-group-totals {
+  .loans-workspace .loans-list .loan-property-card .loan-group-title { flex-basis: 100%; }
+  .loans-workspace .loans-list .loan-property-card .loan-group-totals {
     width: calc(100% - 30px);
     margin-left: 0;
     justify-content: space-between;
     gap: 12px;
   }
-  .loans-list .loan-property-card .loan-group-totals > span { align-items: flex-start; }
-  .loans-list .loan-property-card .loan-group-totals strong { font-size: 14px; }
-  .loans-list .loan-property-card .loan-list-head { display: none; }
+  .loans-workspace .loans-list .loan-property-card .loan-group-totals > span { align-items: flex-start; }
+  .loans-workspace .loans-list .loan-property-card .loan-group-totals strong { font-size: 14px; }
+  .loans-workspace .loans-list .loan-property-card > .loan-group-body {
+    gap: 8px;
+    padding: 8px;
+  }
 }
