@@ -17,6 +17,7 @@ export async function exportCompanyFinancialSummaryPdf(snapshot, filename = 'com
   text(safe(snapshot.company?.registeredName || snapshot.company?.companyName || snapshot.company?.name), M, 27, { bold: true, size: 10.5 })
   text(`Company no. ${safe(snapshot.company?.companyNumber)}  •  Reporting date ${snapshot.reportingDate}  •  Period ${snapshot.periodStart} to ${snapshot.reportingDate}`, M, 32, { size: 8.5, colour: grey })
   text(`Incorporated ${safe(snapshot.company?.incorporationDate)}  •  ${safe(snapshot.company?.jurisdiction)}  •  Directors: ${crop((snapshot.company?.directors || []).join(', '), 68)}`, M, 37, { size: 8.5 })
+  if (snapshot.company?.ownershipSummary) text(`Ownership / control: ${crop(snapshot.company.ownershipSummary, 112)}`, M, 41, { size: 7.8, colour: grey })
 
   let y = section('1. Portfolio overview', 45)
   const metrics = [

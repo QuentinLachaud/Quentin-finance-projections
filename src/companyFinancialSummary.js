@@ -1,6 +1,61 @@
 import { effectiveLoanAmount, loanCostSummary } from './loans.js'
 import { performanceTreatmentForTransaction } from './banking.js'
 
+const humaniseRegisterValue = (value) => String(value || '').replaceAll('-', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+export const describePscControl = (value) => {
+  const code = String(value || '')
+  const shares = code.match(/^ownership-of-shares-(25-to-50|50-to-75|75-to-100)-percent/)
+  if (shares) return `${shares[1].replace('-to-', '–')}% of shares`
+  const votes = code.match(/^voting-rights-(25-to-50|50-to-75|75-to-100)-percent/)
+  if (votes) return `${votes[1].replace('-to-', '–')}% of voting rights`
+  if (code === 'ownership-of-shares-more-than-25-percent') return 'more than 25% of shares'
+  if (code === 'voting-rights-more-than-25-percent') return 'more than 25% of voting rights'
+  if (code === 'right-to-appoint-and-remove-directors') return 'right to appoint/remove directors'
+  if (code === 'significant-influence-or-control') return 'significant influence/control'
+  return code ? code.replaceAll('-', ' ') : ''
+}
+
+const manualOwnershipSummary = (shareholders = []) => (Array.isArray(shareholders) ? shareholders : [])
+  .map((owner) => {
+    if (typeof owner === 'string') return owner.trim()
+    const name = owner?.name || owner?.shareholderName || owner?.label || ''
+    const percentage = Number(owner?.percentage ?? owner?.percent ?? owner?.shareholding)
+    if (!name) return ''
+    return Number.isFinite(percentage) ? `${name} — ${percentage}%` : name
+  })
+  .filter(Boolean)
+  .join('; ')
+
+export function companyFromCompaniesHouse(details, fallback = {}) {
+  const profile = details?.profile || {}
+  const directors = (details?.officers?.items || []).filter((person) => !person.resigned_on).map((person) => person.name).filter(Boolean)
+  const ownership = (details?.psc?.items || [])
+    .filter((person) => !person.ceased && !person.ceased_on)
+    .map((person) => ({
+      name: person.name || person.name_elements?.forename || '',
+      controls: (person.natures_of_control || []).map(describePscControl).filter(Boolean),
+    }))
+    .filter((person) => person.name)
+  const registerOwnershipSummary = ownership.map((person) => `${person.name}${person.controls.length ? ` — ${person.controls.join(', ')}` : ''}`).join('; ')
+  const fallbackOwnershipSummary = manualOwnershipSummary(fallback.shareholders)
+
+  return {
+    ...fallback,
+    registeredName: profile.company_name || fallback.registeredName || fallback.companyName || 'Property company',
+    companyName: profile.company_name || fallback.companyName || fallback.registeredName || 'Property company',
+    companyNumber: profile.company_number || fallback.companyNumber || '',
+    incorporationDate: profile.date_of_creation || fallback.incorporationDate || '',
+    jurisdiction: profile.jurisdiction ? humaniseRegisterValue(profile.jurisdiction) : (fallback.jurisdiction || ''),
+    sicCode: profile.sic_codes?.length ? profile.sic_codes.join(', ') : (fallback.sicCode || ''),
+    directors: directors.length ? directors : (fallback.directors || []),
+    shareholders: Array.isArray(fallback.shareholders) ? fallback.shareholders : [],
+    ownership,
+    ownershipSummary: registerOwnershipSummary || fallbackOwnershipSummary,
+    ownershipSource: registerOwnershipSummary ? 'Companies House PSC register' : (fallbackOwnershipSummary ? 'BTLPortfolio' : ''),
+  }
+}
+
 const finite = (value) => Number.isFinite(Number(value)) ? Number(value) : 0
 const positive = (value) => Math.max(0, finite(value))
 const iso = (value) => String(value || '').slice(0, 10)
@@ -71,7 +126,6 @@ export function buildCompanyFinancialSnapshot({ company, properties = [], loans 
   if (unassociatedLoans.length) warnings.push(`${unassociatedLoans.length} loan${unassociatedLoans.length === 1 ? '' : 's'} are not associated with a property and are excluded from company debt.`)
   if (!transactions.length) warnings.push('No reconciled banking transactions are available; trailing-12-month actuals are unavailable or incomplete.')
   if (!company?.companyNumber) warnings.push('Company registration number is missing.')
-  if (!(company?.shareholders || []).length) warnings.push('Company ownership information is missing.')
 
   const propertiesTable = active.map((property) => {
     const propertyLoans = companyLoans.filter((loan) => loan.propertyId === property.id)

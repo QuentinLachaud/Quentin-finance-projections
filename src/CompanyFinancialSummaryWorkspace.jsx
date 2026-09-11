@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Download } from 'lucide-react'
 import { supabase } from './supabase.js'
-import { buildCompanyFinancialSnapshot } from './companyFinancialSummary.js'
+import { buildCompanyFinancialSnapshot, companyFromCompaniesHouse } from './companyFinancialSummary.js'
 import { exportCompanyFinancialSummaryPdf } from './companyFinancialSummaryPdf.js'
 import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 
@@ -17,6 +17,7 @@ export default function CompanyFinancialSummaryWorkspace({ user, properties, loa
   const [includeRateStress, setIncludeRateStress] = useState(true)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [registerDetails, setRegisterDetails] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -28,12 +29,35 @@ export default function CompanyFinancialSummaryWorkspace({ user, properties, loa
     return () => { alive = false }
   }, [user.id])
 
+  useEffect(() => {
+    let alive = true
+    const companyNumber = String(settings.companyNumber || '').trim()
+    setRegisterDetails(null)
+    if (!companyNumber) return () => { alive = false }
+    ;(async () => {
+      try {
+        const { data } = await supabase.auth.getSession()
+        const accessToken = data.session?.access_token
+        if (!accessToken) return
+        const response = await fetch(`/api/companies-house?${new URLSearchParams({ mode: 'company', number: companyNumber })}`, {
+          headers: { authorization: `Bearer ${accessToken}` },
+        })
+        if (!response.ok) return
+        const payload = await response.json()
+        if (alive) setRegisterDetails(payload)
+      } catch {
+        if (alive) setRegisterDetails(null)
+      }
+    })()
+    return () => { alive = false }
+  }, [settings.companyNumber])
+
   useEffect(() => { setPeriodStart(oneYearBefore(reportingDate)) }, [reportingDate])
-  const company = useMemo(() => ({
+  const company = useMemo(() => companyFromCompaniesHouse(registerDetails, {
     registeredName: settings.companyName || 'Property company', companyName: settings.companyName || 'Property company',
     companyNumber: settings.companyNumber || '', incorporationDate: settings.incorporationDate || '', jurisdiction: settings.companyJurisdiction || 'United Kingdom',
     directors: settings.companyDirectors || [], shareholders: settings.companyShareholders || [], sicCode: settings.companySicCode || '',
-  }), [settings])
+  }), [registerDetails, settings])
   const snapshot = useMemo(() => buildCompanyFinancialSnapshot({ company, properties, loans, tenants, transactions, settings, reportingDate, periodStart, includeExtractions, includeRateStress }), [company, properties, loans, tenants, transactions, settings, reportingDate, periodStart, includeExtractions, includeRateStress])
 
   return <div className="company-summary-workspace">
@@ -47,7 +71,7 @@ export default function CompanyFinancialSummaryWorkspace({ user, properties, loa
     </div>
     {snapshot.warnings.length > 0 && <div className="company-summary-warnings"><AlertTriangle size={16} /><div><strong>Data quality</strong>{snapshot.warnings.slice(0, 5).map((warning) => <div key={warning}>{warning}</div>)}</div></div>}
     <div className="company-summary-paper" aria-label="A4 Company Financial Summary preview">
-      <header><div><h1>Company Financial Summary</h1><h2>{company.registeredName}</h2><p>Company no. {company.companyNumber || 'Unavailable'} · Reporting date {snapshot.reportingDate} · Period {snapshot.periodStart} to {snapshot.reportingDate}</p></div><span>Private &amp; Confidential</span></header>
+      <header><div><h1>Company Financial Summary</h1><h2>{company.registeredName}</h2><p>Company no. {company.companyNumber || 'Unavailable'} · Reporting date {snapshot.reportingDate} · Period {snapshot.periodStart} to {snapshot.reportingDate}</p>{company.ownershipSummary && <p>Ownership / control: {company.ownershipSummary}</p>}</div><span>Private &amp; Confidential</span></header>
       <section><h3>1. Portfolio overview</h3><div className="company-summary-metrics"><div><small>Portfolio value</small><b>{money(snapshot.portfolio.portfolioValue)}</b></div><div><small>Mortgage debt</small><b>{money(snapshot.portfolio.mortgageDebt)}</b></div><div><small>Aggregate LTV</small><b>{pct(snapshot.portfolio.aggregateLtv)}</b></div><div><small>Annual contracted rent</small><b>{money(snapshot.portfolio.annualContractedRent)}</b></div></div><p>{snapshot.portfolio.propertyCount} properties · Gross property equity {money(snapshot.portfolio.grossPropertyEquity)} · Weighted rate {pct(snapshot.portfolio.weightedRate)} · Earliest product expiry {snapshot.portfolio.earliestExpiry || 'Unavailable'}</p></section>
       <section><h3>2. Financial performance</h3><table><thead><tr><th>Metric</th><th>Trailing 12m actual</th><th>Current annualised</th></tr></thead><tbody><tr><td>Rent / operating income</td><td>{snapshot.actual ? money(snapshot.actual.rentCollected || snapshot.actual.operatingIncome) : 'Unavailable'}</td><td>{money(snapshot.runRate.annualRent)}</td></tr><tr><td>Operating costs</td><td>{snapshot.actual ? money(snapshot.actual.operatingOutflow) : 'Unavailable'}</td><td>{money(snapshot.runRate.operatingCosts)}</td></tr><tr><td>Debt service</td><td>{snapshot.actual ? money(snapshot.actual.debtServiceCash) : 'Unavailable'}</td><td>{money(snapshot.runRate.debtService)}</td></tr><tr><td>Net cash flow</td><td>{snapshot.actual ? money(snapshot.actual.netCashFlow) : 'Unavailable'}</td><td>{money(snapshot.runRate.cashFlow)}</td></tr></tbody></table></section>
       <section><h3>3. Balance sheet &amp; resilience</h3><p><strong>{snapshot.resilience.cashHeld == null ? 'Net asset value unavailable — complete cash/liability data is required.' : `Indicative net assets before unrecorded liabilities ${money(snapshot.portfolio.grossPropertyEquity + snapshot.resilience.cashHeld)}`}</strong></p><p>Cash held {money(snapshot.resilience.cashHeld)} · Cash buffer {snapshot.resilience.bufferMonths == null ? 'Unavailable' : `${snapshot.resilience.bufferMonths.toFixed(1)} months`} · ICR {snapshot.resilience.icr == null ? 'Unavailable' : `${snapshot.resilience.icr.toFixed(2)}x`} · +2% stressed ICR {snapshot.resilience.stressedIcr == null ? 'Unavailable' : `${snapshot.resilience.stressedIcr.toFixed(2)}x`}</p></section>
