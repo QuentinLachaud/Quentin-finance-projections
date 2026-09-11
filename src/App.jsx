@@ -16,6 +16,8 @@ import {
 import AuthScreen from './AuthScreen.jsx'
 import BrandLogo from './BrandLogo.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
+import CompanyFinancialSummaryWorkspace from './CompanyFinancialSummaryWorkspace.jsx'
+import './companyFinancialSummary.css'
 import BillingWorkspace, { billingRequest } from './BillingWorkspace.jsx'
 import ExpensesWorkspace from './ExpensesWorkspace.jsx'
 import CredentialsWorkspace from './CredentialsWorkspace.jsx'
@@ -149,6 +151,7 @@ const workspaceNavigation = [
   ['Acquisition Simulator', 'Acquisition', MapPin, 'PLANNING'],
   ['Remortgage Simulator', 'Remortgage', RefreshCw, 'PLANNING'],
   ['Compliance', 'Compliance', ShieldCheck, 'PLANNING'],
+  ['Company Financial Summary', 'Summary', FileText, 'COMPANY'],
   ['Companies House', 'Companies', Landmark, 'COMPANY'],
   ['IDs & Credentials', 'Credentials', KeyRound, 'COMPANY'],
   ['Plan & billing', 'Plan', Sparkles, 'ACCOUNT'],
@@ -220,6 +223,11 @@ const sectionMeta = {
   Compliance: {
     eyebrow: 'KEY DATES',
     title: 'Compliance',
+    description: '',
+  },
+  'Company Financial Summary': {
+    eyebrow: 'COMPANY REPORTING',
+    title: 'Company Financial Summary',
     description: '',
   },
   'Companies House': {
@@ -1677,7 +1685,7 @@ function PortfolioApp({ user }) {
   }, [overviewPropertyView, overviewPropertyViewStorageKey])
 
   useEffect(() => {
-    if (state?.settings.accountType === 'private' && section === 'Companies House') setSection('Overview')
+    if (state?.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(section)) setSection('Overview')
   }, [state?.settings.accountType, section])
 
   useEffect(() => {
@@ -2071,7 +2079,7 @@ function PortfolioApp({ user }) {
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
   const mobileProperty = calculated.find((property) => property.id === mobilePropertyId) || filtered[0] || calculated[0] || null
   const visibleWorkspaceNavigation = workspaceNavigation.filter(([label]) => {
-    if (state.settings.accountType === 'private' && label === 'Companies House') return false
+    if (state.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(label)) return false
     return true
   })
   const pageMeta = sectionMeta[section] || {
@@ -2516,6 +2524,8 @@ function PortfolioApp({ user }) {
           {section === 'Contractors' && <ContractorsWorkspace contractors={state.contractors || []} contractorTags={state.contractorTags || []} properties={state.properties || []} documents={state.expenses || []} onSave={saveContractor} onDelete={removeContractor} onTagsChange={updateContractorTags} onOpenDocuments={(request) => { setDocumentCaptureRequest({ ...request, nonce: Date.now() }); setSection('Documents & Expenses') }} />}
 
           {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
+
+          {section === 'Company Financial Summary' && <CompanyFinancialSummaryWorkspace user={user} properties={includedProperties} loans={state.loans || []} tenants={includedTenants} settings={state.settings} />}
 
           {section === 'Banking' && <BankWorkspace user={user} properties={includedCalculated} tenants={includedTenants} onCashHeldChange={updateConnectedCashHeld} />}
 
