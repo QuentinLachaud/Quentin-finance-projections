@@ -1480,6 +1480,16 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
     setStagedLoans((current) => current.filter((loan) => loan.id !== id))
   }
   const drawerRef = useRef(null)
+  useEffect(() => {
+    const onKeyDown = (event) => event.key === 'Escape' && onClose()
+    const previousOverflow = document.body.style.overflow
+    document.addEventListener('keydown', onKeyDown)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [onClose])
   useEffect(() => { setDraft(property); setStagedLoans(loans.map((loan) => ({ ...loan }))); setRemovedLoanIds([]) }, [property?.id])
   useEffect(() => {
     if (!focusField || !drawerRef.current) return undefined
@@ -1526,8 +1536,8 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
 
   return (
     <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <aside ref={drawerRef} className="drawer" aria-label="Edit BTL">
-        <header><div><span className="kicker">Portfolio property</span><h2>{isNew ? 'Add a BTL' : `Edit ${draft.name}`}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><X /></button></header>
+      <aside ref={drawerRef} className="drawer" role="dialog" aria-modal="true" aria-labelledby="property-editor-title">
+        <header><div><span className="kicker">Portfolio property</span><h2 id="property-editor-title">{isNew ? 'Add a BTL' : `Edit ${draft.name}`}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><X /></button></header>
         <div className="drawer-body property-editor-progressive">
           <section className="form-section property-editor-essentials">
             <div className="property-editor-section-heading"><div><span className="kicker">START HERE</span><h3>Essentials</h3></div><p>These are enough to start. Add other details when they are useful to you.</p></div>
