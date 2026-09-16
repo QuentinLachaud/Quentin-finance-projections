@@ -7,6 +7,7 @@ const styles = readFileSync(fileURLToPath(new URL('./styles.css', import.meta.ur
 const propertyStart = app.indexOf('function OverviewPropertyActionMenu(')
 const propertyEnd = app.indexOf('const overviewPropertyViewOptions', propertyStart)
 const propertyViews = propertyStart >= 0 && propertyEnd >= 0 ? app.slice(propertyStart, propertyEnd) : ''
+const row = propertyViews.slice(propertyViews.indexOf('function OverviewPropertyRow('), propertyViews.indexOf('function OverviewPropertyMiniCard('))
 
 describe('Overview property financing information hierarchy', () => {
   it('keeps portfolio-level Asset Financing removed', () => {
@@ -15,18 +16,36 @@ describe('Overview property financing information hierarchy', () => {
     expect(app).not.toContain('<h2>Asset Financing</h2>')
   })
 
-  it('keeps detailed Value/Loan/Equity/LTV financing in the expanded Row drill-down', () => {
+  it('adds decision-useful LTV context to the expanded Row drill-down', () => {
     expect(app).toContain('function PropertyFinancingSummary')
-    const row = propertyViews.slice(propertyViews.indexOf('function OverviewPropertyRow('), propertyViews.indexOf('function OverviewPropertyMiniCard('))
     expect(row).toContain('<PropertyFinancingSummary property={property} variant="row" />')
-    expect(app).toContain('className="asset-track property-financing-track"')
-    expect(app).toContain('<small>Value</small>')
-    expect(app).toContain('<small>Loan</small>')
-    expect(app).toContain('<small>Equity</small>')
-    expect(app).toContain('style={{ width: `${ltv * 100}%` }}')
+    expect(app).toContain('const referenceLtv = 0.75')
+    expect(app).toContain('const referenceBands = [0.6, 0.7, 0.75]')
+    expect(app).toContain('property-financing-threshold')
+    expect(app).toContain('property-financing-current-marker')
+    expect(app).toContain("referenceGap >= 0 ? '75% headroom' : 'Repay to 75%'")
+    expect(app).toContain('currency(Math.abs(referenceGap))')
   })
 
-  it('uses a simple LTV bar in Cards and deliberately omits the full financing summary from Cards and Mini', () => {
+  it('avoids repeating collapsed-row metrics in the expanded detail', () => {
+    const card = propertyViews.slice(propertyViews.indexOf('function PropertyCard('), propertyViews.indexOf('function OverviewPropertyRow('))
+    expect(card).toContain('label="Rent / mo"')
+    expect(card).toContain('label="Net yield"')
+    expect(row).not.toContain('<span>Rent / mo</span>')
+    expect(row).not.toContain('<span>Net yield</span>')
+  })
+
+  it('uses the expanded space for useful operating and financing facts', () => {
+    expect(row).toContain('className="overview-property-row-finance-facts"')
+    expect(row).toContain('<span>Operating cash flow / mo</span>')
+    expect(row).toContain('<span>Mortgage / mo</span>')
+    expect(row).toContain('<span>Current rate</span>')
+    expect(row).toContain('<span>Lender</span>')
+    expect(row).toContain('<span>Next remortgage</span>')
+    expect(row).toContain('className="overview-property-row-open-action"')
+  })
+
+  it('keeps Cards and Mini deliberately simpler', () => {
     const card = propertyViews.slice(propertyViews.indexOf('function PropertyCard('), propertyViews.indexOf('function OverviewPropertyRow('))
     const mini = propertyViews.slice(propertyViews.indexOf('function OverviewPropertyMiniCard('))
     expect(card).toContain('<OverviewLtvBar property={property} />')
@@ -35,19 +54,12 @@ describe('Overview property financing information hierarchy', () => {
     expect(mini).not.toContain('OverviewLtvBar')
   })
 
-  it('preserves operational metrics at the right level', () => {
-    const card = propertyViews.slice(propertyViews.indexOf('function PropertyCard('), propertyViews.indexOf('function OverviewPropertyRow('))
-    const row = propertyViews.slice(propertyViews.indexOf('function OverviewPropertyRow('), propertyViews.indexOf('function OverviewPropertyMiniCard('))
-    expect(card).toContain('label="Mortgage / mo"')
-    expect(row).toContain('<span>Mortgage / mo</span>')
-    expect(row).toContain('<span>Current rate</span>')
-    expect(row).toContain('property.lender')
-  })
-
-  it('retains the compact iOS financing styling used by the Row detail', () => {
-    expect(styles).toContain('compact iOS-native property financing')
-    expect(styles).toContain('.property-financing-row')
-    expect(styles).toContain('.property-financing-track')
-    expect(styles).toMatch(/\.property-financing-row \.property-financing-track\s*\{[\s\S]*?height:\s*9px !important/)
+  it('uses the latest iOS-native grouped financing styling', () => {
+    expect(styles).toContain('decision-useful Overview property financing')
+    expect(styles).toContain('.property-financing-threshold')
+    expect(styles).toContain('.property-financing-current-marker')
+    expect(styles).toContain('.overview-property-row-finance-facts')
+    expect(styles).toMatch(/\.property-financing-row \.property-financing-numbers\s*\{[\s\S]*?border-radius:\s*14px/)
+    expect(styles).toMatch(/\.overview-property-row-finance-facts\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/)
   })
 })

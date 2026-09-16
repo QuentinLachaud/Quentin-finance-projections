@@ -560,14 +560,12 @@ function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
     <div className="overview-property-row-shell" aria-hidden={!expanded}>
       <div className="overview-property-row-inner">
         {(propertyMetricSupported(property, 'currentValue') || propertyHasMortgageForOverview(property)) && <PropertyFinancingSummary property={property} variant="row" />}
-        <div className="overview-property-row-metrics overview-property-row-detail-metrics">
-          {propertyMetricSupported(property, 'rent') && <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>}
+        <div className="overview-property-row-finance-facts">
+          {propertyMetricSupported(property, 'operatingCashflow') && <div><span>Operating cash flow / mo</span><b className={property.operatingCashflow >= 0 ? 'positive' : 'negative'}>{currency(property.operatingCashflow)}</b></div>}
           {propertyMetricSupported(property, 'mortgagePayment') && <div><span>Mortgage / mo</span><b>{currency(property.monthlyPayment, 0)}</b></div>}
-          {propertyMetricSupported(property, 'netYield') && <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>}
           {propertyMetricSupported(property, 'interestRate') && <div><span>Current rate</span><b>{percent(property.currentRate, 2)}</b></div>}
-        </div>
-        <div className="overview-property-row-lender">
-          <span>Lender</span><b>{propertyMetricSupported(property, 'lender') ? property.lender : 'Not added'}</b>
+          {propertyMetricSupported(property, 'lender') && <div><span>Lender</span><b>{property.lender}</b></div>}
+          {propertyMetricSupported(property, 'nextRemortgage') && <div><span>Next remortgage</span><b>{shortDate(property.nextRemortgage)}</b></div>}
         </div>
         <div className="overview-property-row-open-action">
           <button type="button" onClick={() => onEdit(property.id)}>Open property <ArrowUpRight size={15} /></button>
@@ -794,23 +792,65 @@ function AccountSetupModal({ onComplete }) {
 
 function PropertyFinancingSummary({ property, variant = 'card' }) {
   const ltv = Math.max(0, Math.min(1, Number(property.currentLtv || 0)))
+  const value = Math.max(0, Number(property.latestValuation || 0))
+  const loan = Math.max(0, Number(property.loanAmount || 0))
+  const equity = Number(property.equity || 0)
+  const referenceLtv = 0.75
+  const referenceBands = [0.6, 0.7, 0.75]
+  const hasValue = value > 0
+  const referenceGap = hasValue ? (value * referenceLtv) - loan : 0
+  const referenceDistance = Math.abs((referenceLtv - ltv) * 100)
+  const referenceContext = !hasValue
+    ? 'Add a current value to compare LTV bands'
+    : referenceDistance < 0.05
+      ? 'At the 75% reference'
+      : `${referenceDistance.toFixed(1)} pp ${ltv < referenceLtv ? 'below' : 'above'} 75% reference`
+
   return <section className={`property-financing property-financing-${variant}`} aria-label={`${property.name} asset financing`}>
     <div className="property-financing-heading">
-      <span>Asset financing</span>
+      <span>Loan to value<small>{referenceContext}</small></span>
       <b>{percent(ltv, 1)} LTV</b>
     </div>
-    <div className="property-financing-track-wrap" aria-hidden="true">
-      <div className="asset-track property-financing-track">
-        <span className="asset-value-bar" />
-        <span className="asset-loan-bar" style={{ width: `${ltv * 100}%` }}>
-          <span className="asset-ltv-label">LTV {percent(ltv, 1)}</span>
-        </span>
+
+    {hasValue && <div
+      className="property-financing-gauge"
+      role="img"
+      aria-label={`Current loan to value ${percent(ltv, 1)}. Reference bands at 60, 70 and 75 percent.`}
+    >
+      <div className="property-financing-track-wrap">
+        <div className="asset-track property-financing-track">
+          <span className="asset-value-bar" />
+          <span className="asset-loan-bar" style={{ width: `${ltv * 100}%` }} />
+          {referenceBands.map((band) => <i
+            aria-hidden="true"
+            className={`property-financing-threshold ${band === referenceLtv ? 'reference' : ''}`}
+            key={band}
+            style={{ left: `${band * 100}%` }}
+          />)}
+          <i
+            aria-hidden="true"
+            className="property-financing-current-marker"
+            style={{ left: `${ltv * 100}%` }}
+          />
+        </div>
       </div>
-    </div>
+      <div className="property-financing-scale" aria-hidden="true">
+        {referenceBands.map((band) => <span
+          className={band === referenceLtv ? 'reference' : ''}
+          data-band={Math.round(band * 100)}
+          key={band}
+          style={{ left: `${band * 100}%` }}
+        >{Math.round(band * 100)}%</span>)}
+      </div>
+    </div>}
+
     <div className="property-financing-numbers">
-      <span><b>{currency(property.latestValuation)}</b><small>Value</small></span>
-      <span><b>{currency(property.loanAmount)}</b><small>Loan</small></span>
-      <span><b>{currency(property.equity)}</b><small>Equity</small></span>
+      <span><small>Loan</small><b>{currency(loan)}</b></span>
+      <span><small>Equity</small><b>{currency(equity)}</b></span>
+      {hasValue && <span className={`property-financing-reference ${referenceGap < 0 ? 'attention' : ''}`}>
+        <small>{referenceGap >= 0 ? '75% headroom' : 'Repay to 75%'}</small>
+        <b>{currency(Math.abs(referenceGap))}</b>
+      </span>}
     </div>
   </section>
 }

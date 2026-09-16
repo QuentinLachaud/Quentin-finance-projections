@@ -16921,3 +16921,273 @@ button.contractor-tag-chip { cursor: pointer; }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Brain Drain 2026-09-16 20:58 BST — decision-useful Overview property financing */
+/*
+ * Expanded Overview rows should answer a financing question at a glance rather than repeat
+ * the collapsed metrics. Reference ticks provide context without treating any band as a
+ * universal lender limit; 75% is the same modelling reference already used elsewhere.
+ */
+.property-financing-row {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.property-financing-row .property-financing-heading {
+  align-items: flex-end;
+  margin-bottom: 9px;
+}
+
+.property-financing-heading > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ui-text, var(--ink));
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .07em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.property-financing-heading > span > small {
+  color: var(--ui-muted, var(--muted));
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-transform: none;
+}
+
+.property-financing-heading > b {
+  color: var(--ui-text, var(--ink));
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+}
+
+.property-financing-gauge {
+  min-width: 0;
+}
+
+.property-financing-row .property-financing-track {
+  position: relative;
+  height: 9px !important;
+  overflow: visible !important;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ui-line, var(--line)) 58%, var(--ui-surface-muted, #f1f3f2));
+}
+
+.property-financing-track > .asset-value-bar,
+.property-financing-track > .asset-loan-bar {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+}
+
+.property-financing-track > .asset-value-bar {
+  width: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ui-line, var(--line)) 62%, var(--ui-surface-muted, #f1f3f2));
+}
+
+.property-financing-track > .asset-loan-bar {
+  border-radius: 999px;
+  background: var(--ui-accent, var(--green));
+  box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--ui-accent, var(--green)) 72%, transparent);
+}
+
+.property-financing-threshold {
+  position: absolute;
+  top: -3px;
+  z-index: 3;
+  width: 1px;
+  height: 15px;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--ui-text, var(--ink)) 34%, var(--ui-surface, #fff));
+  pointer-events: none;
+}
+
+.property-financing-threshold.reference {
+  width: 2px;
+  background: color-mix(in srgb, var(--ui-text, var(--ink)) 62%, var(--ui-surface, #fff));
+}
+
+.property-financing-current-marker {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--ui-accent, var(--green));
+  border-radius: 50%;
+  background: var(--ui-surface, #fff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .14);
+  pointer-events: none;
+}
+
+.property-financing-scale {
+  position: relative;
+  height: 17px;
+  margin-top: 5px;
+}
+
+.property-financing-scale > span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--ui-muted, var(--muted));
+  font-size: 9px;
+  font-weight: 550;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.property-financing-scale > span.reference {
+  color: var(--ui-text, var(--ink));
+  font-weight: 700;
+}
+
+.property-financing-row .property-financing-numbers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 2px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ui-line, var(--line)) 86%, transparent);
+  border-radius: 14px;
+  background: var(--ui-surface-subtle, #fafbf9);
+}
+
+.property-financing-row .property-financing-numbers > span {
+  min-width: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.property-financing-row .property-financing-numbers > span + span {
+  border-left: 1px solid color-mix(in srgb, var(--ui-line, var(--line)) 82%, transparent);
+}
+
+.property-financing-row .property-financing-numbers small,
+.overview-property-row-finance-facts span {
+  color: var(--ui-muted, var(--muted));
+  font-size: 9px;
+  font-weight: 550;
+  line-height: 1.2;
+}
+
+.property-financing-row .property-financing-numbers b,
+.overview-property-row-finance-facts b {
+  overflow: hidden;
+  color: var(--ui-text, var(--ink));
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -.015em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.property-financing-row .property-financing-reference b {
+  color: var(--ui-accent, var(--green));
+}
+
+.property-financing-row .property-financing-reference.attention b {
+  color: var(--semantic-warning, #c56b30);
+}
+
+.overview-property-row-finance-facts {
+  width: min(640px, calc(100% - 116px));
+  max-width: 640px;
+  margin: 10px auto 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ui-line, var(--line)) 86%, transparent);
+  border-radius: 14px;
+  background: var(--ui-surface-subtle, #fafbf9);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.overview-property-row-finance-facts > div {
+  min-width: 0;
+  padding: 10px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.overview-property-row-finance-facts > div + div {
+  border-left: 1px solid color-mix(in srgb, var(--ui-line, var(--line)) 82%, transparent);
+}
+
+.overview-property-row-finance-facts b.positive {
+  color: var(--semantic-positive, var(--green));
+}
+
+.overview-property-row-finance-facts b.negative {
+  color: var(--semantic-negative, #b54b41);
+}
+
+.overview-property-row-open-action {
+  margin-top: 10px;
+}
+
+@media (min-width: 761px) and (max-width: 1180px) {
+  .overview-property-row-finance-facts {
+    width: min(560px, calc(100% - 64px));
+    max-width: 560px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .overview-property-row-finance-facts > div:nth-child(4) {
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--ui-line, var(--line)) 82%, transparent);
+  }
+
+  .overview-property-row-finance-facts > div:nth-child(n + 5) {
+    border-top: 1px solid color-mix(in srgb, var(--ui-line, var(--line)) 82%, transparent);
+  }
+}
+
+@media (max-width: 760px) {
+  .property-financing-heading > span > small {
+    max-width: 190px;
+  }
+
+  .property-financing-scale > span[data-band='70'] {
+    display: none;
+  }
+
+  .property-financing-row .property-financing-numbers {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .property-financing-row .property-financing-reference {
+    grid-column: 1 / -1;
+    border-top: 1px solid color-mix(in srgb, var(--ui-line, var(--line)) 82%, transparent);
+    border-left: 0 !important;
+  }
+
+  .overview-property-row-finance-facts {
+    width: calc(100% - 28px);
+    max-width: none;
+    margin-inline: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview-property-row-finance-facts > div:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .overview-property-row-finance-facts > div:nth-child(n + 3) {
+    border-top: 1px solid color-mix(in srgb, var(--ui-line, var(--line)) 82%, transparent);
+  }
+}
+
