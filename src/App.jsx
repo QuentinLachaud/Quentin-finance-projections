@@ -2294,6 +2294,18 @@ function PortfolioApp({ user }) {
           {section === 'Overview' && <>
             <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
 
+            <section className="panel scenarios-panel overview-cashflow-panel">
+              <header>
+                <div>
+                  <span className="kicker">CURRENT CASH POSITION</span>
+                  <h2>Cash flow scenarios</h2>
+                  <p>Compare monthly cash available under different operating assumptions.</p>
+                </div>
+              </header>
+              <RentMonthDial tenants={state.tenants} properties={state.properties} />
+              <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
+            </section>
+
             <section className="properties-heading overview-properties-heading">
               <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
               <div className="overview-properties-heading-actions">
@@ -2318,18 +2330,6 @@ function PortfolioApp({ user }) {
                 <button type="button" className="overview-property-mini-add" onClick={addProperty}><span><Plus size={17} /></span><b>Add another BTL</b></button>
               </section>}
             </div>
-
-            <section className="panel scenarios-panel overview-cashflow-panel">
-              <header>
-                <div>
-                  <span className="kicker">CURRENT CASH POSITION</span>
-                  <h2>Cash flow scenarios</h2>
-                  <p>Compare monthly cash available under different operating assumptions.</p>
-                </div>
-              </header>
-              <RentMonthDial tenants={state.tenants} properties={state.properties} />
-              <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
-            </section>
           </>}
 
           {section === 'Properties' && <>

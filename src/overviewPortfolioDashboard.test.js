@@ -24,6 +24,20 @@ describe('iOS-native Portfolio Overview dashboard', () => {
     expect(propertiesHeading).toBeGreaterThan(overviewStart)
   })
 
+  it('orders Overview as summary dashboard, cash flow scenarios, then Properties', () => {
+    const overviewEnd = app.indexOf("          </>}", overviewStart)
+    const overview = overviewEnd >= 0 ? app.slice(overviewStart, overviewEnd) : ''
+    const dashboardAt = overview.indexOf('<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />')
+    const cashflowAt = overview.indexOf('<section className="panel scenarios-panel overview-cashflow-panel">')
+    const propertiesAt = overview.indexOf('<section className="properties-heading overview-properties-heading">')
+
+    expect(dashboardAt).toBeGreaterThanOrEqual(0)
+    expect(cashflowAt).toBeGreaterThan(dashboardAt)
+    expect(propertiesAt).toBeGreaterThan(cashflowAt)
+    expect(overview.slice(dashboardAt + '<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />'.length, cashflowAt).trim()).toBe('')
+    expect(overview.slice(propertiesAt)).not.toContain('<section className="panel scenarios-panel overview-cashflow-panel">')
+  })
+
   it('shows the four approved summary concepts using existing calculated fields', () => {
     expect(dashboard).toContain("title: 'Monthly Cash Flow'")
     expect(dashboard).toContain("title: 'Portfolio Position'")
