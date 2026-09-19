@@ -1,5 +1,5 @@
 import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { currency, projectPortfolio } from './calculations.js'
 import { acquisitionJurisdictions, normalizeAcquisitionAssumptions } from './acquisition.js'
@@ -96,9 +96,8 @@ export function PurchaseAssumptionsSheet({ draft, onChange, onCancel, onSave }) 
   </div>
 }
 
-function TimeToNextBtlChart({ result, intro }) {
+function TimeToNextBtlChart({ result }) {
   const [hoverPoint, setHoverPoint] = useState(null)
-  const revealClipId = `next-btl-reveal-${useId().replace(/:/g, '')}`
   const crossingMonth = result.crossing?.month
   const fullPoints = result.points || []
   const hasEquityRelease = Number(result.equityReleaseSelectedCount || 0) > 0
@@ -132,18 +131,13 @@ function TimeToNextBtlChart({ result, intro }) {
         ? `The target BTL is not reached within ${Math.round(result.maxMonths / 12)} years under these assumptions.`
         : 'Enter a valid BTL price to calculate purchase timing.'
 
-  return <figure className={`next-btl-chart ${intro ? 'intro' : 'settled'}`}>
+  return <figure className="next-btl-chart">
     <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} role="img" aria-label="BTL buying power compared with target BTL price over time" onPointerMove={inspect} onPointerDown={inspect} onPointerLeave={() => setHoverPoint(null)}>
-      <defs>
-        <clipPath id={revealClipId} clipPathUnits="userSpaceOnUse">
-          <rect className="next-btl-path-reveal" x={MARGIN.left} y="0" width={PLOT_WIDTH} height={CHART_HEIGHT} />
-        </clipPath>
-      </defs>
       <g className="next-btl-grid" aria-hidden="true">
         {yTicks.map((tick) => <g key={tick}><line x1={MARGIN.left} x2={CHART_WIDTH - MARGIN.right} y1={y(tick)} y2={y(tick)} /><text x={MARGIN.left - 12} y={y(tick) + 4} textAnchor="end">{compactMoney(tick)}</text></g>)}
         {xTicks.map((tick) => <g key={tick}><line x1={x(tick)} x2={x(tick)} y1={MARGIN.top} y2={MARGIN.top + PLOT_HEIGHT} /><text x={x(tick)} y={CHART_HEIGHT - 20} textAnchor="middle">{tick === 0 ? 'Now' : `${tick}m`}</text></g>)}
       </g>
-      <g className="next-btl-paths" clipPath={`url(#${revealClipId})`}>
+      <g className="next-btl-paths">
         <path className="next-btl-target-path" d={targetPath} />
         <path className="next-btl-buying-path" d={buyingPath} />
       </g>
@@ -520,7 +514,7 @@ export default function TimeToNextBtl({
             {result.equityReleaseSelectedCount > 0 && <div><span>Potential equity release</span><b>{currency(referencePoint.potentialEquityRelease)}</b></div>}
           </div>}
         </div>
-        {result.points.length > 0 && <TimeToNextBtlChart result={result} intro={intro} />}
+        {result.points.length > 0 && <TimeToNextBtlChart result={result} />}
       </div>
     </div>
 

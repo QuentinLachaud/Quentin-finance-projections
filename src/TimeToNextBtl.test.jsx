@@ -93,44 +93,42 @@ describe('Time to next BTL flagship UI', () => {
     for (const prop of ['properties={properties}','settings={settings}','portfolio={portfolio}','acquisitions={acquisitions}']) expect(acquisitionSimulator).toContain(prop)
   })
 
-  it('reveals the two data paths through one continuous left-to-right clip instead of path dashes', () => {
+  it('renders both data paths immediately with no graph reveal animation', () => {
     const html = renderManualFeature()
-    expect(html).toContain('class="next-btl-path-reveal"')
+    expect(html).toContain('class="next-btl-chart"')
     expect(html).toContain('class="next-btl-paths"')
-    expect(html).toContain('clip-path="url(#next-btl-reveal-')
     expect(html).toMatch(/class="next-btl-target-path" d="[^"]+"/)
     expect(html).toMatch(/class="next-btl-buying-path" d="[^"]+"/)
-    expect(html).not.toMatch(/class="next-btl-target-path"[^>]*pathLength/)
-    expect(html).not.toMatch(/class="next-btl-buying-path"[^>]*pathLength/)
-
-    const revealRule = styles.match(/\.next-btl-chart\.intro \.next-btl-path-reveal\s*\{[\s\S]*?\}/)?.[0] || ''
-    expect(revealRule).toContain('transform: scaleX(0);')
-    expect(revealRule).toContain('animation: next-btl-path-reveal 1.95s linear forwards;')
-    expect(styles).toContain('@keyframes next-btl-path-reveal { to { transform: scaleX(1); } }')
-    expect(styles).not.toContain('next-btl-path-draw')
-    expect(styles).not.toMatch(/\.next-btl-chart\.intro \.next-btl-target-path,\s*\.next-btl-chart\.intro \.next-btl-buying-path\s*\{[\s\S]*?stroke-dash/)
+    expect(html).not.toContain('next-btl-path-reveal')
+    expect(html).not.toContain('clip-path="url(#next-btl-reveal-')
+    expect(html).not.toContain('next-btl-chart intro')
+    expect(styles).not.toContain('.next-btl-chart.intro')
+    expect(styles).not.toContain('next-btl-path-reveal')
+    expect(styles).not.toContain('next-btl-guide-draw')
+    expect(styles).not.toContain('next-btl-fade-in')
+    expect(styles).not.toContain('next-btl-intersection-pulse')
   })
 
-  it('uses the same clip reveal when the target and buying-power lines never intersect', () => {
+  it('renders non-intersecting target and buying-power lines immediately too', () => {
     const html = renderToStaticMarkup(<TimeToNextBtl
       {...baseProps}
       initialTargetPrice={5000000}
       initialAssumptions={{ jurisdiction: 'scotland', ltv: 75, adsRate: 0, legalFees: 0, mortgageFee: 0, mortgageFeeAddedToLoan: true }}
     />)
-    expect(html).toContain('class="next-btl-path-reveal"')
     expect(html).toContain('class="next-btl-paths"')
-    expect(html).toContain('clip-path="url(#next-btl-reveal-')
+    expect(html).not.toContain('next-btl-path-reveal')
+    expect(html).not.toContain('clip-path="url(#next-btl-reveal-')
     expect(html).not.toContain('next-btl-cross-guide')
   })
 
-  it('has explicit cross-device planning layout and reduced-motion final-state CSS', () => {
+  it('has explicit cross-device planning layout with the graph permanently in its final state', () => {
     expect(styles).toContain('Time to next BTL flagship')
     expect(styles).toContain('acquisition planning workspace')
     expect(styles).toMatch(/@media \(min-width: 761px\)[\s\S]*?\.next-btl-layout\s*\{[\s\S]*?34%[\s\S]*?66%/)
     expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.next-btl-layout\s*\{[\s\S]*?grid-template-columns:\s*1fr/)
     expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.acq-library-heading/)
-    expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.next-btl-chart\.intro \.next-btl-path-reveal[\s\S]*?transform:\s*none !important/)
-    expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?stroke-dashoffset:\s*0 !important/)
-    expect(styles).toContain('next-btl-path-reveal 1.95s linear forwards')
+    expect(styles).not.toContain('.next-btl-chart.intro')
+    expect(styles).not.toContain('next-btl-path-reveal 1.95s linear forwards')
+    expect(styles).not.toContain('@keyframes next-btl-path-reveal')
   })
 })
