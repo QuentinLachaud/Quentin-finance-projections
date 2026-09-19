@@ -90,6 +90,12 @@ describe('purpose-built Overview property views', () => {
     expect(css.match(/overflow-x:\s*auto/g)?.length).toBe(1)
   })
 
+  it('does not animate when switching Overview property views', () => {
+    expect(styles).not.toContain('overview-property-view-in')
+    const stageRule = styles.match(/\.overview-property-view-stage\s*\{[\s\S]*?\}/)?.[0] || ''
+    expect(stageRule).not.toContain('animation:')
+  })
+
   it('keeps reduced-motion treatment', () => {
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
     expect(css).toContain('.overview-property-row-shell')

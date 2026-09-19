@@ -7932,12 +7932,6 @@ textarea {
 
 .overview-property-view-stage {
   margin-bottom: 34px;
-  animation: overview-property-view-in 240ms cubic-bezier(.22, 1, .36, 1);
-}
-
-@keyframes overview-property-view-in {
-  from { opacity: .58; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 .overview-property-rows {
