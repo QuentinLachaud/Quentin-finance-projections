@@ -17509,3 +17509,157 @@ button.contractor-tag-chip { cursor: pointer; }
   }
 }
 
+/* Brain Drain 2026-09-19 08:17 BST — simplified Properties controls and readable section hierarchy */
+/* Keep controls compact; the comparison itself is the content, not a second hero card. */
+.properties-controls-bar {
+  margin: 0 0 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+.properties-controls-bar .properties-tools {
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+/* Overview owns the property-creation CTA, regardless of Cards / Rows / Mini view. */
+.overview-add-btl-button {
+  min-height: 40px;
+  padding-inline: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+/* Stronger section hierarchy for the desktop/tablet comparison matrix. */
+.property-section-row th {
+  padding: 13px 16px !important;
+}
+.property-section-row .group-marker {
+  width: 5px;
+  min-height: 39px;
+  margin-right: 11px;
+  border-radius: 999px;
+}
+.property-section-row th > span:last-child {
+  gap: 2px;
+}
+.property-section-row b {
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+}
+.property-section-row small {
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+.property-comparison-table tbody tr:not(.property-section-row) > th,
+.property-comparison-table tbody tr:not(.property-section-row) > td {
+  font-size: 14px;
+  line-height: 1.35;
+}
+.property-comparison-table tbody tr:not(.property-section-row) > th .property-metric-label {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+@media (max-width: 720px) {
+  /* Mobile already has its own property switcher/snapshot; do not leave an empty toolbar shell. */
+  .properties-controls-bar { display: none; }
+
+  .overview-properties-heading {
+    align-items: stretch;
+  }
+  .overview-properties-heading-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  .overview-properties-heading-actions .overview-property-view-selector {
+    width: 100%;
+    flex: 1 0 100%;
+  }
+  .overview-add-btl-button {
+    min-height: 44px;
+    flex: 1 1 150px;
+  }
+  .overview-properties-heading-actions > .text-button {
+    min-height: 44px;
+    flex: 1 1 150px;
+    justify-content: center;
+  }
+
+  .mobile-property-details {
+    gap: 12px;
+  }
+  .mobile-property-details .property-group-panel {
+    border-radius: 14px;
+  }
+  .mobile-property-details .property-group-toggle {
+    min-height: 72px;
+    padding: 14px 15px;
+  }
+  .mobile-property-details .property-group-toggle > div {
+    min-width: 0;
+    gap: 11px;
+  }
+  .mobile-property-details .property-group-toggle .group-marker {
+    width: 5px;
+    min-height: 42px;
+    border-radius: 999px;
+  }
+  .mobile-property-details .property-group-panel h2 {
+    font-size: 17px;
+    line-height: 1.2;
+    letter-spacing: -.01em;
+  }
+  .mobile-property-details .property-group-panel header p {
+    margin-top: 3px;
+    font-size: 12.5px;
+    line-height: 1.35;
+  }
+  .mobile-property-details .property-group-panel .mobile-property-group-list {
+    padding: 4px 15px 8px;
+  }
+  .mobile-property-details .mobile-property-row {
+    min-height: 54px;
+    padding: 9px 0;
+    gap: 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-line) 72%, transparent);
+  }
+  .mobile-property-details .mobile-property-row:last-child {
+    border-bottom: 0;
+  }
+  .mobile-property-details .mobile-property-row > .property-metric-label {
+    min-width: 0;
+    flex: 1 1 54%;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .mobile-property-details .mobile-property-row-value {
+    min-width: 0;
+    flex: 0 1 46%;
+  }
+  .mobile-property-details .mobile-property-row-value strong {
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  .mobile-property-details .property-group-empty {
+    min-height: 72px;
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+}
+

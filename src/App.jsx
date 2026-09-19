@@ -62,7 +62,7 @@ const editableFieldIndex = new Map(editableSections.flatMap((section) => section
 const editableFieldsFor = (keys) => keys.map((key) => editableFieldIndex.get(key)).filter(Boolean)
 
 const propertyGroups = [
-  { title: 'Finance & performance', description: '', tone: 'green', emptyLabel: 'No finance or performance details have been added yet.', emptyEditField: 'latestValuation', rows: [
+  { title: 'Finance & performance', description: 'Value, leverage, income and return metrics', tone: 'green', emptyLabel: 'No finance or performance details have been added yet.', emptyEditField: 'latestValuation', rows: [
     ['Current value', (p) => currency(p.latestValuation), 'money', false, 'latestValuation', null, 'currentValue'],
     ['Loan balance', (p) => currency(p.loanAmount), 'money-negative', false, 'loanAmount', null, 'loanBalance'],
     ['Equity', (p) => currency(p.equity), 'money-positive', false, null, null, 'equity'],
@@ -84,7 +84,7 @@ const propertyGroups = [
     ['Annual appreciation', (p) => currency(p.appreciationAnnual), 'money-positive', true, null, null, 'annualAppreciation'],
     ['Voids since ownership', (p) => `${p.voidDays} / ${p.ownedDays} days (${percent(p.voidRate, 1)})`, 'text', true, null, null, 'voidHistory'],
   ]},
-  { title: 'Property details', description: '', tone: 'blue', emptyLabel: 'No additional property details have been added yet.', emptyEditField: 'address', rows: [
+  { title: 'Property details', description: 'Location, specification and purchase context', tone: 'blue', emptyLabel: 'No additional property details have been added yet.', emptyEditField: 'address', rows: [
     ['Address', (p) => formatPropertyAddress(p.flatNumber, p.address), 'text', false, 'address', null, 'address'],
     ['Postcode', (p) => p.postcode, 'text', false, 'postcode', null, 'postcode'],
     ['Bedrooms', (p) => p.bedrooms, 'integer', false, 'bedrooms', null, 'bedrooms'],
@@ -92,7 +92,7 @@ const propertyGroups = [
     ['Area', (p) => `${p.areaSqm} m²`, 'integer', true, 'areaSqm', null, 'area'],
     ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true, 'purchaseDate', null, 'purchaseDate'],
   ]},
-  { title: 'Compliance & timing', description: '', tone: 'amber', emptyLabel: 'No compliance dates have been added yet.', emptyEditField: 'gasExpiry', rows: [
+  { title: 'Compliance & timing', description: 'Remortgage and statutory safety dates', tone: 'amber', emptyLabel: 'No compliance dates have been added yet.', emptyEditField: 'gasExpiry', rows: [
     ['Call broker', (p) => shortDate(p.brokerDate), 'date', false, null, null, 'brokerDate'],
     ['Gas certificate expiry', (p) => shortDate(p.gasExpiry), 'date', true, 'gasExpiry', null, 'gasExpiry'],
     ['EICR expiry', (p) => shortDate(p.eicrExpiry), 'date', true, 'eicrExpiry', null, 'eicrExpiry'],
@@ -2360,6 +2360,7 @@ function PortfolioApp({ user }) {
               <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
               <div className="overview-properties-heading-actions">
                 <OverviewPropertyViewSelector value={overviewPropertyView} onChange={setOverviewPropertyView} />
+                <button type="button" className="primary-button overview-add-btl-button" onClick={addProperty}><Plus size={16} /> Add BTL</button>
                 <button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button>
               </div>
             </section>
@@ -2383,12 +2384,7 @@ function PortfolioApp({ user }) {
           </>}
 
           {section === 'Properties' && <>
-            <section className="panel properties-toolbar">
-              <div className="properties-toolbar-copy">
-                <span className="kicker">PROPERTY COMPARISON</span>
-                <h2>Compare properties</h2>
-                <p>Compare the financial health of each BTL first, then reveal specialist and projected details when needed.</p>
-              </div>
+            <section className="properties-controls-bar" aria-label="Property comparison controls">
               <div className="table-tools properties-tools">
                 <div className="property-view-mode property-workspace-mode" role="group" aria-label="Property workspace view">
                   <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'compare' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'compare'} onClick={() => setPropertyWorkspaceView('compare')}>Compare</button>
@@ -2413,7 +2409,6 @@ function PortfolioApp({ user }) {
                   </button>
                 </div>}
                 {propertyWorkspaceView === 'compare' && <label className="properties-search"><Search size={17} /><BrainDrainNumericInput placeholder="Search BTLs" value={search} onChange={(e) => setSearch(e.target.value)} /></label>}
-                <button className="primary-button small properties-new-button" onClick={addProperty}><Plus size={16} /> New BTL</button>
               </div>
             </section>
 

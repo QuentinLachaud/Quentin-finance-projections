@@ -9,13 +9,16 @@ describe('iPad Properties comparison workspace', () => {
   const start = styles.indexOf(marker)
   const block = start >= 0 ? styles.slice(start) : ''
 
-  it('uses the decision-first toolbar and detail-level wording', () => {
-    expect(app).toContain('className="properties-toolbar-copy"')
-    expect(app).toContain('PROPERTY COMPARISON')
-    expect(app).toContain('Compare properties')
+  it('removes the redundant comparison hero while preserving decision controls', () => {
+    expect(app).toContain('className="properties-controls-bar"')
+    expect(app).not.toContain('className="properties-toolbar-copy"')
+    expect(app).not.toContain('PROPERTY COMPARISON')
+    expect(app).not.toContain('<h2>Compare properties</h2>')
+    expect(app).not.toContain('properties-new-button')
+    expect(app).toContain('property-workspace-mode')
     expect(app).toContain('Essentials')
     expect(app).toContain('Full details')
-    expect(app).toContain('properties-new-button')
+    expect(app).toContain('overview-add-btl-button')
   })
 
   it('uses one continuous comparison matrix with group divider rows', () => {

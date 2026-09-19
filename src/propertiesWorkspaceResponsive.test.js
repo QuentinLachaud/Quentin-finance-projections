@@ -79,4 +79,21 @@ describe('responsive Properties decision workspace', () => {
     expect(app).toContain('property-comparison-wrap')
   })
 
+  it('uses a clearer section hierarchy and explicit mobile readability floors', () => {
+    const uxMarker = '/* Brain Drain 2026-09-19 08:17 BST — simplified Properties controls and readable section hierarchy */'
+    const uxStart = styles.indexOf(uxMarker)
+    const uxBlock = uxStart >= 0 ? styles.slice(uxStart) : ''
+
+    expect(uxStart).toBeGreaterThanOrEqual(0)
+    expect(app).toContain("description: 'Value, leverage, income and return metrics'")
+    expect(app).toContain("description: 'Location, specification and purchase context'")
+    expect(app).toContain("description: 'Remortgage and statutory safety dates'")
+    expect(uxBlock).toMatch(/\.property-section-row b \{[\s\S]*?font-size:\s*15px;/)
+    expect(uxBlock).toMatch(/\.mobile-property-details \.property-group-panel h2 \{[\s\S]*?font-size:\s*17px;/)
+    expect(uxBlock).toMatch(/\.mobile-property-details \.property-group-panel header p \{[\s\S]*?font-size:\s*12\.5px;/)
+    expect(uxBlock).toMatch(/\.mobile-property-details \.mobile-property-row \{[\s\S]*?min-height:\s*54px;/)
+    expect(uxBlock).toMatch(/\.mobile-property-details \.mobile-property-row-value strong \{[\s\S]*?font-size:\s*14px;/)
+    expect(uxBlock).toContain('.properties-controls-bar { display: none; }')
+  })
+
 })
