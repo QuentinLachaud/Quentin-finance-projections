@@ -2342,7 +2342,7 @@ function PortfolioApp({ user }) {
           </section>
 
           {section === 'Overview' && <>
-            <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
+            <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} attentionItems={upcomingNotifications} onOpenNotifications={() => setNotificationsOpen(true)} />
 
             <section className="panel scenarios-panel overview-cashflow-panel">
               <header>

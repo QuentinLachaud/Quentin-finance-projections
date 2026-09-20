@@ -16,7 +16,7 @@ const overviewLead = overviewStart >= 0 && propertiesHeading >= 0 ? app.slice(ov
 describe('iOS-native Portfolio Overview dashboard', () => {
   it('replaces the old lead metrics/buffer area without changing the Properties boundary', () => {
     expect(app).toContain("import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'")
-    expect(overviewLead).toContain('<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />')
+    expect(overviewLead).toContain('<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} attentionItems={upcomingNotifications} onOpenNotifications={() => setNotificationsOpen(true)} />')
     expect(overviewLead).not.toContain('<section className="metrics-grid">')
     expect(overviewLead).not.toContain('overview-buffer-only')
     expect(overviewLead).not.toContain('mobile-buffer-disclosure')
@@ -27,14 +27,14 @@ describe('iOS-native Portfolio Overview dashboard', () => {
   it('orders Overview as summary dashboard, cash flow scenarios, then Properties', () => {
     const overviewEnd = app.indexOf("          </>}", overviewStart)
     const overview = overviewEnd >= 0 ? app.slice(overviewStart, overviewEnd) : ''
-    const dashboardAt = overview.indexOf('<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />')
+    const dashboardAt = overview.indexOf('<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} attentionItems={upcomingNotifications} onOpenNotifications={() => setNotificationsOpen(true)} />')
     const cashflowAt = overview.indexOf('<section className="panel scenarios-panel overview-cashflow-panel">')
     const propertiesAt = overview.indexOf('<section className="properties-heading overview-properties-heading">')
 
     expect(dashboardAt).toBeGreaterThanOrEqual(0)
     expect(cashflowAt).toBeGreaterThan(dashboardAt)
     expect(propertiesAt).toBeGreaterThan(cashflowAt)
-    expect(overview.slice(dashboardAt + '<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />'.length, cashflowAt).trim()).toBe('')
+    expect(overview.slice(dashboardAt + '<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} attentionItems={upcomingNotifications} onOpenNotifications={() => setNotificationsOpen(true)} />'.length, cashflowAt).trim()).toBe('')
     expect(overview.slice(propertiesAt)).not.toContain('<section className="panel scenarios-panel overview-cashflow-panel">')
   })
 
@@ -111,5 +111,23 @@ describe('iOS-native Portfolio Overview dashboard', () => {
     expect(css).toContain('@media (max-width: 420px)')
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
   })
+
+  it('adds a decision-first command center and reuses the existing reminder stream', () => {
+    expect(dashboard).toContain('className="overview-command-center"')
+    expect(dashboard).toContain("label: 'Portfolio value'")
+    expect(dashboard).toContain("label: 'Total equity'")
+    expect(dashboard).toContain("label: 'Monthly cash flow'")
+    expect(dashboard).toContain("label: 'Portfolio LTV'")
+    expect(dashboard).toContain("title: 'Safety buffer below target'")
+    expect(dashboard).toContain("title: 'Monthly cash flow is negative'")
+    expect(dashboard).toContain("title: item.type === 'remortgage' ? 'Remortgage window open'")
+    expect(dashboard).toContain('notificationDateLabel(item.dueDate)')
+    expect(dashboard).toContain('visibleAttention = attention.slice(0, 3)')
+    expect(dashboard).toContain("settings.notificationsEnabled === false ? 'Reminders are switched off' : 'No immediate actions'")
+    expect(app).toContain('attentionItems={upcomingNotifications}')
+    expect(app).toContain('onOpenNotifications={() => setNotificationsOpen(true)}')
+    expect(css).toContain('decision-first Portfolio command center')
+  })
+
 })
 
