@@ -2,10 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
-  BellRing,
-  CalendarClock,
-  ChevronRight,
-  CircleCheck,
   CircleHelp,
   Landmark,
   ShieldCheck,
@@ -14,7 +10,6 @@ import {
 } from 'lucide-react'
 import { currency, percent } from './calculations.js'
 import { bufferVisualTarget } from './bufferAnimation.js'
-import { notificationDateLabel } from './notifications.js'
 
 const finite = (value) => {
   const number = Number(value)
@@ -172,7 +167,7 @@ function InsightContent({ insight, portfolio, settings }) {
   return <BufferDetail portfolio={portfolio} settings={settings} />
 }
 
-export default function OverviewPortfolioDashboard({ portfolio, settings, attentionItems = [], onOpenNotifications }) {
+export default function OverviewPortfolioDashboard({ portfolio, settings }) {
   const [activeInsight, setActiveInsight] = useState(null)
   const [closing, setClosing] = useState(false)
   const modalRef = useRef(null)
@@ -195,70 +190,6 @@ export default function OverviewPortfolioDashboard({ portfolio, settings, attent
     ]
   const bufferShortfall = finite(portfolio.extraCashNeeded)
   const bufferSurplus = Math.max(0, finite(portfolio.cashHeld) - finite(portfolio.safeCashNeeded))
-  const cashflow = finite(scenario.cashflow)
-  const activePropertyCount = finite(portfolio.count)
-
-  const headlineMetrics = [
-    {
-      label: 'Portfolio value',
-      value: currency(portfolio.totalValue),
-      note: `${activePropertyCount} active ${activePropertyCount === 1 ? 'property' : 'properties'}`,
-    },
-    {
-      label: 'Total equity',
-      value: currency(portfolio.totalEquity),
-      note: `${currency(portfolio.totalLoans)} outstanding debt`,
-    },
-    {
-      label: 'Monthly cash flow',
-      value: currency(cashflow),
-      note: isCompany ? 'Company + extraction cash' : 'Conservative net cash flow',
-      tone: cashflow >= 0 ? 'positive' : 'warning',
-    },
-    {
-      label: 'Portfolio LTV',
-      value: percent(portfolioLtv, 1),
-      note: `${finite(portfolio.bufferMonths).toFixed(1)} months cash cover`,
-    },
-  ]
-
-  const financialAttention = [
-    bufferShortfall > 0 ? {
-      id: 'financial-buffer',
-      icon: ShieldCheck,
-      title: 'Safety buffer below target',
-      meta: `${currency(bufferShortfall)} shortfall`,
-      detail: `${finite(portfolio.bufferMonths).toFixed(1)} months cover vs ${finite(settings.bufferMonths).toFixed(1)} month target`,
-      insight: 'buffer',
-      tone: 'warning',
-    } : null,
-    cashflow < 0 ? {
-      id: 'financial-cashflow',
-      icon: ArrowDownRight,
-      title: 'Monthly cash flow is negative',
-      meta: `${currency(cashflow)} / month`,
-      detail: 'Review the cash-flow breakdown and operating assumptions.',
-      insight: 'cashflow',
-      tone: 'warning',
-    } : null,
-  ].filter(Boolean)
-
-  const notificationAttention = attentionItems.map((item) => {
-    const days = finite(item.daysUntil)
-    const dueCopy = days === 0 ? 'Due today' : days === 1 ? '1 day remaining' : `${days} days remaining`
-    return {
-      id: `reminder-${item.key}`,
-      icon: item.type === 'remortgage' ? BellRing : CalendarClock,
-      title: item.type === 'remortgage' ? 'Remortgage window open' : `${item.label} due soon`,
-      meta: item.propertyName,
-      detail: `${dueCopy} · ${notificationDateLabel(item.dueDate)}`,
-      reminder: true,
-      tone: item.type === 'remortgage' ? 'finance' : 'deadline',
-    }
-  })
-  const attention = [...financialAttention, ...notificationAttention]
-  const visibleAttention = attention.slice(0, 3)
-
   const cards = useMemo(() => [
     {
       id: 'cashflow',
@@ -450,71 +381,7 @@ export default function OverviewPortfolioDashboard({ portfolio, settings, attent
   }, [activeInsight])
 
   return <>
-    <section className="overview-command-center" aria-label="Portfolio financial position and actions">
-      <div className="overview-command-main">
-        <header className="overview-command-heading">
-          <div>
-            <span className="kicker">PORTFOLIO PULSE</span>
-            <h2>Financial position</h2>
-            <p>{activePropertyCount > 0
-              ? `${activePropertyCount} active ${activePropertyCount === 1 ? 'property' : 'properties'} · ${cashflow >= 0 ? 'positive' : 'negative'} modelled monthly cash flow`
-              : 'Add a property to build your portfolio position.'}</p>
-          </div>
-          <span className={`overview-command-status ${cashflow >= 0 ? 'positive' : 'warning'}`}>
-            {cashflow >= 0 ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
-            {cashflow >= 0 ? 'Cash flow positive' : 'Cash flow negative'}
-          </span>
-        </header>
-
-        <div className="overview-command-metrics">
-          {headlineMetrics.map((metric) => <div key={metric.label} className={metric.tone || ''}>
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-            <small>{metric.note}</small>
-          </div>)}
-        </div>
-      </div>
-
-      <aside className="overview-attention-panel" aria-label="Portfolio needs attention">
-        <header>
-          <div><span className="kicker">NEEDS ATTENTION</span><h3>Next actions</h3></div>
-          {attention.length > 0 && <span className="overview-attention-count">{attention.length}</span>}
-        </header>
-
-        {visibleAttention.length > 0 ? <div className="overview-attention-list">
-          {visibleAttention.map((item) => {
-            const Icon = item.icon
-            return <button
-              type="button"
-              key={item.id}
-              className={`overview-attention-row ${item.tone || ''}`}
-              onClick={(event) => item.insight ? openInsight(item.insight, event) : onOpenNotifications?.()}
-            >
-              <span className="overview-attention-icon"><Icon size={16} strokeWidth={1.8} /></span>
-              <span className="overview-attention-copy"><b>{item.title}</b><small>{item.meta}</small><em>{item.detail}</em></span>
-              <ChevronRight size={15} className="overview-attention-chevron" />
-            </button>
-          })}
-          {attention.length > visibleAttention.length && <button type="button" className="overview-attention-more" onClick={() => onOpenNotifications?.()}>
-            View {attention.length - visibleAttention.length} more <ChevronRight size={14} />
-          </button>}
-        </div> : <div className="overview-attention-clear">
-          <CircleCheck size={20} strokeWidth={1.7} />
-          <span>
-            <b>{settings.notificationsEnabled === false ? 'Reminders are switched off' : 'No immediate actions'}</b>
-            <small>{settings.notificationsEnabled === false
-              ? 'Turn reminders on in Settings to surface upcoming compliance and remortgage actions here.'
-              : 'No current buffer, cash-flow or actionable reminder issues are flagged.'}</small>
-          </span>
-        </div>}
-
-        {notificationAttention.length > 0 && <button type="button" className="overview-attention-footer" onClick={() => onOpenNotifications?.()}>
-          Open reminder centre <ChevronRight size={14} />
-        </button>}
-      </aside>
-    </section>
-
-    <section className="overview-summary-dashboard" aria-label="Portfolio Overview details">
+    <section className="overview-summary-dashboard" aria-label="Portfolio Overview">
       <div className="overview-summary-grid">
         {cards.map((card) => {
           const Icon = card.icon
