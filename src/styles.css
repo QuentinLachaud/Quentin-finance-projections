@@ -17613,3 +17613,105 @@ button.contractor-tag-chip { cursor: pointer; }
     line-height: 1.4;
   }
 }
+
+/* Brain Drain 2026-09-21 13:48 BST — targeted iOS-style account prank */
+.prank-dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 3200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(7, 10, 9, .38);
+  -webkit-backdrop-filter: blur(18px) saturate(.92);
+  backdrop-filter: blur(18px) saturate(.92);
+}
+
+.prank-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 28px 26px 22px;
+  border: 1px solid color-mix(in srgb, var(--ui-line) 82%, transparent);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--ui-surface) 97%, transparent);
+  color: var(--ui-text);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .24), 0 8px 30px rgba(0, 0, 0, .10);
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+.prank-dialog-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+  font-size: 29px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.prank-dialog-icon.success {
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--semantic-positive) 12%, var(--ui-surface));
+  color: var(--semantic-positive);
+  font-size: 23px;
+}
+
+.prank-dialog h2 {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: 24px;
+  font-weight: 730;
+  letter-spacing: -.035em;
+  line-height: 1.15;
+}
+
+.prank-dialog p {
+  max-width: 330px;
+  margin: 11px auto 0;
+  color: var(--ui-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.prank-dialog p em { font-style: italic; }
+
+.prank-dialog-actions {
+  margin-top: 24px;
+  display: grid;
+  gap: 9px;
+}
+
+.prank-action {
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 680;
+  cursor: pointer;
+  transition: transform .12s ease, filter .12s ease, background .12s ease;
+}
+.prank-action:active { transform: scale(.985); }
+.prank-action.primary { background: var(--ui-accent); color: var(--theme-accent-contrast, #fff); }
+.prank-action.primary:hover { filter: brightness(.96); }
+.prank-action.secondary { border: 1px solid var(--ui-line); background: var(--ui-surface-subtle); color: var(--ui-text); }
+.prank-action.secondary:hover { background: var(--ui-surface-muted); }
+.prank-action.full { width: 100%; margin-top: 24px; }
+
+@media (max-width: 520px) {
+  .prank-dialog-layer { padding: 14px; }
+  .prank-dialog { width: 100%; padding: 25px 20px 18px; border-radius: 24px; }
+  .prank-dialog h2 { font-size: 22px; }
+  .prank-action { min-height: 50px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prank-action { transition: none; }
+  .prank-action:active { transform: none; }
+}
+

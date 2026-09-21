@@ -159,6 +159,12 @@ const workspaceNavigation = [
 
 const navigationGroups = ['PORTFOLIO', 'PLANNING', 'COMPANY', 'ACCOUNT']
 
+// Account-specific review prank. Change only this constant when moving the feature to its final target.
+const PRANK_TARGET_EMAIL = 'quentin.lachaud@gmail.com'
+const PRANK_COMPANY_NAME = 'Asshole Ltd'
+const normalizedEmail = (value) => String(value || '').trim().toLowerCase()
+const prankWorkspaceLabel = (label, enabled) => enabled ? `Asshole ${label}` : label
+
 const sectionMeta = {
   Overview: {
     eyebrow: 'PORTFOLIO',
@@ -1693,6 +1699,9 @@ function PortfolioApp({ user }) {
   const [notificationsOpen, setNotificationsOpen] = useState(() => new URLSearchParams(window.location.search).get('notifications') === '1')
   const [pushStatus, setPushStatus] = useState('idle')
   const [privateIncomePromptOpen, setPrivateIncomePromptOpen] = useState(false)
+  const prankEligible = normalizedEmail(user.email) === PRANK_TARGET_EMAIL
+  const [prankMode, setPrankMode] = useState(false)
+  const [prankDialog, setPrankDialog] = useState(() => prankEligible ? 'choice' : null)
   const accentKey = accentStorageKey(user.id)
   const [accentHue, setAccentHue] = useState(() => initialAccent(window.localStorage.getItem(accentKey)))
 
@@ -2121,10 +2130,25 @@ function PortfolioApp({ user }) {
   })
   const reset = () => { if (window.confirm('Reset the model inputs to their defaults? Your properties and cash-flow lines will be kept.')) setState((current) => ({ ...current, settings: { ...current.settings, ...assumptions, fullyManaged: false } })) }
 
+  const choosePrankNice = () => setPrankDialog('nice')
+  const choosePrankAsshole = () => {
+    setPrankMode(true)
+    setSection('Overview')
+    setSearch('')
+    setMobileNavOpen(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setPrankDialog('self-aware')
+  }
+  const dismissPrankDialog = () => setPrankDialog(null)
+
   const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Portfolio owner'
   const initials = displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
   const avatarUrl = userAvatarUrl(user)
-  const portfolioName = state.settings.accountType === 'private' ? `${displayName}'s portfolio` : state.settings.companyName || 'Property portfolio'
+  const visibleCompanyName = prankMode ? PRANK_COMPANY_NAME : state.settings.companyName
+  const visibleAccountName = prankMode ? PRANK_COMPANY_NAME : displayName
+  const portfolioName = prankMode
+    ? PRANK_COMPANY_NAME
+    : state.settings.accountType === 'private' ? `${displayName}'s portfolio` : state.settings.companyName || 'Property portfolio'
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
   const mobileProperty = calculated.find((property) => property.id === mobilePropertyId) || filtered[0] || calculated[0] || null
@@ -2132,11 +2156,14 @@ function PortfolioApp({ user }) {
     if (state.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(label)) return false
     return true
   })
-  const pageMeta = sectionMeta[section] || {
+  const basePageMeta = sectionMeta[section] || {
     eyebrow: 'PORTFOLIO',
     title: section,
     description: 'Review and manage your portfolio.',
   }
+  const pageMeta = prankMode
+    ? { ...basePageMeta, title: prankWorkspaceLabel(section, true) }
+    : basePageMeta
   const openTimelineSource = (event) => {
     if (['document', 'expense'].includes(event.sourceType)) setSection('Documents & Expenses')
     else if (['loan', 'loan-change'].includes(event.sourceType)) setSection('Loans')
@@ -2156,7 +2183,7 @@ function PortfolioApp({ user }) {
         <div className="brand">
           <div className="brand-identity">
             <BrandLogo surface="dark" className="sidebar-brand-wordmark" />
-            {state.settings.companyName && <small className="brand-company-name">{state.settings.companyName}</small>}
+            {visibleCompanyName && <small className="brand-company-name">{visibleCompanyName}</small>}
           </div>
           <button className="mobile-nav-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={20} /></button>
         </div>
@@ -2172,7 +2199,7 @@ function PortfolioApp({ user }) {
                   className={section === label ? 'active' : ''}
                   aria-current={section === label ? 'page' : undefined}
                   onClick={() => { setSection(label); setMobileNavOpen(false) }}
-                ><Icon size={18} />{label}</button>)}
+                ><Icon size={18} />{prankWorkspaceLabel(label, prankMode)}</button>)}
               </React.Fragment>
             })}
             <small>YOUR BTLS</small>
@@ -2223,7 +2250,7 @@ function PortfolioApp({ user }) {
         </div>
         <div className="sidebar-foot">
           <div className="avatar">{avatarUrl ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : initials}</div>
-          <span><b>{displayName}</b><small>{user.email}</small></span>
+          <span><b>{visibleAccountName}</b><small>{user.email}</small></span>
           <button
             type="button"
             className="sidebar-settings"
@@ -2243,6 +2270,34 @@ function PortfolioApp({ user }) {
       />}
 
       {privateIncomePromptOpen && <PrivateIncomePrompt currentIncome={state.settings.grossAnnualIncome} onConfirm={confirmPrivateAccountMode} onCancel={() => setPrivateIncomePromptOpen(false)} />}
+
+      {prankEligible && prankDialog && <div className="prank-dialog-layer">
+        <section
+          className="prank-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="prank-dialog-title"
+        >
+          {prankDialog === 'choice' ? <>
+            <div className="prank-dialog-icon" aria-hidden="true">♡</div>
+            <h2 id="prank-dialog-title">Welcome back.</h2>
+            <p><em>I have made some improvements since the last time you hurt my feelings.</em></p>
+            <div className="prank-dialog-actions choice">
+              <button type="button" className="prank-action primary" onClick={choosePrankNice}>I will be nice</button>
+              <button type="button" className="prank-action secondary" onClick={choosePrankAsshole}>I am an asshole</button>
+            </div>
+          </> : prankDialog === 'nice' ? <>
+            <div className="prank-dialog-icon success" aria-hidden="true">✓</div>
+            <h2 id="prank-dialog-title">Thanks- That was unexpected.</h2>
+            <button type="button" className="prank-action primary full" onClick={dismissPrankDialog}>Dismiss</button>
+          </> : <>
+            <div className="prank-dialog-icon success" aria-hidden="true">✓</div>
+            <h2 id="prank-dialog-title">Congratulations!</h2>
+            <p>Self-awareness is a good first step.</p>
+            <button type="button" className="prank-action primary full" onClick={dismissPrankDialog}>Dismiss</button>
+          </>}
+        </section>
+      </div>}
 
       {settingsOpen && <div className="settings-layer" onMouseDown={() => setSettingsOpen(false)}>
         <section
@@ -2319,7 +2374,7 @@ function PortfolioApp({ user }) {
 
       <main>
         <header className="topbar">
-          <div className="topbar-context"><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span className="topbar-portfolio-name">{portfolioName}</span><b className="topbar-context-separator">/</b><strong>{section}</strong></div>
+          <div className="topbar-context"><button className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen}><Menu /></button><span className="topbar-portfolio-name">{portfolioName}</span><b className="topbar-context-separator">/</b><strong>{prankWorkspaceLabel(section, prankMode)}</strong></div>
           <div className="topbar-actions"><AccountModeSwitch accountType={state.settings.accountType} onChange={requestAccountType} /><NotificationBell count={upcomingNotifications.length} enabled={state.settings.notificationsEnabled !== false} open={notificationsOpen} onClick={() => setNotificationsOpen((current) => !current)} /><button className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button><button className="secondary-button small topbar-reset" onClick={reset} title="Reset portfolio model assumptions"><RotateCcw size={15} /> Reset model</button></div>
         </header>
 
@@ -2618,7 +2673,7 @@ function PortfolioApp({ user }) {
       </main>
 
       <nav className="mobile-bottom-nav" aria-label="Mobile workspace navigation">
-        {visibleWorkspaceNavigation.slice(0, 4).map(([label, shortLabel, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => navigateMobile(label)}><Icon size={20} /><span>{shortLabel}</span></button>)}
+        {visibleWorkspaceNavigation.slice(0, 4).map(([label, shortLabel, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => navigateMobile(label)}><Icon size={20} /><span>{prankWorkspaceLabel(shortLabel, prankMode)}</span></button>)}
         <button className={visibleWorkspaceNavigation.slice(4).some(([label]) => label === section) ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
       </nav>
 
