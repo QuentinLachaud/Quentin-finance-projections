@@ -6,7 +6,7 @@ const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 
 describe('targeted account prank experience', () => {
   it('is gated by one easily swappable normalized email constant', () => {
-    expect(app).toContain("const PRANK_TARGET_EMAIL = 'quentin.lachaud@gmail.com'")
+    expect(app).toContain("const PRANK_TARGET_EMAIL = 'dumbass@inbox.lv'")
     expect(app).toContain("normalizedEmail(user.email) === PRANK_TARGET_EMAIL")
     expect(app).toContain("const [prankDialog, setPrankDialog] = useState(() => prankEligible ? 'choice' : null)")
   })

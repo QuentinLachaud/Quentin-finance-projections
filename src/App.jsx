@@ -160,7 +160,7 @@ const workspaceNavigation = [
 const navigationGroups = ['PORTFOLIO', 'PLANNING', 'COMPANY', 'ACCOUNT']
 
 // Account-specific review prank. Change only this constant when moving the feature to its final target.
-const PRANK_TARGET_EMAIL = 'quentin.lachaud@gmail.com'
+const PRANK_TARGET_EMAIL = 'dumbass@inbox.lv'
 const PRANK_COMPANY_NAME = 'Asshole Ltd'
 const normalizedEmail = (value) => String(value || '').trim().toLowerCase()
 const prankWorkspaceLabel = (label, enabled) => enabled ? `Asshole ${label}` : label
