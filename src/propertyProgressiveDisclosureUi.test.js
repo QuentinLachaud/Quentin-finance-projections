@@ -50,14 +50,16 @@ describe('progressive property disclosure UI', () => {
     }
   })
 
-  it('lets Overview hide unsupported metrics without changing its view hierarchy', () => {
+  it('lets Overview hide unsupported metrics in its single row view', () => {
     expect(app).toContain('function OverviewPropertyMetric({ label, value, emphasis = false, supported = true })')
     expect(app).toContain('if (!supported) return null')
     expect(app).toContain("propertyMetricSupported(property, 'ltv')")
     expect(app).toContain("propertyMetricSupported(property, 'netYield')")
-    expect(app).toContain("['cards', 'Cards']")
-    expect(app).toContain("['rows', 'Rows']")
-    expect(app).toContain("['mini', 'Mini']")
+    expect(app).toContain('function OverviewPropertyRow(')
+    expect(app).toContain('className="overview-property-rows"')
+    expect(app).not.toContain('function PropertyCard(')
+    expect(app).not.toContain('function OverviewPropertyMiniCard(')
+    expect(app).not.toContain('OverviewPropertyViewSelector')
   })
 
   it('does not change blank-property defaults or financial formulas', () => {

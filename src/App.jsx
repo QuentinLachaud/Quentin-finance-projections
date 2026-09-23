@@ -497,38 +497,6 @@ function OverviewPropertyActionMenu({ property, onEdit, onClone, onToggle }) {
   </span>
 }
 
-function PropertyCard({ property, onEdit, onClone, onToggle }) {
-  const subtitle = overviewPropertySubtitle(property)
-  return <article className={`overview-property-card ${property.active ? '' : 'muted'}`}>
-    <button
-      type="button"
-      className="overview-property-card-open"
-      aria-label={`Open ${property.name} property details`}
-      onClick={() => onEdit(property.id)}
-    >
-      <span className="overview-property-card-top">
-        <span className="overview-property-card-identity">
-          <b>{property.name}</b>
-          <small>{subtitle}</small>
-        </span>
-        {propertyMetricSupported(property, 'ltv') && <span className="overview-property-card-ltv-pill">{percent(property.currentLtv, 1)} LTV</span>}
-      </span>
-      <span className="overview-property-card-value">
-        <strong>{propertyMetricSupported(property, 'currentValue') ? currency(property.latestValuation) : 'Not added'}</strong>
-        <small>Current value</small>
-      </span>
-      {propertyMetricSupported(property, 'ltv') && <><span className="overview-property-card-ltv-line"><small>Loan to value</small><b>{percent(property.currentLtv, 1)}</b></span><OverviewLtvBar property={property} /></>}
-      <span className="overview-property-card-metrics">
-        <OverviewPropertyMetric label="Equity" value={currency(property.equity)} emphasis supported={propertyMetricSupported(property, 'equity')} />
-        <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} supported={propertyMetricSupported(property, 'rent')} />
-        <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} supported={propertyMetricSupported(property, 'netYield')} />
-        <OverviewPropertyMetric label="Mortgage / mo" value={currency(property.monthlyPayment, 0)} supported={propertyMetricSupported(property, 'mortgagePayment')} />
-      </span>
-    </button>
-    <OverviewPropertyActionMenu property={property} onEdit={onEdit} onClone={onClone} onToggle={onToggle} />
-  </article>
-}
-
 function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
   const [expanded, setExpanded] = useState(false)
   const subtitle = overviewPropertySubtitle(property)
@@ -579,58 +547,6 @@ function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
       </div>
     </div>
   </article>
-}
-
-function OverviewPropertyMiniCard({ property, onEdit, onClone, onToggle }) {
-  const subtitle = overviewPropertySubtitle(property)
-  return <article className={`overview-property-mini-card ${property.active ? '' : 'muted'}`}>
-    <button
-      type="button"
-      className="overview-property-mini-open"
-      aria-label={`Open ${property.name} property details`}
-      onClick={() => onEdit(property.id)}
-    >
-      <span className="overview-property-mini-identity">
-        <b>{property.name}</b>
-        <small>{subtitle}</small>
-      </span>
-      <span className="overview-property-mini-value">
-        <strong>{propertyMetricSupported(property, 'currentValue') ? currency(property.latestValuation) : 'Not added'}</strong>
-        <small>Value</small>
-      </span>
-      <span className="overview-property-mini-metrics">
-        <OverviewPropertyMetric label="LTV" value={percent(property.currentLtv, 1)} supported={propertyMetricSupported(property, 'ltv')} />
-        <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} supported={propertyMetricSupported(property, 'rent')} />
-        <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} supported={propertyMetricSupported(property, 'netYield')} />
-      </span>
-    </button>
-    <OverviewPropertyActionMenu property={property} onEdit={onEdit} onClone={onClone} onToggle={onToggle} />
-  </article>
-}
-
-
-const overviewPropertyViewOptions = [
-  ['cards', 'Cards'],
-  ['rows', 'Rows'],
-  ['mini', 'Mini'],
-]
-
-function OverviewPropertyViewSelector({ value, onChange }) {
-  return <div
-    className="overview-property-view-selector"
-    data-view={value}
-    role="radiogroup"
-    aria-label="Property overview display"
-  >
-    {overviewPropertyViewOptions.map(([id, label]) => <button
-      key={id}
-      type="button"
-      role="radio"
-      aria-checked={value === id}
-      className={value === id ? 'selected' : ''}
-      onClick={() => onChange(id)}
-    >{label}</button>)}
-  </div>
 }
 
 function ModelInputFields({ settings, onSettingChange, onPercentChange, compact = false }) {
@@ -1671,12 +1587,6 @@ function PortfolioApp({ user }) {
   const [editingId, setEditingId] = useState(null)
   const [pendingProperty, setPendingProperty] = useState(null)
   const sectionStorageKey = `btl-active-section:${user.id}`
-  const overviewPropertyViewStorageKey = `btl-overview-property-view-v2:${user.id}`
-  const [overviewPropertyView, setOverviewPropertyView] = useState(() => {
-    const savedView = window.localStorage.getItem(overviewPropertyViewStorageKey)
-    if (overviewPropertyViewOptions.some(([id]) => id === savedView)) return savedView
-    return 'rows'
-  })
   const [documentCaptureRequest, setDocumentCaptureRequest] = useState(null)
   const [section, setSection] = useState(() => {
     const params = new URLSearchParams(window.location.search)
@@ -1738,10 +1648,6 @@ function PortfolioApp({ user }) {
   useEffect(() => {
     window.localStorage.setItem(sectionStorageKey, section)
   }, [section, sectionStorageKey])
-
-  useEffect(() => {
-    window.localStorage.setItem(overviewPropertyViewStorageKey, overviewPropertyView)
-  }, [overviewPropertyView, overviewPropertyViewStorageKey])
 
   useEffect(() => {
     if (state?.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(section)) setSection('Overview')
@@ -2414,27 +2320,16 @@ function PortfolioApp({ user }) {
             <section className="properties-heading overview-properties-heading">
               <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
               <div className="overview-properties-heading-actions">
-                <OverviewPropertyViewSelector value={overviewPropertyView} onChange={setOverviewPropertyView} />
                 <button type="button" className="primary-button overview-add-btl-button" onClick={addProperty}><Plus size={16} /> Add BTL</button>
                 <button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button>
               </div>
             </section>
 
-            <div key={overviewPropertyView} className="overview-property-view-stage" data-view={overviewPropertyView}>
-              {overviewPropertyView === 'cards' && <section className="property-cards">
-                {calculated.map((p) => <PropertyCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
-                <button className="add-property-card" onClick={addProperty}><span><Plus /></span><b>Add another BTL</b><small>Start blank or clone an existing property</small></button>
-              </section>}
-
-              {overviewPropertyView === 'rows' && <section className="overview-property-rows">
+            <div className="overview-property-view-stage" data-view="rows">
+              <section className="overview-property-rows">
                 {calculated.map((p) => <OverviewPropertyRow key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
                 <button type="button" className="overview-property-row-add" onClick={addProperty}><span><Plus size={17} /></span>Add another BTL</button>
-              </section>}
-
-              {overviewPropertyView === 'mini' && <section className="overview-property-mini-grid">
-                {calculated.map((p) => <OverviewPropertyMiniCard key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
-                <button type="button" className="overview-property-mini-add" onClick={addProperty}><span><Plus size={17} /></span><b>Add another BTL</b></button>
-              </section>}
+              </section>
             </div>
           </>}
 

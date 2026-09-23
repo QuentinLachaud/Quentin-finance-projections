@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url'
 const app = readFileSync(fileURLToPath(new URL('./App.jsx', import.meta.url)), 'utf8')
 const styles = readFileSync(fileURLToPath(new URL('./styles.css', import.meta.url)), 'utf8')
 const propertyStart = app.indexOf('function OverviewPropertyActionMenu(')
-const propertyEnd = app.indexOf('const overviewPropertyViewOptions', propertyStart)
-const propertyViews = propertyStart >= 0 && propertyEnd >= 0 ? app.slice(propertyStart, propertyEnd) : ''
-const row = propertyViews.slice(propertyViews.indexOf('function OverviewPropertyRow('), propertyViews.indexOf('function OverviewPropertyMiniCard('))
+const rowStart = app.indexOf('function OverviewPropertyRow(', propertyStart)
+const rowEnd = app.indexOf('function ModelInputFields(', rowStart)
+const row = rowStart >= 0 && rowEnd >= 0 ? app.slice(rowStart, rowEnd) : ''
 
 describe('Overview property financing information hierarchy', () => {
   it('keeps portfolio-level Asset Financing removed', () => {
@@ -28,9 +28,8 @@ describe('Overview property financing information hierarchy', () => {
   })
 
   it('avoids repeating collapsed-row metrics in the expanded detail', () => {
-    const card = propertyViews.slice(propertyViews.indexOf('function PropertyCard('), propertyViews.indexOf('function OverviewPropertyRow('))
-    expect(card).toContain('label="Rent / mo"')
-    expect(card).toContain('label="Net yield"')
+    expect(row).toContain('label="Rent / mo"')
+    expect(row).toContain('label="Net yield"')
     expect(row).not.toContain('<span>Rent / mo</span>')
     expect(row).not.toContain('<span>Net yield</span>')
   })
@@ -43,15 +42,6 @@ describe('Overview property financing information hierarchy', () => {
     expect(row).toContain('<span>Lender</span>')
     expect(row).toContain('<span>Next remortgage</span>')
     expect(row).toContain('className="overview-property-row-open-action"')
-  })
-
-  it('keeps Cards and Mini deliberately simpler', () => {
-    const card = propertyViews.slice(propertyViews.indexOf('function PropertyCard('), propertyViews.indexOf('function OverviewPropertyRow('))
-    const mini = propertyViews.slice(propertyViews.indexOf('function OverviewPropertyMiniCard('))
-    expect(card).toContain('<OverviewLtvBar property={property} />')
-    expect(card).not.toContain('PropertyFinancingSummary')
-    expect(mini).not.toContain('PropertyFinancingSummary')
-    expect(mini).not.toContain('OverviewLtvBar')
   })
 
   it('uses the latest iOS-native grouped financing styling', () => {

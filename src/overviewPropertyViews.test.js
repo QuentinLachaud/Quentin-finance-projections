@@ -8,24 +8,31 @@ const start = styles.indexOf(marker)
 const next = start >= 0 ? styles.indexOf('/* Brain Drain ', start + marker.length) : -1
 const css = start >= 0 ? styles.slice(start, next >= 0 ? next : undefined) : ''
 const componentStart = app.indexOf('function OverviewPropertyActionMenu(')
-const componentEnd = app.indexOf('const overviewPropertyViewOptions', componentStart)
+const componentEnd = app.indexOf('function ModelInputFields(', componentStart)
 const properties = componentStart >= 0 && componentEnd >= 0 ? app.slice(componentStart, componentEnd) : ''
+const row = properties.slice(properties.indexOf('function OverviewPropertyRow('))
+const overviewStart = app.indexOf("{section === 'Overview' && <>")
+const overviewEnd = app.indexOf("{section === 'Properties' && <>", overviewStart)
+const overview = overviewStart >= 0 && overviewEnd >= 0 ? app.slice(overviewStart, overviewEnd) : ''
 
-describe('purpose-built Overview property views', () => {
-  it('keeps Cards, Rows and Mini with native radio semantics and makes Rows the v2 default everywhere', () => {
-    expect(app).toContain("['cards', 'Cards']")
-    expect(app).toContain("['rows', 'Rows']")
-    expect(app).toContain("['mini', 'Mini']")
-    expect(app).toContain('role="radiogroup"')
-    expect(app).toContain('role="radio"')
-    expect(app).toContain('btl-overview-property-view-v2:${user.id}')
-    expect(app).toContain("return 'rows'")
-    expect(app).not.toContain("window.matchMedia?.('(max-width: 680px)').matches ? 'rows' : 'cards'")
-    expect(app).toContain('window.localStorage.setItem(overviewPropertyViewStorageKey, overviewPropertyView)')
+describe('row-only Overview property view', () => {
+  it('renders Rows directly and removes Cards, Mini, selector state and persisted view preference', () => {
+    expect(overview).toContain('<div className="overview-property-view-stage" data-view="rows">')
+    expect(overview).toContain('<section className="overview-property-rows">')
+    expect(overview).toContain('<OverviewPropertyRow')
+    expect(overview).toContain('className="primary-button overview-add-btl-button"')
+    expect(overview).toContain('View full table')
+    expect(app).not.toContain('function PropertyCard(')
+    expect(app).not.toContain('function OverviewPropertyMiniCard(')
+    expect(app).not.toContain('const overviewPropertyViewOptions')
+    expect(app).not.toContain('function OverviewPropertyViewSelector(')
+    expect(app).not.toContain("['cards', 'Cards']")
+    expect(app).not.toContain("['mini', 'Mini']")
+    expect(app).not.toContain('btl-overview-property-view-v2:${user.id}')
+    expect(app).not.toContain('overviewPropertyView')
   })
 
-  it('uses Rows as a compact comparison surface before the financing drill-down', () => {
-    const row = properties.slice(properties.indexOf('function OverviewPropertyRow('), properties.indexOf('function OverviewPropertyMiniCard('))
+  it('keeps Rows as the existing compact comparison surface before the financing drill-down', () => {
     expect(row).toContain('aria-expanded={expanded}')
     expect(row).toContain('label="Value"')
     expect(row).toContain('label="LTV"')
@@ -39,28 +46,7 @@ describe('purpose-built Overview property views', () => {
     expect(row).toContain('Open property')
   })
 
-  it('makes Cards a concise visual mode rather than a verbose financing duplicate', () => {
-    const card = properties.slice(properties.indexOf('function PropertyCard('), properties.indexOf('function OverviewPropertyRow('))
-    expect(card).toContain('Open ${property.name} property details')
-    expect(card).toContain('<OverviewLtvBar property={property} />')
-    expect(card).toContain('label="Equity"')
-    expect(card).toContain('label="Rent / mo"')
-    expect(card).toContain('label="Net yield"')
-    expect(card).toContain('label="Mortgage / mo"')
-    expect(card).not.toContain('PropertyFinancingSummary')
-  })
-
-  it('makes Mini a pure Value/LTV/Rent/Yield comparison view', () => {
-    const mini = properties.slice(properties.indexOf('function OverviewPropertyMiniCard('))
-    expect(mini).toContain('overview-property-mini-value')
-    expect(mini).toContain('label="LTV"')
-    expect(mini).toContain('label="Rent / mo"')
-    expect(mini).toContain('label="Net yield"')
-    expect(mini).not.toContain('PropertyFinancingSummary')
-    expect(mini).not.toContain('Mortgage / mo')
-  })
-
-  it('moves management into one accessible overflow menu and removes Map from this Overview block', () => {
+  it('keeps management in the existing accessible overflow menu', () => {
     expect(properties).toContain('aria-haspopup="menu"')
     expect(properties).toContain('aria-expanded={open}')
     expect(properties).toContain('role="menu"')
@@ -70,33 +56,22 @@ describe('purpose-built Overview property views', () => {
     expect(properties).toContain("'Exclude from totals' : 'Include in totals'")
     expect(properties).toContain("event.key !== 'Escape'")
     expect(properties).toContain("document.addEventListener('pointerdown', handlePointerDown)")
-    expect(properties).not.toContain('MapPin')
-    expect(properties).not.toContain('<span>Map</span>')
   })
 
-  it('uses deliberate desktop width caps and phone-specific hierarchy', () => {
+  it('preserves the approved row width and phone hierarchy', () => {
     expect(start).toBeGreaterThanOrEqual(0)
     expect(css).toContain('font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif')
-    expect(css).toMatch(/@media \(min-width: 1181px\)[\s\S]*?max-width:\s*1120px[\s\S]*?max-width:\s*1180px[\s\S]*?max-width:\s*1050px/)
+    expect(css).toMatch(/@media \(min-width: 1181px\)[\s\S]*?\.overview-property-view-stage\[data-view='rows'\] \.overview-property-rows[\s\S]*?max-width:\s*1120px/)
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?grid-template-areas:[\s\S]*?"index identity chevron"[\s\S]*?"\. key key"[\s\S]*?"\. quick quick"/)
   })
 
-  it('allows horizontal swipe only for the explicit phone Mini comparison rail', () => {
-    const phone = css.match(/@media \(max-width: 760px\) \{([\s\S]*?)\n\}/)?.[1] || ''
-    expect(phone).toContain(".overview-property-view-stage[data-view='mini'] .overview-property-mini-grid")
-    expect(phone).toContain('grid-auto-flow: column')
-    expect(phone).toContain('overflow-x: auto')
-    expect(phone).toContain('scroll-snap-type: x mandatory')
-    expect(css.match(/overflow-x:\s*auto/g)?.length).toBe(1)
-  })
-
-  it('does not animate when switching Overview property views', () => {
+  it('does not animate the row-only Overview property stage', () => {
     expect(styles).not.toContain('overview-property-view-in')
     const stageRule = styles.match(/\.overview-property-view-stage\s*\{[\s\S]*?\}/)?.[0] || ''
     expect(stageRule).not.toContain('animation:')
   })
 
-  it('keeps reduced-motion treatment', () => {
+  it('keeps reduced-motion treatment for Rows', () => {
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
     expect(css).toContain('.overview-property-row-shell')
   })
