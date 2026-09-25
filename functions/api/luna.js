@@ -153,11 +153,25 @@ const executeConfirmed = async ({ env, authorization, user, confirmation }) => {
   return json({ message: result.result?.message || 'Done.', changed: true, portfolio: saved })
 }
 
-export async function onRequestGet({ env }) {
+export async function onRequestGet({ request, env }) {
   return json({
     configured: Boolean(env.OPENAI_API_KEY),
     model: env.OPENAI_MODEL || 'gpt-6-luna',
     phaseOneOperations: LUNA_PHASE_ONE_OPERATIONS.length,
+    diagnostics: {
+      requestHost: request?.url ? new URL(request.url).host : null,
+      cloudflarePages: {
+        present: Boolean(env.CF_PAGES),
+        branch: env.CF_PAGES_BRANCH || null,
+        url: env.CF_PAGES_URL || null,
+        commitSha: env.CF_PAGES_COMMIT_SHA || null,
+      },
+      openAIEnvironment: {
+        apiKeyPresent: Boolean(env.OPENAI_API_KEY),
+        modelPresent: Boolean(env.OPENAI_MODEL),
+        baseUrlPresent: Boolean(env.OPENAI_BASE_URL),
+      },
+    },
   })
 }
 
