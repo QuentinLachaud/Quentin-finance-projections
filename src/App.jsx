@@ -2383,7 +2383,6 @@ function PortfolioApp({ user, accessToken }) {
             <div className="overview-property-view-stage" data-view="rows">
               <section className="overview-property-rows">
                 {calculated.map((p) => <OverviewPropertyRow key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
-                <button type="button" className="overview-property-row-add" onClick={addProperty}><span><Plus size={17} /></span>Add another BTL</button>
               </section>
             </div>
           </>}
