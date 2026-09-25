@@ -251,6 +251,7 @@ export default function PerformanceWorkspace({
   loans = null,
   settings = {},
   onAssumptionChange,
+  selectionRequest = null,
 }) {
   const activeProperties = properties.filter((property) => property?.active !== false)
   const [scope, setScope] = useState('portfolio')
@@ -264,6 +265,11 @@ export default function PerformanceWorkspace({
   const [dragState, setDragState] = useState(null)
   const updateNodes = useRef(new Map())
   const bankData = useBankPerformanceData(user?.id)
+
+  useEffect(() => {
+    const propertyId = selectionRequest?.propertyId
+    if (propertyId && activeProperties.some((property) => String(property.id) === propertyId)) setScope(propertyId)
+  }, [selectionRequest?.id, selectionRequest?.propertyId, activeProperties])
 
   const updates = useMemo(() => normalizePerformanceUpdates(settings.performanceUpdates, properties), [settings.performanceUpdates, properties])
   const model = useMemo(() => buildTheoreticalPerformanceProjection({

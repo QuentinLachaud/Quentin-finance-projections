@@ -1,5 +1,5 @@
 import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { addMonths, currency, shortDate } from './calculations.js'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
@@ -123,15 +123,24 @@ export function LoanEditor({ loan, properties, onSave, onDelete, allowAssociatio
   </div>
 }
 
-export default function LoansWorkspace({ loans = [], properties = [], onSave, onDelete }) {
+export default function LoansWorkspace({ loans = [], properties = [], onSave, onDelete, selectionRequest = null }) {
   const [expandedId, setExpandedId] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [groupByBtl, setGroupByBtl] = useState(true)
   const [sortOrder, setSortOrder] = useState('expiry-asc')
   const [collapsedGroups, setCollapsedGroups] = useState([])
-  const displayGroups = useMemo(() => groupLoans(loans, properties, sortOrder, groupByBtl), [loans, properties, sortOrder, groupByBtl])
+  const allDisplayGroups = useMemo(() => groupLoans(loans, properties, sortOrder, groupByBtl), [loans, properties, sortOrder, groupByBtl])
+  const displayGroups = selectionRequest?.propertyId && groupByBtl
+    ? allDisplayGroups.filter((group) => String(group.id) === selectionRequest.propertyId)
+    : allDisplayGroups
   const toggleGroup = (id) => setCollapsedGroups((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
   const propertyMap = useMemo(() => new Map(properties.map((property) => [property.id, property])), [properties])
+
+  useEffect(() => {
+    if (!selectionRequest?.propertyId) return
+    setGroupByBtl(true)
+    setCollapsedGroups((current) => current.filter((id) => String(id) !== selectionRequest.propertyId))
+  }, [selectionRequest?.id, selectionRequest?.propertyId])
 
   const addLoan = () => {
     const loan = createBlankLoan()

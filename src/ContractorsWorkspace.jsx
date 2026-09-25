@@ -1,5 +1,5 @@
 import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Check, ChevronDown, ChevronUp, Droplets, Flame, Hammer, HardHat, KeyRound,
   Mail, Paintbrush, Pencil, Phone, Plug, Plus, ShieldCheck, Trash2, Wrench, Zap,
@@ -150,7 +150,7 @@ function ContractorCard({ contractor, propertiesById, tagsById, onEdit, onDelete
   </article>
 }
 
-export default function ContractorsWorkspace({ contractors = [], contractorTags = [], properties = [], documents = [], onSave, onDelete, onTagsChange, onOpenDocuments }) {
+export default function ContractorsWorkspace({ contractors = [], contractorTags = [], properties = [], documents = [], onSave, onDelete, onTagsChange, onOpenDocuments, selectionRequest = null }) {
   const tags = useMemo(() => normalizeContractorTags(contractorTags), [contractorTags])
   const [editor, setEditor] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -161,6 +161,11 @@ export default function ContractorsWorkspace({ contractors = [], contractorTags 
   const tagsById = useMemo(() => new Map(tags.map((tag) => [tag.id, tag])), [tags])
   const availableTrades = useMemo(() => [...new Set(contractors.map((contractor) => contractor.trade).filter(Boolean))].sort(), [contractors])
   const visible = useMemo(() => filterContractors(contractors, { propertyId: propertyFilter, trade: tradeFilter, sort }), [contractors, propertyFilter, tradeFilter, sort])
+
+  useEffect(() => {
+    const propertyId = selectionRequest?.propertyId
+    if (propertyId && properties.some((property) => String(property.id) === propertyId)) setPropertyFilter(propertyId)
+  }, [selectionRequest?.id, selectionRequest?.propertyId, properties])
 
   const save = (draft) => {
     onSave(normalizeContractor(draft, properties, tags))

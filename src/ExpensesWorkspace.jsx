@@ -21,7 +21,7 @@ function TypeBadge({ amount }) {
   return <span className={`expense-type ${type}`}>{label}</span>
 }
 
-export default function ExpensesWorkspace({ expenses = [], properties = [], contractors = [], contractorTags = [], accountType = 'company', companyName = '', captureRequest = null, onCaptureRequestConsumed, onChange }) {
+export default function ExpensesWorkspace({ expenses = [], properties = [], contractors = [], contractorTags = [], accountType = 'company', companyName = '', captureRequest = null, onCaptureRequestConsumed, onChange, selectionRequest = null }) {
   const [filters, setFilters] = useState(blankFilters)
   const [importStatus, setImportStatus] = useState('')
   const [draftExpense, setDraftExpense] = useState(null)
@@ -62,6 +62,11 @@ export default function ExpensesWorkspace({ expenses = [], properties = [], cont
     setAddMenuOpen(true)
     onCaptureRequestConsumed?.()
   }, [captureRequest, onCaptureRequestConsumed])
+
+  useEffect(() => {
+    const property = properties.find((candidate) => String(candidate.id) === selectionRequest?.propertyId)
+    if (property?.name) setFilters((current) => ({ ...current, property: property.name }))
+  }, [selectionRequest?.id, selectionRequest?.propertyId, properties])
 
   const update = (id, key, value) => onChange(expenses.map((item) => item.id === id ? { ...item, [key]: value } : item))
   const openAddExpense = () => setDraftExpense({

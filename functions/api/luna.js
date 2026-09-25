@@ -1,4 +1,5 @@
 import { executePortfolioAction, LUNA_PHASE_ONE_OPERATIONS } from '../../src/lunaCapabilities.js'
+import { executeLunaUiOperation, LUNA_UI_OPERATIONS, LUNA_WORKSPACE_IDS } from '../../src/lunaUiOperations.js'
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -90,9 +91,57 @@ const portfolioTool = {
   strict: false,
 }
 
+const uiActionTool = {
+  type: 'function',
+  name: 'client_ui_action',
+  description: [
+    'Safely open an allow-listed BTL Portfolio workspace, select one unambiguous real property there, or run the existing acquisition simulator.',
+    'Use workspace.open for a clear workspace request, property.open for a property-specific request, and acquisition.simulate for purchase-timing scenarios.',
+    'Do not use this tool for casual questions, ambiguous destinations, portfolio writes, arbitrary URLs, DOM access, selectors, or code execution.',
+    `Supported operations: ${LUNA_UI_OPERATIONS.join(', ')}.`,
+    `Supported workspace IDs: ${LUNA_WORKSPACE_IDS.join(', ')}.`,
+    'For property.open, target is the user-provided property name/address/postcode and workspace should be the most relevant property-aware destination.',
+    'For acquisition.simulate, use workspace acquisition, target null, and data containing only supplied simulator fields such as purchasePrice.',
+  ].join(' '),
+  parameters: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: LUNA_UI_OPERATIONS },
+      workspace: { type: 'string', enum: LUNA_WORKSPACE_IDS },
+      target: { type: ['string', 'null'] },
+      data: {
+        type: ['object', 'null'],
+        properties: {
+          purchasePrice: { type: 'number' },
+          appreciationPercent: { type: 'number' },
+          scenarioIndex: { type: 'integer', enum: [0, 1, 2] },
+          preserveBuffer: { type: 'boolean' },
+          includeExtraction: { type: 'boolean' },
+          includeRentGrowth: { type: 'boolean' },
+          jurisdiction: { type: 'string', enum: ['scotland', 'england-ni'] },
+          ltv: { type: 'number' },
+          adsRate: { type: 'number' },
+          legalFees: { type: 'number' },
+          mortgageFee: { type: 'number' },
+          mortgageFeeAddedToLoan: { type: 'boolean' },
+        },
+        additionalProperties: false,
+      },
+    },
+    required: ['operation', 'workspace', 'target', 'data'],
+    additionalProperties: false,
+  },
+  strict: false,
+}
+
 const instructions = [
   'You are Luna inside BTL Portfolio, a private property-portfolio application.',
   'Use portfolio_action whenever the answer depends on the user’s portfolio or whenever the user asks to change it.',
+  'Use client_ui_action only when the user clearly wants to see an existing app view/object or asks a scenario handled by Acquisition Simulator.',
+  'For property performance, use property.open with workspace performance. Resolve references through the tool; never invent an entity ID.',
+  'For a question about how long until the user can buy at a stated price, use acquisition.simulate and pass purchasePrice; the client runs the existing deterministic model.',
+  'Obvious destination mapping: properties=properties, tenants=tenants, expenses/cost documents=expenses, cash-flow costs=costs, performance=performance, forecasts=projections, mortgages=loans, remortgage=remortgage, compliance=compliance, Companies House=companies_house, banking=banking, plan/billing=plan, settings=settings.',
+  'If several destinations are genuinely plausible, answer without navigating. Do not navigate for casual or general questions.',
   'Never invent portfolio facts, entity IDs, balances, dates, tenants, expenses, loans or successful writes.',
   'Prefer a read operation before asking a clarification when an existing entity can be resolved from a name or description.',
   'For a requested write, execute it rather than merely explaining how to use the manual UI.',
@@ -120,7 +169,7 @@ const openAIResponse = async (env, input) => {
       model: env.OPENAI_MODEL || 'gpt-6-luna',
       instructions,
       input,
-      tools: [portfolioTool],
+      tools: [portfolioTool, uiActionTool],
       tool_choice: 'auto',
       parallel_tool_calls: false,
       reasoning: { effort: 'none' },
@@ -189,6 +238,7 @@ export async function onRequestPost({ request, env }) {
 
     let portfolio = await loadPortfolio(env, authorization, user.id)
     let changed = false
+    const uiActions = []
     const input = [{ role: 'user', content: message }]
 
     for (let step = 0; step < 8; step += 1) {
@@ -200,11 +250,10 @@ export async function onRequestPost({ request, env }) {
       if (!calls.length) {
         const messageText = responseText(response)
         if (!messageText) throw new Error('Luna returned no answer.')
-        return json({ message: messageText, changed, portfolio: changed ? portfolio : null })
+        return json({ message: messageText, changed, portfolio: changed ? portfolio : null, uiActions })
       }
 
       for (const call of calls) {
-        if (call.name !== 'portfolio_action') throw new Error(`Luna requested unsupported tool: ${call.name}`)
         let args
         try {
           args = JSON.parse(call.arguments || '{}')
@@ -212,12 +261,25 @@ export async function onRequestPost({ request, env }) {
           throw new Error('Luna returned invalid tool arguments.')
         }
 
+        if (call.name === 'client_ui_action') {
+          const result = executeLunaUiOperation(portfolio, args)
+          uiActions.push(...result.actions)
+          input.push({
+            type: 'function_call_output',
+            call_id: call.call_id,
+            output: JSON.stringify({ ok: true, message: result.message, property: result.property || null }),
+          })
+          continue
+        }
+        if (call.name !== 'portfolio_action') throw new Error(`Luna requested unsupported tool: ${call.name}`)
+
         const result = executePortfolioAction(portfolio, args)
         if (result.confirmationRequired) {
           return json({
             message: result.confirmationPrompt,
             changed,
             portfolio: changed ? portfolio : null,
+            uiActions,
             confirmation: { name: call.name, arguments: args },
           })
         }

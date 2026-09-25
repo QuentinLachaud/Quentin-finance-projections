@@ -24,6 +24,7 @@ import { normalizeTimelineEvent, propertyChangeEvents } from './propertyTimeline
 
 const clean = (value) => String(value ?? '').trim()
 const lower = (value) => clean(value).toLowerCase()
+const referenceKey = (value) => lower(value).replace(/[^a-z0-9]+/g, '')
 const clone = (value) => structuredClone(value)
 
 const array = (value) => Array.isArray(value) ? value : []
@@ -165,8 +166,10 @@ const withId = (item) => ({ ...item, id: clean(item?.id) || crypto.randomUUID() 
 const exactOrUniquePartial = (items, target, fields = ['name']) => {
   const needle = lower(target)
   if (!needle) return null
+  const canonicalNeedle = referenceKey(target)
   const exact = items.find((item) => lower(item?.id) === needle
-    || fields.some((field) => lower(item?.[field]) === needle))
+    || fields.some((field) => lower(item?.[field]) === needle
+      || (canonicalNeedle && referenceKey(item?.[field]) === canonicalNeedle)))
   if (exact) return exact
   const partial = items.filter((item) => fields.some((field) => lower(item?.[field]).includes(needle)))
   return partial.length === 1 ? partial[0] : null
@@ -184,6 +187,8 @@ const resolveProperty = (state, target) => requireEntity(
   'Property',
   ['name', 'address', 'postcode'],
 )
+
+export const resolveLunaProperty = (rawState, target) => resolveProperty(ensureState(rawState), target)
 
 const propertyIdFrom = (state, raw) => {
   const direct = clean(raw)

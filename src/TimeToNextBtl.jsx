@@ -191,6 +191,7 @@ export default function TimeToNextBtl({
   onPreferencesChange = null,
   allowRealisticRelease = false,
   className = '',
+  scenarioRequest = null,
 }) {
   const savedAcquisitions = useMemo(
     () => acquisitions.filter((item) => Number(item?.purchasePrice || 0) > 0),
@@ -243,7 +244,9 @@ export default function TimeToNextBtl({
   const [intro, setIntro] = useState(true)
   const nowRef = useRef(suppliedNow instanceof Date ? suppliedNow : new Date())
   const onPreferencesChangeRef = useRef(onPreferencesChange)
-  useEffect(() => { onPreferencesChangeRef.current = onPreferencesChange }, [onPreferencesChange])
+  useEffect(() => {
+    onPreferencesChangeRef.current = scenarioRequest ? null : onPreferencesChange
+  }, [onPreferencesChange, scenarioRequest])
   const isCompany = settings.accountType !== 'private'
   const plannerSettings = useMemo(() => ({
     ...settings,
@@ -280,6 +283,28 @@ export default function TimeToNextBtl({
   const targetContext = usingSavedAcquisition
     ? `${selectedAcquisition.name || 'Saved acquisition'} · ${currency(effectiveTargetPrice)}`
     : `Manual target · ${currency(effectiveTargetPrice)}`
+
+  useEffect(() => {
+    const fields = scenarioRequest?.fields
+    if (!fields) return
+    if (Object.prototype.hasOwnProperty.call(fields, 'purchasePrice')) {
+      setTargetSource('manual')
+      setTargetPrice(fields.purchasePrice)
+    }
+    if (Object.prototype.hasOwnProperty.call(fields, 'appreciationPercent')) setAppreciationPercent(fields.appreciationPercent)
+    if (Object.prototype.hasOwnProperty.call(fields, 'scenarioIndex')) setScenarioIndex(fields.scenarioIndex)
+    if (Object.prototype.hasOwnProperty.call(fields, 'preserveBuffer')) setPreserveBuffer(fields.preserveBuffer)
+    if (Object.prototype.hasOwnProperty.call(fields, 'includeExtraction')) setIncludeExtraction(fields.includeExtraction)
+    if (Object.prototype.hasOwnProperty.call(fields, 'includeRentGrowth')) setIncludeRentGrowth(fields.includeRentGrowth)
+
+    const assumptionKeys = ['jurisdiction', 'ltv', 'adsRate', 'legalFees', 'mortgageFee', 'mortgageFeeAddedToLoan']
+    const assumptionPatch = Object.fromEntries(assumptionKeys
+      .filter((key) => Object.prototype.hasOwnProperty.call(fields, key))
+      .map((key) => [key, fields[key]]))
+    if (Object.keys(assumptionPatch).length) {
+      setAssumptions((current) => normalizeAcquisitionAssumptions({ ...current, ...assumptionPatch }))
+    }
+  }, [scenarioRequest?.id])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIntro(false), 3300)

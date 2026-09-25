@@ -6,7 +6,7 @@ import './LunaAssistant.css'
 const assistantMessage = (text) => ({ id: crypto.randomUUID(), role: 'assistant', text })
 const userMessage = (text) => ({ id: crypto.randomUUID(), role: 'user', text })
 
-export default function LunaAssistant({ accessToken, onPortfolioChange }) {
+export default function LunaAssistant({ accessToken, onPortfolioChange, onUiActions }) {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([
@@ -27,6 +27,7 @@ export default function LunaAssistant({ accessToken, onPortfolioChange }) {
     const result = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(result.error || 'Luna could not complete that request.')
     if (result.portfolio) onPortfolioChange?.(result.portfolio)
+    if (Array.isArray(result.uiActions) && result.uiActions.length) onUiActions?.(result.uiActions)
     return result
   }
 

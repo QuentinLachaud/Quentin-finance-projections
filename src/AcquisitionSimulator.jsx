@@ -183,6 +183,7 @@ export default function AcquisitionSimulator({
   plannerPreferences = {},
   onPlannerPreferencesChange = null,
   allowRealisticRelease = false,
+  scenarioRequest = null,
 }) {
   const [expandedId, setExpandedId] = useState('')
   const [editor, setEditor] = useState(null)
@@ -328,6 +329,7 @@ export default function AcquisitionSimulator({
       preferences={plannerPreferences}
       onPreferencesChange={onPlannerPreferencesChange}
       allowRealisticRelease={allowRealisticRelease}
+      scenarioRequest={scenarioRequest}
     />
 
     <section className="acq-library-section" aria-labelledby="acq-library-title">

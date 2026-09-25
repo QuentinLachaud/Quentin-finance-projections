@@ -50,6 +50,7 @@ import { exportTabularReport } from './reportExports.js'
 import { bufferStrokeOffset, bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
 import NotificationCenter, { NotificationBell } from './NotificationCenter.jsx'
 import LunaAssistant from './LunaAssistant.jsx'
+import { dispatchClientUiActions, LUNA_WORKSPACES } from './lunaUiActions.js'
 import { actionableNotifications, complianceDiaryItems, dismissNotification, normalizeNotificationPreferences, snoozeNotification } from './notifications.js'
 import { disablePushNotifications, enablePushNotifications, syncPushNotifications } from './notificationPush.js'
 import { mergeRemotePortfolio, serverVersionIsNewer } from './portfolioSync.js'
@@ -1353,13 +1354,16 @@ const tenantFields = [
   ['occupation', 'Occupation', 'text'], ['rentPaymentDay', 'Rent payment day', 'rent-day'], ['moveIn', 'Move-in date', 'date'], ['moveOut', 'Move-out date (optional)', 'date'], ['depositHeld', 'Deposit held', 'text'],
 ]
 
-function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
+function TenantsWorkspace({ tenants, properties, onSave, onRemove, selectionRequest = null }) {
   const [draft, setDraft] = useState(null)
   const startNew = () => setDraft(createTenant(properties[0]?.id || ''))
   const edit = (tenant) => setDraft({ ...tenant })
   const propertyName = (id) => properties.find((property) => property.id === id)?.name || 'Unknown BTL'
-  const currentTenants = tenants.filter((tenant) => !tenantTenure(tenant).archived)
-  const archivedTenants = tenants.filter((tenant) => tenantTenure(tenant).archived)
+  const visibleTenants = selectionRequest?.propertyId
+    ? tenants.filter((tenant) => String(tenant.propertyId) === selectionRequest.propertyId)
+    : tenants
+  const currentTenants = visibleTenants.filter((tenant) => !tenantTenure(tenant).archived)
+  const archivedTenants = visibleTenants.filter((tenant) => tenantTenure(tenant).archived)
   const exportTenantReport = (format) => {
     const columns = [
       { key: 'status', label: 'Status' },
@@ -1426,7 +1430,7 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove }) {
   return <div className="tenants-workspace">
     <section className="panel tenants-toolbar"><div><span className="kicker">TENANCY DIRECTORY</span><h2>Tenants linked to your BTLs</h2><p>Tenant records are private to your account. Tenure updates automatically from the move-in date.</p></div><div className="tenants-toolbar-actions"><div className={`report-export-control ${tenants.length ? '' : 'disabled'}`} aria-label="Export tenant report"><span><FileText size={14} /> Export</span><button type="button" disabled={!tenants.length} onClick={() => exportTenantReport('csv')}>CSV</button><button type="button" disabled={!tenants.length} onClick={() => exportTenantReport('xlsx')}>XLSX</button><button type="button" disabled={!tenants.length} onClick={() => exportTenantReport('pdf')}>PDF</button></div><button className="primary-button" onClick={startNew} disabled={!properties.length}><Plus size={16} /> Add tenant</button></div></section>
     {!properties.length && <section className="panel tenants-empty"><Users /><h2>Add a property first</h2><p>Every tenant must be linked to a BTL, so orphaned tenant records cannot be created.</p></section>}
-    {properties.length > 0 && tenants.length === 0 && <section className="panel tenants-empty"><Users /><h2>No tenants yet</h2><p>Add a tenant here, or enter tenant details while creating or editing a BTL.</p><button className="secondary-button" onClick={startNew}><Plus size={16} /> Add your first tenant</button></section>}
+    {properties.length > 0 && visibleTenants.length === 0 && <section className="panel tenants-empty"><Users /><h2>No tenants yet</h2><p>Add a tenant here, or enter tenant details while creating or editing a BTL.</p><button className="secondary-button" onClick={startNew}><Plus size={16} /> Add your first tenant</button></section>}
     <section className="tenant-grid">{currentTenants.map(tenantCard)}</section>
     {archivedTenants.length > 0 && <details className="panel archived-tenants"><summary><span><b>Archived tenants</b><small>{archivedTenants.length} historical {archivedTenants.length === 1 ? 'record' : 'records'}</small></span><ChevronDown size={18} /></summary><section className="tenant-grid">{archivedTenants.map(tenantCard)}</section></details>}
     {draft && <div className="tenant-editor-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDraft(null)}><form className="panel tenant-editor" onSubmit={submit}><header><div><span className="kicker">TENANT RECORD</span><h2>{tenants.some((tenant) => tenant.id === draft.id) ? 'Edit tenant' : 'Add tenant'}</h2></div><button type="button" className="icon-button" onClick={() => setDraft(null)} aria-label="Close tenant editor"><X /></button></header><label className="tenant-property-field"><span>Linked BTL <b>Required</b></span><select required value={draft.propertyId} onChange={(event) => setDraft((current) => ({ ...current, propertyId: event.target.value }))}><option value="" disabled>Select a property</option>{properties.map((property) => <option value={property.id} key={property.id}>{property.name} — {formatPropertyAddress(property.flatNumber, property.address) || property.postcode || 'Address not set'}</option>)}</select></label><div className="tenant-form-grid">{tenantFields.map(([key, label, type]) => <label key={key}><span>{label}{type === 'rent-day' && <b>Required</b>}</span>{type === 'rent-day' ? <select required value={draft[key] ?? ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: Number(event.target.value) }))}><option value="" disabled>Select day</option>{tenantRentPaymentDays.map((day) => <option key={day} value={day}>{day}</option>)}</select> : <BrainDrainNumericInput type={type} value={draft[key] || ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} />}</label>)}</div><footer><button type="button" className="secondary-button" onClick={() => setDraft(null)}>Cancel</button><button className="primary-button"><Check size={16} /> Save tenant</button></footer></form></div>}
@@ -1608,6 +1612,8 @@ function PortfolioApp({ user, accessToken }) {
   const [modelInputsPopupOpen, setModelInputsPopupOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(() => new URLSearchParams(window.location.search).get('notifications') === '1')
+  const [lunaPropertySelection, setLunaPropertySelection] = useState(null)
+  const [lunaAcquisitionRequest, setLunaAcquisitionRequest] = useState(null)
   const [pushStatus, setPushStatus] = useState('idle')
   const [privateIncomePromptOpen, setPrivateIncomePromptOpen] = useState(false)
   const prankEligible = normalizedEmail(user.email) === PRANK_TARGET_EMAIL
@@ -1649,6 +1655,16 @@ function PortfolioApp({ user, accessToken }) {
   useEffect(() => {
     window.localStorage.setItem(sectionStorageKey, section)
   }, [section, sectionStorageKey])
+
+  useEffect(() => {
+    if (section !== 'Acquisition Simulator') setLunaAcquisitionRequest(null)
+  }, [section])
+
+  useEffect(() => {
+    if (lunaPropertySelection && LUNA_WORKSPACES[lunaPropertySelection.workspace] !== section) {
+      setLunaPropertySelection(null)
+    }
+  }, [section, lunaPropertySelection])
 
   useEffect(() => {
     if (state?.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(section)) setSection('Overview')
@@ -2082,6 +2098,44 @@ function PortfolioApp({ user, accessToken }) {
     setMobileNavOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+  const handleLunaUiActions = (actions) => dispatchClientUiActions(actions, {
+    properties: state.properties,
+    accountType: state.settings.accountType,
+  }, {
+    navigateWorkspace: (workspace) => {
+      setLunaPropertySelection(null)
+      setLunaAcquisitionRequest(null)
+      if (workspace === 'settings') setSettingsOpen(true)
+      else {
+        setSettingsOpen(false)
+        setSection(LUNA_WORKSPACES[workspace])
+      }
+      setMobileNavOpen(false)
+      window.scrollTo?.({ top: 0, behavior: 'smooth' })
+    },
+    openEntity: ({ workspace, entityId }) => {
+      const property = state.properties.find((candidate) => String(candidate.id) === entityId)
+      if (!property) return
+      const request = { workspace, propertyId: entityId, id: crypto.randomUUID() }
+      setLunaPropertySelection(request)
+      if (workspace === 'properties') {
+        setSearch(property.name || property.address || property.postcode || '')
+        setMobilePropertyId(property.id)
+        setPropertyWorkspaceView('compare')
+      }
+    },
+    runSimulation: (simulator, fields) => {
+      if (simulator !== 'acquisition' || !fields) return
+      setLunaAcquisitionRequest({ id: crypto.randomUUID(), fields })
+    },
+  })
+
+  const lunaSelectionFor = (workspace) => lunaPropertySelection?.workspace === workspace
+    ? lunaPropertySelection
+    : null
+  const complianceProperties = lunaSelectionFor('compliance')
+    ? includedCalculated.filter((property) => String(property.id) === lunaPropertySelection.propertyId)
+    : includedCalculated
 
   return (
     <div className="app-shell" onFocusCapture={(event) => { if (shouldSelectZeroInput(event.target)) event.target.select() }}>
@@ -2505,19 +2559,20 @@ function PortfolioApp({ user, accessToken }) {
             onTimelineEventDelete={removePropertyTimelineEvent}
             onAssumptionChange={updateSetting}
             onOpenExpenses={() => setSection('Documents & Expenses')}
+            selectionRequest={lunaSelectionFor('performance')}
           />}
 
           {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onPropertyCommit={commitPropertyTimelineField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
 
-          {section === 'Documents & Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} contractors={state.contractors || []} contractorTags={state.contractorTags || []} accountType={state.settings.accountType} companyName={state.settings.companyName} captureRequest={documentCaptureRequest} onCaptureRequestConsumed={() => setDocumentCaptureRequest(null)} onChange={updateExpenses} />}
+          {section === 'Documents & Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} contractors={state.contractors || []} contractorTags={state.contractorTags || []} accountType={state.settings.accountType} companyName={state.settings.companyName} captureRequest={documentCaptureRequest} onCaptureRequestConsumed={() => setDocumentCaptureRequest(null)} onChange={updateExpenses} selectionRequest={lunaSelectionFor('expenses')} />}
 
           {section === 'IDs & Credentials' && <CredentialsWorkspace credentials={state.credentials || []} onChange={updateCredentials} />}
 
-          {section === 'Loans' && <LoansWorkspace loans={state.loans || []} properties={calculated} onSave={saveLoan} onDelete={removeLoan} />}
+          {section === 'Loans' && <LoansWorkspace loans={state.loans || []} properties={calculated} onSave={saveLoan} onDelete={removeLoan} selectionRequest={lunaSelectionFor('loans')} />}
 
-          {section === 'Tenants' && <TenantsWorkspace tenants={includedTenants} properties={includedProperties} onSave={saveTenant} onRemove={removeTenant} />}
+          {section === 'Tenants' && <TenantsWorkspace tenants={includedTenants} properties={includedProperties} onSave={saveTenant} onRemove={removeTenant} selectionRequest={lunaSelectionFor('tenants')} />}
 
-          {section === 'Contractors' && <ContractorsWorkspace contractors={state.contractors || []} contractorTags={state.contractorTags || []} properties={state.properties || []} documents={state.expenses || []} onSave={saveContractor} onDelete={removeContractor} onTagsChange={updateContractorTags} onOpenDocuments={(request) => { setDocumentCaptureRequest({ ...request, nonce: Date.now() }); setSection('Documents & Expenses') }} />}
+          {section === 'Contractors' && <ContractorsWorkspace contractors={state.contractors || []} contractorTags={state.contractorTags || []} properties={state.properties || []} documents={state.expenses || []} onSave={saveContractor} onDelete={removeContractor} onTagsChange={updateContractorTags} onOpenDocuments={(request) => { setDocumentCaptureRequest({ ...request, nonce: Date.now() }); setSection('Documents & Expenses') }} selectionRequest={lunaSelectionFor('contractors')} />}
 
           {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
 
@@ -2552,6 +2607,7 @@ function PortfolioApp({ user, accessToken }) {
             plannerPreferences={state.nextBtlPreferences}
             onPlannerPreferencesChange={updateNextBtlPreferences}
             allowRealisticRelease={effectiveEntitlement.isOwner}
+            scenarioRequest={lunaAcquisitionRequest}
           />}
 
           {section === 'Remortgage Simulator' && <RemortgageSimulator
@@ -2560,9 +2616,10 @@ function PortfolioApp({ user, accessToken }) {
             onChange={updateRemortgageComparisons}
             isPro={effectiveEntitlement.isPro}
             onUpgrade={() => setUpgradeOpen(true)}
+            selectionRequest={lunaSelectionFor('remortgage')}
           />}
 
-          {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{complianceDiaryItems(includedCalculated).map((item, index) => <div key={item.key}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.propertyName}</small></p><time>{shortDate(calendarDate(item.displayDate))}</time></div>)}</div></section>}
+          {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{complianceDiaryItems(complianceProperties).map((item, index) => <div key={item.key}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.propertyName}</small></p><time>{shortDate(calendarDate(item.displayDate))}</time></div>)}</div></section>}
 
           {section === 'Companies House' && state.settings.accountType !== 'private' && <CompaniesHouseWorkspace settings={state.settings} onSettingChange={updateSetting} />}
         </div>
@@ -2571,6 +2628,7 @@ function PortfolioApp({ user, accessToken }) {
       <LunaAssistant
         accessToken={accessToken}
         onPortfolioChange={(portfolio) => setState((current) => mergeRemotePortfolio(current, portfolio))}
+        onUiActions={handleLunaUiActions}
       />
 
       <nav className="mobile-bottom-nav" aria-label="Mobile workspace navigation">

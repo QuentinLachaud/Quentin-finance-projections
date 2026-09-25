@@ -726,6 +726,7 @@ export default function RemortgageSimulator({
   onChange,
   isPro = false,
   onUpgrade,
+  selectionRequest = null,
 }) {
   const [sourceId, setSourceId] = useState(properties[0]?.id || 'manual')
   const [expandedIds, setExpandedIds] = useState(() => new Set())
@@ -734,6 +735,11 @@ export default function RemortgageSimulator({
   const [dragState, setDragState] = useState(null)
   const comparisonNodes = useRef(new Map())
   const selectedSource = properties.some((property) => property.id === sourceId) ? sourceId : 'manual'
+
+  useEffect(() => {
+    const propertyId = selectionRequest?.propertyId
+    if (propertyId && properties.some((property) => String(property.id) === propertyId)) setSourceId(propertyId)
+  }, [selectionRequest?.id, selectionRequest?.propertyId, properties])
 
   const propertiesById = useMemo(
     () => new Map(properties.map((property) => [property.id, property])),
