@@ -68,6 +68,49 @@ const savePortfolio = async (env, authorization, userId, portfolio) => {
 }
 
 const OPENAI_ROOT = 'https://api.openai.com/v1'
+const OPENAI_RUNTIME_DIAGNOSIS = {
+  missingKey: 'missing_openai_key',
+  ready: 'runtime_ready',
+}
+const OPENAI_FAILURE_CODES = {
+  authentication: 'openai_authentication_failure',
+  model: 'openai_model_failure',
+  rateLimit: 'openai_rate_limited',
+  network: 'openai_network_failure',
+  upstream: 'openai_upstream_failure',
+  api: 'openai_api_failure',
+}
+
+const sanitizedOpenAIError = (code, status) => {
+  const error = new Error('Luna could not complete this request.')
+  error.code = code
+  error.status = status
+  return error
+}
+
+const classifyOpenAIResponseError = async (response) => {
+  if (response.status === 401 || response.status === 403) {
+    return sanitizedOpenAIError(OPENAI_FAILURE_CODES.authentication, response.status)
+  }
+  if (response.status === 429) {
+    return sanitizedOpenAIError(OPENAI_FAILURE_CODES.rateLimit, response.status)
+  }
+  if (response.status >= 500) {
+    return sanitizedOpenAIError(OPENAI_FAILURE_CODES.upstream, response.status)
+  }
+  if (response.status === 404) {
+    return sanitizedOpenAIError(OPENAI_FAILURE_CODES.model, response.status)
+  }
+
+  const payload = await response.json().catch(() => ({}))
+  const upstreamError = payload?.error && typeof payload.error === 'object' ? payload.error : {}
+  const upstreamCode = String(upstreamError.code || '').toLowerCase()
+  const upstreamParam = String(upstreamError.param || '').toLowerCase()
+  if (upstreamParam === 'model' || ['invalid_model', 'model_not_found', 'unsupported_model'].includes(upstreamCode)) {
+    return sanitizedOpenAIError(OPENAI_FAILURE_CODES.model, response.status)
+  }
+  return sanitizedOpenAIError(OPENAI_FAILURE_CODES.api, response.status)
+}
 
 const portfolioTool = {
   type: 'function',
@@ -156,29 +199,39 @@ const openAIResponse = async (env, input) => {
     const error = new Error('Luna is not configured yet. Add OPENAI_API_KEY to the server environment.')
     error.status = 503
     error.code = 'not_configured'
+    error.diagnosis = OPENAI_RUNTIME_DIAGNOSIS.missingKey
     throw error
   }
   const root = String(env.OPENAI_BASE_URL || OPENAI_ROOT).replace(/\/$/, '')
-  const response = await fetch(`${root}/responses`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${env.OPENAI_API_KEY}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: env.OPENAI_MODEL || 'gpt-6-luna',
-      instructions,
-      input,
-      tools: [portfolioTool, uiActionTool],
-      tool_choice: 'auto',
-      parallel_tool_calls: false,
-      reasoning: { effort: 'none' },
-      max_output_tokens: 800,
-      store: false,
-    }),
-  })
-  if (!response.ok) return apiError(response, 'Luna could not complete this request.')
-  return response.json()
+  let response
+  try {
+    response = await fetch(`${root}/responses`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: env.OPENAI_MODEL || 'gpt-6-luna',
+        instructions,
+        input,
+        tools: [portfolioTool, uiActionTool],
+        tool_choice: 'auto',
+        parallel_tool_calls: false,
+        reasoning: { effort: 'none' },
+        max_output_tokens: 800,
+        store: false,
+      }),
+    })
+  } catch {
+    throw sanitizedOpenAIError(OPENAI_FAILURE_CODES.network, 503)
+  }
+  if (!response.ok) throw await classifyOpenAIResponseError(response)
+  try {
+    return await response.json()
+  } catch {
+    throw sanitizedOpenAIError(OPENAI_FAILURE_CODES.api, 502)
+  }
 }
 
 const responseText = (response) => {
@@ -219,6 +272,7 @@ export async function onRequestGet({ request, env }) {
         apiKeyPresent: Boolean(env.OPENAI_API_KEY),
         modelPresent: Boolean(env.OPENAI_MODEL),
         baseUrlPresent: Boolean(env.OPENAI_BASE_URL),
+        diagnosis: env.OPENAI_API_KEY ? OPENAI_RUNTIME_DIAGNOSIS.ready : OPENAI_RUNTIME_DIAGNOSIS.missingKey,
       },
     },
   })
@@ -300,7 +354,7 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'Luna reached the action limit for one request. Split the request into smaller steps.' }, 409)
   } catch (error) {
     return json(
-      { error: error.message || 'Luna is temporarily unavailable.', code: error.code },
+      { error: error.message || 'Luna is temporarily unavailable.', code: error.code, diagnosis: error.diagnosis },
       error.status >= 400 && error.status < 600 ? error.status : 500,
     )
   }
