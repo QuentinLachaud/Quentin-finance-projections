@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
-const fixedLayout = styles.slice(styles.indexOf('/* Document viewer fixed grid placement */'))
+const fixedLayoutStart = styles.indexOf('/* Document viewer fixed grid placement */')
+const fixedLayoutEnd = styles.indexOf('/* Mobile document viewer repair', fixedLayoutStart)
+const fixedLayout = styles.slice(fixedLayoutStart, fixedLayoutEnd)
 
 describe('document viewer layout regression', () => {
   it('pins desktop viewer chrome and preview to stable rows when rename is closed', () => {

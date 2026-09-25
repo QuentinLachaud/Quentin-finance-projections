@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Check, Sparkles, X } from 'lucide-react'
+import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
 import './LunaAssistant.css'
 
 const assistantMessage = (text) => ({ id: crypto.randomUUID(), role: 'assistant', text })
@@ -82,7 +83,7 @@ export default function LunaAssistant({ accessToken, onPortfolioChange }) {
       <button type="button" className="secondary-button" onClick={() => setPending(null)} disabled={working}>Cancel</button>
     </div>}
     <form className="luna-input" onSubmit={submit}>
-      <input
+      <BrainDrainNumericInput
         value={input}
         onChange={(event) => setInput(event.target.value)}
         placeholder="e.g. Add a £240 repair to BTL1 today"

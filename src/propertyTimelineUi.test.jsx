@@ -1,13 +1,16 @@
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import PropertyTimeline, { TimelineEventEditor } from './PropertyTimeline.jsx'
 
 const property = { id: 'btl-1', name: 'BTL1', postcode: 'G1 1AA', purchaseDate: '2025-02-28', purchasePrice: 235000, gasExpiry: '2026-09-20', latestRemortgage: '2025-02-28', fixedRateMonths: 24 }
 const contractors = [{ id: 'c1', name: 'Sam Smith', companyName: 'Smith Gas' }]
 
 describe('PropertyTimeline UI', () => {
+  afterEach(() => vi.useRealTimers())
+
   it('renders a compact property selector, upcoming obligations, filters, history and useful actions', () => {
+    vi.setSystemTime(new Date('2026-09-05T12:00:00Z'))
     const html = renderToStaticMarkup(<PropertyTimeline
       property={property}
       properties={[property, { id: 'btl-2', name: 'BTL2', postcode: 'G2 2AA' }]}

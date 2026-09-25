@@ -68,6 +68,44 @@ describe('appearance settings integration', () => {
     }
   })
 
+  it('bridges the selected dark palette into shared workspace design tokens', () => {
+    for (const alias of [
+      '--accent: var(--ui-accent)',
+      '--page: var(--theme-canvas)',
+      '--panel: var(--theme-surface)',
+      '--surface: var(--theme-surface-subtle)',
+      '--border: var(--ui-line)',
+      '--ui-bg: var(--theme-canvas)',
+      '--ui-border: var(--ui-line)',
+      '--text: var(--ui-text)',
+    ]) {
+      expect(themeSource).toContain(alias)
+    }
+
+    expect(themeSource).toContain(":root[data-theme='dark'][data-accent]")
+    expect(themeSource).toMatch(/--theme-canvas:\s*color-mix\(in srgb, var\(--theme-accent-strong\)/)
+    expect(themeSource).toContain('--ui-accent: var(--theme-accent-light)')
+  })
+
+  it('propagates dark palette accents to legacy main-content controls and charts', () => {
+    for (const selector of [
+      '.mobile-bottom-nav button.active',
+      '.property-view-mode > span.active',
+      '.next-btl-segmented button.active',
+      '.timeline-filter-chips button.active',
+      '.bank-account.selected',
+      '.bank-balance-line',
+      '.performance-series.primary',
+      '.metric-card.green',
+      '.property-view-choice.active',
+    ]) {
+      expect(themeSource).toContain(selector)
+    }
+
+    expect(themeSource).toContain('stroke: var(--ui-accent)')
+    expect(themeSource).toContain('background: var(--theme-accent-soft)')
+  })
+
   it('keeps financial sign colours semantic and independent from accent hue', () => {
     expect(themeSource).toContain('--semantic-positive: #27795c')
     expect(themeSource).toContain('--semantic-negative: #b54b41')

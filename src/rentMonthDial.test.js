@@ -21,9 +21,9 @@ describe('Overview rent month dial integration', () => {
     expect(dial).toContain('strokeDashoffset={-(group.dueDay - 1)}')
     expect(dial).toContain('transform="rotate(-90 60 60)"')
     expect(dial).toContain('handAngle')
-    expect(dial).toContain('rent-month-dial-hand')
-    expect(styles).toContain('.rent-month-dial-band')
-    expect(styles).toContain('var(--positive')
+    expect(dial).toContain('rent-schedule-hand')
+    expect(styles).toContain('.rent-schedule-band')
+    expect(styles).toContain('var(--semantic-positive')
   })
 
   it('exposes tenant rent payment day as a required 1-31 control', () => {

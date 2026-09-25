@@ -66,7 +66,8 @@ describe('mobile Loans card hierarchy', () => {
   it('matches Properties hierarchy: rounded intro panel followed by separate loan cards', () => {
     const marker = styles.indexOf('/* Brain Drain 2026-09-04 13:23 BST — iOS-style mobile loan cards */')
     expect(marker).toBeGreaterThanOrEqual(0)
-    const block = styles.slice(marker)
+    const nextSection = styles.indexOf('/* Brain Drain 2026-09-04 14:08 BST', marker)
+    const block = styles.slice(marker, nextSection)
 
     const workspaceStart = block.indexOf('.loans-workspace {')
     const toolbarStart = block.indexOf('.loans-toolbar {')

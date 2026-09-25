@@ -126,34 +126,58 @@
 
 /* ---------- Derived dark environment ---------- */
 :root[data-theme='dark'][data-accent] {
-  --theme-canvas: color-mix(in srgb, var(--theme-accent-strong) 6%, #111613);
-  --theme-surface: color-mix(in srgb, var(--theme-accent-strong) 5%, #161d19);
-  --theme-surface-subtle: color-mix(in srgb, var(--theme-accent-strong) 7%, #1a231e);
-  --theme-surface-muted: color-mix(in srgb, var(--theme-accent-strong) 9%, #202923);
-  --theme-line: color-mix(in srgb, var(--theme-accent-light) 12%, #303b35);
-  --theme-line-strong: color-mix(in srgb, var(--theme-accent-light) 18%, #3d4a43);
+  /* Graphite bases keep the dark hierarchy neutral. The selected hue is then
+     introduced deliberately instead of inheriting the old forest-green cast. */
+  --theme-canvas: color-mix(in srgb, var(--theme-accent-strong) 5%, #101215);
+  --theme-surface: color-mix(in srgb, var(--theme-accent-strong) 5%, #17191c);
+  --theme-surface-subtle: color-mix(in srgb, var(--theme-accent-strong) 7%, #1c1f23);
+  --theme-surface-muted: color-mix(in srgb, var(--theme-accent-strong) 9%, #23272c);
+  --theme-line: color-mix(in srgb, var(--theme-accent-light) 12%, #30353b);
+  --theme-line-strong: color-mix(in srgb, var(--theme-accent-light) 18%, #3d444b);
 
-  --theme-sidebar: color-mix(in srgb, var(--theme-accent-strong) 12%, #0d1210);
-  --theme-sidebar-surface: color-mix(in srgb, var(--theme-accent-strong) 16%, #141b18);
-  --theme-sidebar-hover: color-mix(in srgb, var(--theme-accent-strong) 21%, #19211d);
-  --theme-sidebar-active: color-mix(in srgb, var(--theme-accent-strong) 28%, #202b26);
-  --theme-sidebar-line: color-mix(in srgb, var(--theme-accent-light) 15%, #29342f);
+  --theme-sidebar: color-mix(in srgb, var(--theme-accent-strong) 12%, #0d0f12);
+  --theme-sidebar-surface: color-mix(in srgb, var(--theme-accent-strong) 16%, #15181b);
+  --theme-sidebar-hover: color-mix(in srgb, var(--theme-accent-strong) 21%, #1a1d21);
+  --theme-sidebar-active: color-mix(in srgb, var(--theme-accent-strong) 28%, #20252a);
+  --theme-sidebar-line: color-mix(in srgb, var(--theme-accent-light) 15%, #2a3036);
 
-  --theme-accent-soft: color-mix(in srgb, var(--theme-accent-strong) 19%, #161d19);
-  --theme-accent-soft-strong: color-mix(in srgb, var(--theme-accent-strong) 27%, #161d19);
-  --theme-accent-border: color-mix(in srgb, var(--theme-accent-light) 34%, #303b35);
+  --theme-accent-soft: color-mix(in srgb, var(--theme-accent-strong) 19%, #17191c);
+  --theme-accent-soft-strong: color-mix(in srgb, var(--theme-accent-strong) 27%, #17191c);
+  --theme-accent-border: color-mix(in srgb, var(--theme-accent-light) 34%, #30353b);
   --theme-accent-focus: color-mix(in srgb, var(--theme-accent-light) 30%, transparent);
 
-  --theme-bar-strong: color-mix(in srgb, var(--theme-accent-light) 46%, #17251f);
-  --theme-bar-mid: color-mix(in srgb, var(--theme-accent-light) 72%, #315143);
-  --theme-bar-soft: color-mix(in srgb, var(--theme-accent-strong) 28%, #25302b);
-  --theme-bar-track: color-mix(in srgb, var(--theme-accent-strong) 13%, #26302c);
+  --theme-bar-strong: color-mix(in srgb, var(--theme-accent-light) 46%, #1a2025);
+  --theme-bar-mid: color-mix(in srgb, var(--theme-accent-light) 72%, #37434c);
+  --theme-bar-soft: color-mix(in srgb, var(--theme-accent-strong) 28%, #282d33);
+  --theme-bar-track: color-mix(in srgb, var(--theme-accent-strong) 13%, #292e34);
 
   --theme-shadow: 0 1px 2px rgba(0, 0, 0, .15), 0 10px 32px rgba(0, 0, 0, .16);
 
   --ui-accent: var(--theme-accent-light);
   --ui-accent-soft: var(--theme-accent-soft);
   --ui-focus: var(--theme-accent-focus);
+  --ui-shadow: var(--theme-shadow);
+
+  /* Compatibility tokens used by newer workspaces. Keeping these aliases at
+     the root lets Documents, Banking, Performance and account controls inherit
+     the same palette without component-by-component colour overrides. */
+  --accent: var(--ui-accent);
+  --page: var(--theme-canvas);
+  --panel: var(--theme-surface);
+  --surface: var(--theme-surface-subtle);
+  --surface-soft: var(--theme-surface-muted);
+  --border: var(--ui-line);
+  --ui-bg: var(--theme-canvas);
+  --ui-border: var(--ui-line);
+  --ui-surface-soft: var(--theme-surface-muted);
+  --text: var(--ui-text);
+  --text-muted: var(--ui-muted);
+  --positive: var(--semantic-positive);
+  --negative: var(--semantic-negative);
+  --ui-positive: var(--semantic-positive);
+  --ui-negative: var(--semantic-negative);
+  --ui-warning: var(--semantic-warning);
+  --ui-danger: var(--semantic-danger);
 
   --green: var(--semantic-positive);
   --green-light: var(--semantic-positive-soft);
@@ -490,6 +514,222 @@
 
 :root[data-accent] .equity-bar i {
   background: var(--theme-accent-strong);
+}
+
+/* ---------- Dark application-wide propagation ----------
+   These selectors bridge older dark-mode rules that pre-date the palette
+   tokens. They deliberately cover structural/product UI only; status and
+   financial meaning continue to use the semantic contract below. */
+:root[data-theme='dark'][data-accent] .global-model-strip,
+:root[data-theme='dark'][data-accent] .cashflow-editor,
+:root[data-theme='dark'][data-accent] .property-cost-card,
+:root[data-theme='dark'][data-accent] .secondary-button,
+:root[data-theme='dark'][data-accent] .theme-toggle,
+:root[data-theme='dark'][data-accent] .billing-features,
+:root[data-theme='dark'][data-accent] .ch-profile-grid > div,
+:root[data-theme='dark'][data-accent] .bank-toolbar,
+:root[data-theme='dark'][data-accent] .projection-table-wrap,
+:root[data-theme='dark'][data-accent] .credential-value-input,
+:root[data-theme='dark'][data-accent] .remortgage-summary-main,
+:root[data-theme='dark'][data-accent] .remortgage-comparison-name,
+:root[data-theme='dark'][data-accent] .remortgage-scenario-card,
+:root[data-theme='dark'][data-accent] .remortgage-impact,
+:root[data-theme='dark'][data-accent] .mobile-remortgage-modal,
+:root[data-theme='dark'][data-accent] .mobile-remortgage-details,
+:root[data-theme='dark'][data-accent] .mobile-remortgage-derived,
+:root[data-theme='dark'][data-accent] .expense-mobile-card,
+:root[data-theme='dark'][data-accent] .expense-modal > footer,
+:root[data-theme='dark'][data-accent] .report-export-control,
+:root[data-theme='dark'][data-accent] .expense-transfer-sheet,
+:root[data-theme='dark'][data-accent] .expense-transfer-export button,
+:root[data-theme='dark'][data-accent] .account-income-modal {
+  color: var(--ui-text);
+  border-color: var(--ui-line);
+  background: var(--theme-surface);
+}
+
+:root[data-theme='dark'][data-accent] .metric-card.green,
+:root[data-theme='dark'][data-accent] .add-property-card,
+:root[data-theme='dark'][data-accent] .private-tax-inputs,
+:root[data-theme='dark'][data-accent] .private-tax-summary,
+:root[data-theme='dark'][data-accent] .expense-modal-required {
+  border-color: var(--theme-accent-border);
+  background: var(--theme-accent-soft);
+}
+
+:root[data-theme='dark'][data-accent] .add-property-card {
+  color: var(--ui-accent);
+}
+
+:root[data-theme='dark'][data-accent] .property-map,
+:root[data-theme='dark'][data-accent] .projection-chart-wrap,
+:root[data-theme='dark'][data-accent] .bar-chart,
+:root[data-theme='dark'][data-accent] .cashflow-reconciliation,
+:root[data-theme='dark'][data-accent] .expenses-table th,
+:root[data-theme='dark'][data-accent] .expense-mobile-fields,
+:root[data-theme='dark'][data-accent] .overview-cashflow-selector,
+:root[data-theme='dark'][data-accent] .property-view-mode,
+:root[data-theme='dark'][data-accent] .overview-scenario-toggle,
+:root[data-theme='dark'][data-accent] .mobile-property-segments,
+:root[data-theme='dark'][data-accent] .mobile-property-switcher,
+:root[data-theme='dark'][data-accent] .property-group-panel .mobile-property-group-list,
+:root[data-theme='dark'][data-accent] .remortgage-summary-difference,
+:root[data-theme='dark'][data-accent] .remortgage-difference-card,
+:root[data-theme='dark'][data-accent] .remortgage-summary-chevron,
+:root[data-theme='dark'][data-accent] .remortgage-arrow svg,
+:root[data-theme='dark'][data-accent] .remortgage-segmented,
+:root[data-theme='dark'][data-accent] .account-mode-switch,
+:root[data-theme='dark'][data-accent] .account-income-money {
+  border-color: var(--ui-line);
+  background: var(--theme-surface-subtle);
+}
+
+:root[data-theme='dark'][data-accent] .data-table th,
+:root[data-theme='dark'][data-accent] .data-table td,
+:root[data-theme='dark'][data-accent] .projection-table th,
+:root[data-theme='dark'][data-accent] .projection-table td,
+:root[data-theme='dark'][data-accent] .reconciliation-wrap th,
+:root[data-theme='dark'][data-accent] .reconciliation-wrap td {
+  border-color: var(--ui-line);
+  background: var(--theme-surface);
+}
+
+:root[data-theme='dark'][data-accent] .money-input,
+:root[data-theme='dark'][data-accent] .table-tools > label,
+:root[data-theme='dark'][data-accent] .private-income-field,
+:root[data-theme='dark'][data-accent] .tax-jurisdiction > div,
+:root[data-theme='dark'][data-accent] .form-grid input,
+:root[data-theme='dark'][data-accent] .assumptions-grid input,
+:root[data-theme='dark'][data-accent] .cashflow-line > label > input,
+:root[data-theme='dark'][data-accent] .cashflow-line > label > select,
+:root[data-theme='dark'][data-accent] .tenant-editor input,
+:root[data-theme='dark'][data-accent] .tenant-editor select,
+:root[data-theme='dark'][data-accent] .setup-company-name input,
+:root[data-theme='dark'][data-accent] .expenses-filter-panel input,
+:root[data-theme='dark'][data-accent] .expenses-filter-panel select,
+:root[data-theme='dark'][data-accent] .expenses-search,
+:root[data-theme='dark'][data-accent] .remortgage-field > div,
+:root[data-theme='dark'][data-accent] .remortgage-add select,
+:root[data-theme='dark'][data-accent] .expense-modal input,
+:root[data-theme='dark'][data-accent] .expense-modal textarea,
+:root[data-theme='dark'][data-accent] .expense-mobile-fields input,
+:root[data-theme='dark'][data-accent] .expense-modal-money {
+  color: var(--ui-text);
+  border-color: var(--ui-line-strong);
+  background-color: var(--theme-surface-subtle);
+}
+
+:root[data-theme='dark'][data-accent] .private-tax-inputs > header,
+:root[data-theme='dark'][data-accent] .property-view-mode > span.active,
+:root[data-theme='dark'][data-accent] .mobile-bottom-nav button.active,
+:root[data-theme='dark'][data-accent] .setup-account-types > button.active,
+:root[data-theme='dark'][data-accent] .next-btl-segmented button.active,
+:root[data-theme='dark'][data-accent] .next-btl-source-segmented button.active,
+:root[data-theme='dark'][data-accent] .overview-scenario-toggle button.active,
+:root[data-theme='dark'][data-accent] .mobile-property-segments button.active,
+:root[data-theme='dark'][data-accent] .mobile-property-edit,
+:root[data-theme='dark'][data-accent] .asset-mobile-chevron,
+:root[data-theme='dark'][data-accent] .mobile-expand-cue,
+:root[data-theme='dark'][data-accent] .property-mobile-disclosure,
+:root[data-theme='dark'][data-accent] .overview-property-card .property-card-edit,
+:root[data-theme='dark'][data-accent] .remortgage-reorder-handle:hover,
+:root[data-theme='dark'][data-accent] .remortgage-reorder-handle:focus-visible,
+:root[data-theme='dark'][data-accent] .remortgage-comparison.is-dragging .remortgage-reorder-handle,
+:root[data-theme='dark'][data-accent] .timeline-property-switcher button.active b,
+:root[data-theme='dark'][data-accent] .timeline-filter-chips button.active,
+:root[data-theme='dark'][data-accent] .timeline-section-heading > div,
+:root[data-theme='dark'][data-accent] .timeline-upcoming-item:not(.compliance) .timeline-upcoming-icon,
+:root[data-theme='dark'][data-accent] .timeline-kind.finance,
+:root[data-theme='dark'][data-accent] .timeline-event-actions button {
+  color: var(--ui-accent);
+}
+
+:root[data-theme='dark'][data-accent] .mobile-bottom-nav button.active,
+:root[data-theme='dark'][data-accent] .overview-cashflow-selector button.desktop-active,
+:root[data-theme='dark'][data-accent] .overview-cashflow-selector button.mobile-active,
+:root[data-theme='dark'][data-accent] .account-mode-switch button.active,
+:root[data-theme='dark'][data-accent] .setup-account-types > button.active,
+:root[data-theme='dark'][data-accent] .next-btl-segmented button.active,
+:root[data-theme='dark'][data-accent] .next-btl-source-segmented button.active,
+:root[data-theme='dark'][data-accent] .overview-scenario-toggle button.active,
+:root[data-theme='dark'][data-accent] .mobile-property-segments button.active,
+:root[data-theme='dark'][data-accent] .mobile-property-edit,
+:root[data-theme='dark'][data-accent] .asset-mobile-chevron,
+:root[data-theme='dark'][data-accent] .mobile-expand-cue,
+:root[data-theme='dark'][data-accent] .property-mobile-disclosure,
+:root[data-theme='dark'][data-accent] .overview-property-card .property-card-edit,
+:root[data-theme='dark'][data-accent] .remortgage-reorder-handle:hover,
+:root[data-theme='dark'][data-accent] .remortgage-reorder-handle:focus-visible,
+:root[data-theme='dark'][data-accent] .remortgage-comparison.is-dragging .remortgage-reorder-handle,
+:root[data-theme='dark'][data-accent] .timeline-property-switcher button.active,
+:root[data-theme='dark'][data-accent] .timeline-filter-chips button.active,
+:root[data-theme='dark'][data-accent] .timeline-event-marker.finance > span,
+:root[data-theme='dark'][data-accent] .timeline-upcoming-item:not(.compliance) .timeline-upcoming-icon {
+  border-color: var(--theme-accent-border);
+  background: var(--theme-accent-soft);
+}
+
+:root[data-theme='dark'][data-accent] .property-view-choice.active,
+:root[data-theme='dark'][data-accent] .mobile-remortgage-step,
+:root[data-theme='dark'][data-accent] .weighted-rate-card .rate-shock-stepper > button.increase {
+  color: var(--theme-accent-contrast);
+  border-color: var(--theme-accent-strong);
+  background: var(--theme-accent-strong);
+}
+
+:root[data-theme='dark'][data-accent] .weighted-rate-card .rate-shock-stepper > button.decrease,
+:root[data-theme='dark'][data-accent] .expense-transfer-primary,
+:root[data-theme='dark'][data-accent] .report-export-control button:hover:not(:disabled) {
+  color: var(--ui-accent);
+  border-color: var(--theme-accent-border);
+  background: var(--theme-accent-soft);
+}
+
+:root[data-theme='dark'][data-accent] .model-controls label.selected > i,
+:root[data-theme='dark'][data-accent] .property-view-switch input:checked + i,
+:root[data-theme='dark'][data-accent] .bank-review-batch input:checked + i {
+  border-color: var(--theme-accent-strong);
+  background: var(--theme-accent-strong);
+}
+
+:root[data-theme='dark'][data-accent] .private-tax-summary {
+  border-top-color: var(--theme-accent-strong);
+}
+
+:root[data-theme='dark'][data-accent] .bank-account.selected,
+:root[data-theme='dark'][data-accent] .bank-review-focus {
+  border-color: var(--theme-accent-border);
+  background: var(--theme-accent-soft);
+}
+
+:root[data-theme='dark'][data-accent] .bank-balance-area-start,
+:root[data-theme='dark'][data-accent] .bank-balance-area-end {
+  stop-color: var(--ui-accent);
+}
+
+:root[data-theme='dark'][data-accent] .bank-balance-line,
+:root[data-theme='dark'][data-accent] .performance-series.primary {
+  stroke: var(--ui-accent);
+}
+
+:root[data-theme='dark'][data-accent] .performance-series-toggles button.primary.active i,
+:root[data-theme='dark'][data-accent] .performance-switch > input:checked + span,
+:root[data-theme='dark'][data-accent] .performance-breakdown-list em:not(.negative) {
+  background: var(--ui-accent);
+}
+
+:root[data-theme='dark'][data-accent] .bank-balance-hover-dot {
+  fill: var(--theme-surface);
+  stroke: var(--ui-accent);
+}
+
+:root[data-theme='dark'][data-accent] .performance-v2-era-bands .future {
+  fill: color-mix(in srgb, var(--ui-accent) 5%, transparent);
+}
+
+:root[data-theme='dark'][data-accent] .app-status-screen {
+  color: var(--ui-text);
+  background: var(--theme-canvas);
 }
 
 /* Advanced fields are product highlights, not financial semantics. */
