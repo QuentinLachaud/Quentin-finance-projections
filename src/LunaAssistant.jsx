@@ -99,7 +99,7 @@ export default function LunaAssistant({ accessToken, userId, onPortfolioChange, 
       <div className="luna-heading"><Sparkles size={18} /><strong>Luna</strong><span>Portfolio assistant</span></div>
       <div className="luna-header-actions">
         <button type="button" className="luna-new-conversation" onClick={newConversation} aria-label="New conversation" disabled={working}><RotateCcw size={14} /><span>New</span></button>
-        <button type="button" onClick={() => setOpen(false)} aria-label="Close Luna"><X size={18} /></button>
+        <button type="button" className="luna-close" onClick={() => setOpen(false)} aria-label="Close Luna"><X size={18} /></button>
       </div>
     </header>
     <div className="luna-messages" aria-live="polite">

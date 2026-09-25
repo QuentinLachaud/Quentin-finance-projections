@@ -152,3 +152,26 @@ describe('Luna current-conversation memory', () => {
     expect(JSON.stringify(requests[2])).not.toContain('Confirm: delete BTL 1')
   })
 })
+
+describe('Luna panel structure', () => {
+  it('keeps the header, confirmation, and composer outside the message scroller', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      message: 'Confirm this change',
+      confirmation: { name: 'portfolio_action', arguments: { operation: 'property.delete', target: 'BTL 1', data: null } },
+    }), { status: 200 })))
+
+    renderLuna()
+    await click(host.querySelector('[aria-label="Ask Luna"]'))
+    type(host.querySelector('[aria-label="Ask Luna"]'), 'Delete BTL 1')
+    await click(host.querySelector('.luna-input button[type="submit"]'))
+
+    const panel = host.querySelector('.luna-panel')
+    const messages = panel.querySelector('.luna-messages')
+    expect(panel.querySelector('header').parentElement).toBe(panel)
+    expect(panel.querySelector('[aria-label="Close Luna"]').closest('header')).toBe(panel.querySelector('header'))
+    expect(panel.querySelector('.luna-confirm').parentElement).toBe(panel)
+    expect(panel.querySelector('.luna-input').parentElement).toBe(panel)
+    expect(messages.querySelector('.luna-confirm')).toBeNull()
+    expect(messages.querySelector('.luna-input')).toBeNull()
+  })
+})
