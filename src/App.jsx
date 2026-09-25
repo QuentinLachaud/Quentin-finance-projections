@@ -2626,7 +2626,9 @@ function PortfolioApp({ user, accessToken }) {
       </main>
 
       <LunaAssistant
+        key={user.id}
         accessToken={accessToken}
+        userId={user.id}
         onPortfolioChange={(portfolio) => setState((current) => mergeRemotePortfolio(current, portfolio))}
         onUiActions={handleLunaUiActions}
       />
