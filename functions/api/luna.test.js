@@ -53,6 +53,8 @@ describe('Luna conversation history sanitisation', () => {
       ['assistant', 'not an object'],
       { role: 'user', text: 'What rent is BTL 1 on?' },
       extraFields,
+      { role: 'user', text: 'Failed prompt', persist: false },
+      { role: 'assistant', text: 'Failed response', persist: false },
       { role: 'assistant', content: 'Content is also accepted.' },
     ])).toEqual([
       { role: 'user', content: 'What rent is BTL 1 on?' },
@@ -278,5 +280,42 @@ describe('Luna conversation model boundary', () => {
     ])
     expect(openAIBody.input.filter((item) => item.content === current)).toHaveLength(1)
     expect(openAIBody.store).toBe(false)
+  })
+})
+
+describe('Luna deterministic property question boundary', () => {
+  it('answers BTL1 rent from live portfolio state without relying on an OpenAI tool choice', async () => {
+    let openAICalls = 0
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      const href = String(url)
+      if (href.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'user-1' }), { status: 200 })
+      if (href.includes('/rest/v1/portfolio_states?')) {
+        return new Response(JSON.stringify([{ portfolio: {
+          properties: [{ id: 'property-1', name: 'BTL1', address: '1 Main Street', postcode: 'G1 1AA', rent: 1475, active: true }],
+          loans: [], tenants: [], settings: { accountType: 'company' },
+        } }]), { status: 200 })
+      }
+      if (href.endsWith('/responses')) {
+        openAICalls += 1
+        throw new Error('OpenAI should not be called for this deterministic question')
+      }
+      throw new Error(`Unexpected request: ${href}`)
+    }))
+
+    const response = await onRequestPost({
+      request: new Request('https://preview.example.test/api/luna', {
+        method: 'POST',
+        headers: { authorization: 'Bearer test-session-token', 'content-type': 'application/json' },
+        body: JSON.stringify({ message: 'what is rent for BTL1?' }),
+      }),
+      env: lunaEnv(),
+    })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.message).toContain('£1,475')
+    expect(body.uiActions).toEqual([])
+    expect(body.chatActions[0].label).toBe('Open BTL1')
+    expect(openAICalls).toBe(0)
   })
 })

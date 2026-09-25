@@ -151,6 +151,103 @@ describe('Luna current-conversation memory', () => {
     ])
     expect(JSON.stringify(requests[2])).not.toContain('Confirm: delete BTL 1')
   })
+
+  it('excludes a failed prompt and error from later history while keeping earlier successful context', async () => {
+    const requests = []
+    let callCount = 0
+    vi.stubGlobal('fetch', vi.fn(async (_url, options) => {
+      requests.push(JSON.parse(options.body))
+      callCount += 1
+      if (callCount === 1) return new Response(JSON.stringify({ error: 'Property not found.' }), { status: 500 })
+      return new Response(JSON.stringify({ message: 'BTL1 rent is £1,500.' }), { status: 200 })
+    }))
+    window.sessionStorage.setItem(lunaConversationStorageKey('user-a'), JSON.stringify([
+      { role: 'user', text: 'Tell me about BTL1.' },
+      { role: 'assistant', text: 'BTL1 is in your portfolio.' },
+    ]))
+
+    renderLuna()
+    await click(host.querySelector('[aria-label="Ask Luna"]'))
+    type(host.querySelector('[aria-label="Ask Luna"]'), 'What loan does Missing House have?')
+    await click(host.querySelector('.luna-input button[type="submit"]'))
+    expect(host.textContent).toContain('Property not found.')
+
+    type(host.querySelector('[aria-label="Ask Luna"]'), 'What is the rent?')
+    await click(host.querySelector('.luna-input button[type="submit"]'))
+
+    expect(requests[1].history).toEqual([
+      { role: 'user', text: 'Tell me about BTL1.' },
+      { role: 'assistant', text: 'BTL1 is in your portfolio.' },
+    ])
+    expect(JSON.stringify(requests[1])).not.toContain('Missing House')
+    expect(JSON.stringify(requests[1])).not.toContain('Property not found')
+  })
+
+  it('renders restrained assistant formatting and keeps raw HTML inert', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      message: '**Bold** and __also bold__ with *emphasis*.\n\n- First\n- Second\n\n1. One\n2. Two\n\n<script>window.pwned = true</script>',
+    }), { status: 200 })))
+
+    renderLuna()
+    await click(host.querySelector('[aria-label="Ask Luna"]'))
+    type(host.querySelector('[aria-label="Ask Luna"]'), 'Format this')
+    await click(host.querySelector('.luna-input button[type="submit"]'))
+
+    const assistant = [...host.querySelectorAll('.luna-message.assistant')].at(-1)
+    expect(assistant.querySelectorAll('strong')).toHaveLength(2)
+    expect(assistant.querySelector('em')?.textContent).toBe('emphasis')
+    expect(assistant.querySelectorAll('ul li')).toHaveLength(2)
+    expect(assistant.querySelectorAll('ol li')).toHaveLength(2)
+    expect(assistant.querySelectorAll('p').length).toBeGreaterThanOrEqual(2)
+    expect(assistant.textContent).not.toContain('**')
+    expect(assistant.textContent).not.toContain('__')
+    expect(assistant.querySelector('script')).toBeNull()
+    expect(assistant.textContent).toContain('<script>window.pwned = true</script>')
+    expect(window.pwned).toBeUndefined()
+  })
+
+  it('renders only valid action chips and dispatches their validated semantic sequence on tap', async () => {
+    const onUiActions = vi.fn()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      message: 'BTL1 rent is £1,500.',
+      chatActions: [
+        {
+          label: 'Open BTL1',
+          actions: [
+            { type: 'navigate', workspace: 'properties' },
+            { type: 'open_entity', workspace: 'properties', entityType: 'property', entityId: 'property-1' },
+          ],
+        },
+        { label: 'Run code', actions: [{ type: 'execute_javascript', code: 'alert(1)' }] },
+      ],
+    }), { status: 200 })))
+
+    renderLuna({
+      onUiActions,
+      uiActionContext: { properties: [{ id: 'property-1', name: 'BTL1' }], accountType: 'company' },
+    })
+    await click(host.querySelector('[aria-label="Ask Luna"]'))
+    type(host.querySelector('[aria-label="Ask Luna"]'), 'What is rent for BTL1?')
+    await click(host.querySelector('.luna-input button[type="submit"]'))
+
+    const chips = host.querySelectorAll('.luna-chat-action')
+    expect(chips).toHaveLength(1)
+    expect(chips[0].textContent).toContain('Open BTL1')
+    expect(chips[0].getAttribute('type')).toBe('button')
+    await click(chips[0])
+    expect(onUiActions).toHaveBeenCalledWith([
+      { type: 'navigate', workspace: 'properties' },
+      { type: 'open_entity', workspace: 'properties', entityType: 'property', entityId: 'property-1' },
+    ])
+    const stored = JSON.parse(window.sessionStorage.getItem(lunaConversationStorageKey('user-a')))
+    expect(stored.at(-1).chatActions).toEqual([{
+      label: 'Open BTL1',
+      actions: [
+        { type: 'navigate', workspace: 'properties' },
+        { type: 'open_entity', workspace: 'properties', entityType: 'property', entityId: 'property-1' },
+      ],
+    }])
+  })
 })
 
 describe('Luna panel structure', () => {

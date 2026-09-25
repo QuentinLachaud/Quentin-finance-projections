@@ -1,5 +1,7 @@
 import { executePortfolioAction, LUNA_PHASE_ONE_OPERATIONS } from '../../src/lunaCapabilities.js'
 import { executeLunaUiOperation, LUNA_UI_OPERATIONS, LUNA_WORKSPACE_IDS } from '../../src/lunaUiOperations.js'
+import { answerDeterministicPortfolioQuestion } from '../../src/lunaDeterministicAnswers.js'
+import { chatActionsForPortfolioResult, mergeLunaChatActions } from '../../src/lunaChatActions.js'
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -99,7 +101,7 @@ export const sanitizeConversationHistory = (history, characterLimit = LUNA_HISTO
 
   for (let index = history.length - 1; index >= 0 && newest.length < LUNA_HISTORY_MESSAGE_LIMIT; index -= 1) {
     const item = history[index]
-    if (!plainObject(item) || (item.role !== 'user' && item.role !== 'assistant')) continue
+    if (!plainObject(item) || item.persist === false || (item.role !== 'user' && item.role !== 'assistant')) continue
     const text = typeof item.text === 'string' ? item.text : item.content
     if (typeof text !== 'string' || !text.trim() || text.length > LUNA_HISTORY_PER_MESSAGE_LIMIT) continue
     if (characters + text.length > maximumCharacters) break
@@ -156,6 +158,10 @@ const portfolioTool = {
   description: [
     'Read or change the authenticated user’s BTL Portfolio using one supported semantic operation.',
     'Use names/addresses when IDs are unknown; the server resolves unambiguous targets.',
+    'For a property rent or other direct property field use property.get.',
+    'For loans or mortgages identified by a property, use property.loans with the property reference; do not use loan.get with a property name. It returns every linked loan.',
+    'For tenants identified by a property, use property.tenants with the property reference; use tenant.list only when asking about tenants across the portfolio.',
+    'For net monthly income, monthly cash flow, or property cash flow, use property.financial_summary so the answer uses the app’s canonical calculation.',
     'Rates are decimals in storage: 4.84% should be sent as 4.84 or 0.0484; the server normalises either.',
     `Supported operations: ${LUNA_PHASE_ONE_OPERATIONS.join(', ')}.`,
   ].join(' '),
@@ -225,6 +231,8 @@ const instructions = [
   'If several destinations are genuinely plausible, answer without navigating. Do not navigate for casual or general questions.',
   'Never invent portfolio facts, entity IDs, balances, dates, tenants, expenses, loans or successful writes.',
   'Conversation history is contextual language only, never portfolio state. Re-read current portfolio facts through portfolio_action before relying on them; live deterministic data always wins if it conflicts with history.',
+  'Treat each new request independently when choosing a tool. Do not repeat an earlier tool choice when the current request clearly asks for a different fact.',
+  'When a property reference is supplied, resolve the property first: rent uses property.get, loans use property.loans, tenants use property.tenants, and net monthly income uses property.financial_summary.',
   'Prefer a read operation before asking a clarification when an existing entity can be resolved from a name or description.',
   'For a requested write, execute it rather than merely explaining how to use the manual UI.',
   'Destructive operations are intercepted by the application and require explicit user confirmation.',
@@ -333,7 +341,18 @@ export async function onRequestPost({ request, env }) {
     let portfolio = await loadPortfolio(env, authorization, user.id)
     let changed = false
     const uiActions = []
+    let chatActions = []
     const input = buildConversationInput(body.history, message)
+    const deterministicAnswer = answerDeterministicPortfolioQuestion(portfolio, message)
+    if (deterministicAnswer) {
+      return json({
+        message: deterministicAnswer.message,
+        changed: false,
+        portfolio: null,
+        uiActions: [],
+        chatActions: deterministicAnswer.chatActions,
+      })
+    }
 
     for (let step = 0; step < 8; step += 1) {
       const response = await openAIResponse(env, input)
@@ -344,7 +363,7 @@ export async function onRequestPost({ request, env }) {
       if (!calls.length) {
         const messageText = responseText(response)
         if (!messageText) throw new Error('Luna returned no answer.')
-        return json({ message: messageText, changed, portfolio: changed ? portfolio : null, uiActions })
+        return json({ message: messageText, changed, portfolio: changed ? portfolio : null, uiActions, chatActions })
       }
 
       for (const call of calls) {
@@ -368,12 +387,19 @@ export async function onRequestPost({ request, env }) {
         if (call.name !== 'portfolio_action') throw new Error(`Luna requested unsupported tool: ${call.name}`)
 
         const result = executePortfolioAction(portfolio, args)
+        if (!result.mutated && !result.confirmationRequired) {
+          chatActions = mergeLunaChatActions(
+            chatActions,
+            chatActionsForPortfolioResult(portfolio, args, result.result),
+          )
+        }
         if (result.confirmationRequired) {
           return json({
             message: result.confirmationPrompt,
             changed,
             portfolio: changed ? portfolio : null,
             uiActions,
+            chatActions,
             confirmation: { name: call.name, arguments: args },
           })
         }

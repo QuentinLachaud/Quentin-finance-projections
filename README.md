@@ -80,7 +80,7 @@ The cron endpoint checks Europe/London time and only sends during 09:00-17:59. I
 
 ## Luna portfolio assistant
 
-BTL Portfolio includes a server-side Luna assistant at `/api/luna`. It authenticates with the signed-in Supabase session and uses the same RLS-scoped portfolio row as the manual UI. Phase one exposes 50 deterministic portfolio operations covering core BTL, tenant, expense, loan, contractor, settings, cash-flow-line and timeline CRUD.
+BTL Portfolio includes a server-side Luna assistant at `/api/luna`. It authenticates with the signed-in Supabase session and uses the same RLS-scoped portfolio row as the manual UI. Phase one exposes 53 deterministic portfolio operations covering core BTL, related loan/tenant/financial reads, expense, contractor, settings, cash-flow-line and timeline CRUD.
 
 Configure these **server-only** Cloudflare Pages variables:
 
@@ -89,4 +89,3 @@ Configure these **server-only** Cloudflare Pages variables:
 - optional `OPENAI_BASE_URL=https://api.openai.com/v1`
 
 Do not prefix the OpenAI key with `VITE_`. See `docs/luna-capability-audit.md` for the complete capability audit and rollout plan.
-

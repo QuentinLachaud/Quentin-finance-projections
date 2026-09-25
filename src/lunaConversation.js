@@ -23,7 +23,12 @@ export const boundedLunaTurns = (messages) => {
     const message = messages[index]
     if (!isSafeTurn(message)) continue
     if (characters + message.text.length > LUNA_HISTORY_CHARACTER_LIMIT) break
-    newest.push({ role: message.role, text: message.text })
+    const chatActions = message.role === 'assistant' ? safeLunaChatActions(message.chatActions) : []
+    newest.push({
+      role: message.role,
+      text: message.text,
+      ...(chatActions.length ? { chatActions } : {}),
+    })
     characters += message.text.length
   }
 
@@ -50,3 +55,4 @@ export const persistLunaTurns = (storage, userId, messages) => {
   }
   return turns
 }
+import { safeLunaChatActions } from './lunaChatActions.js'

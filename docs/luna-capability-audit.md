@@ -14,7 +14,7 @@ Phase one uses one compact semantic function tool, `portfolio_action`, with a fi
 
 Destructive operations do not execute on the first model call. The server returns a confirmation request and the UI requires a second explicit user action.
 
-## Phase 1 — implemented first 50 operations
+## Phase 1 — implemented operations
 
 ### Read / inspect
 
@@ -38,6 +38,12 @@ Destructive operations do not execute on the first model call. The server return
 18. `acquisition.list`
 19. `remortgage.list`
 20. `notification_preferences.get`
+
+Corrective property-centric reads added after the original 50-operation audit:
+
+- `property.loans` — resolves a property reference first, then returns every linked loan
+- `property.tenants` — resolves a property reference first, then returns only linked tenants
+- `property.financial_summary` — returns the existing calculated property operating-cash-flow metric and components
 
 ### Property / BTL
 

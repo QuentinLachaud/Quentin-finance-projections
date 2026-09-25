@@ -21,6 +21,9 @@ import {
   normalizeContractorTags,
 } from './contractors.js'
 import { normalizeTimelineEvent, propertyChangeEvents } from './propertyTimeline.js'
+import { calculateProperty } from './calculations.js'
+import { withPropertyLoans, summarizePropertyLoans } from './loans.js'
+import { propertyOperatingCashflow } from './portfolioFields.js'
 
 const clean = (value) => String(value ?? '').trim()
 const lower = (value) => clean(value).toLowerCase()
@@ -46,6 +49,9 @@ export const LUNA_PHASE_ONE_OPERATIONS = [
   'portfolio.summary',
   'property.list',
   'property.get',
+  'property.loans',
+  'property.tenants',
+  'property.financial_summary',
   'tenant.list',
   'tenant.get',
   'expense.list',
@@ -167,10 +173,13 @@ const exactOrUniquePartial = (items, target, fields = ['name']) => {
   const needle = lower(target)
   if (!needle) return null
   const canonicalNeedle = referenceKey(target)
-  const exact = items.find((item) => lower(item?.id) === needle
-    || fields.some((field) => lower(item?.[field]) === needle
-      || (canonicalNeedle && referenceKey(item?.[field]) === canonicalNeedle)))
-  if (exact) return exact
+  const idMatches = items.filter((item) => lower(item?.id) === needle)
+  if (idMatches.length === 1) return idMatches[0]
+  if (idMatches.length > 1) return null
+  const exact = items.filter((item) => fields.some((field) => lower(item?.[field]) === needle
+    || (canonicalNeedle && referenceKey(item?.[field]) === canonicalNeedle)))
+  if (exact.length === 1) return exact[0]
+  if (exact.length > 1) return null
   const partial = items.filter((item) => fields.some((field) => lower(item?.[field]).includes(needle)))
   return partial.length === 1 ? partial[0] : null
 }
@@ -242,6 +251,58 @@ const listSummary = (state) => ({
   accountType: state.settings?.accountType || 'company',
 })
 
+const propertyIdentity = (property) => ({
+  id: property.id,
+  name: property.name || '',
+  address: property.address || '',
+  postcode: property.postcode || '',
+})
+
+const propertyLoans = (state, property) => {
+  const summary = summarizePropertyLoans(property, state.loans, state.settings?.rateShock || 0)
+  return {
+    property: propertyIdentity(property),
+    loans: summary.loans,
+    summary: {
+      loanCount: summary.loanCount,
+      loanAmount: summary.loanAmount,
+      monthlyPayment: summary.monthlyPayment,
+      monthlyInterestCost: summary.monthlyInterestCost,
+      weightedRate: summary.weightedRate,
+      lenders: summary.lenders,
+      repaymentMode: summary.repaymentMode,
+      nextRemortgage: summary.nextRemortgage,
+    },
+  }
+}
+
+const propertyTenants = (state, property) => ({
+  property: propertyIdentity(property),
+  tenants: state.tenants.filter((tenant) => tenant.propertyId === property.id),
+})
+
+const propertyFinancialSummary = (state, property) => {
+  const financed = withPropertyLoans([property], state.loans)[0]
+  const calculated = calculateProperty(financed, state.settings)
+  const management = state.settings?.fullyManaged
+    ? Number(calculated.rent || 0) * Number(state.settings?.managementRate || 0)
+    : 0
+  return {
+    property: propertyIdentity(property),
+    metric: 'operating_cashflow',
+    metricLabel: 'Operating cash flow / month',
+    operatingCashflow: propertyOperatingCashflow(calculated, state.settings),
+    components: {
+      rent: calculated.rent,
+      mortgagePayment: calculated.monthlyPayment,
+      fixedCosts: calculated.fixedCosts,
+      variableCosts: calculated.variableCosts,
+      management,
+    },
+    excludes: ['portfolio or company tax', 'company-level costs and extractions'],
+  }
+}
+
 export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = false } = {}) {
   const state = ensureState(clone(rawState || {}))
   const operation = clean(rawArgs.operation)
@@ -253,6 +314,18 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
   if (operation === 'portfolio.summary') return readResult(listSummary(state))
   if (operation === 'property.list') return readResult(state.properties)
   if (operation === 'property.get') return readResult(resolveProperty(state, target))
+  if (operation === 'property.loans') {
+    const property = resolveProperty(state, target)
+    return readResult(propertyLoans(state, property))
+  }
+  if (operation === 'property.tenants') {
+    const property = resolveProperty(state, target)
+    return readResult(propertyTenants(state, property))
+  }
+  if (operation === 'property.financial_summary') {
+    const property = resolveProperty(state, target)
+    return readResult(propertyFinancialSummary(state, property))
+  }
   if (operation === 'tenant.list') return readResult(state.tenants)
   if (operation === 'tenant.get') return readResult(requireEntity(state.tenants, target, 'Tenant', ['name', 'email', 'phone']))
   if (operation === 'expense.list') return readResult(state.expenses)

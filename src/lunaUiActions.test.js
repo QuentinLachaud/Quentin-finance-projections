@@ -5,6 +5,7 @@ import {
   validateClientUiActions,
 } from './lunaUiActions.js'
 import { executeLunaUiOperation } from './lunaUiOperations.js'
+import { safeLunaChatActions, validateLunaChatAction } from './lunaChatActions.js'
 
 const portfolio = {
   properties: [
@@ -46,6 +47,21 @@ describe('Luna semantic UI action validation', () => {
     expect(navigateWorkspace).toHaveBeenCalledWith('acquisition')
     expect(runSimulation).toHaveBeenCalledWith('acquisition', { purchasePrice: 200000 })
     expect(arbitrary).not.toHaveBeenCalled()
+  })
+
+  it('validates chat chip labels and rejects unknown or stale action descriptors', () => {
+    expect(validateLunaChatAction({
+      label: 'Open BTL1',
+      actions: [
+        { type: 'navigate', workspace: 'properties' },
+        { type: 'open_entity', workspace: 'properties', entityType: 'property', entityId: 'property-btl-1' },
+      ],
+    }, portfolio).label).toBe('Open BTL1')
+
+    expect(safeLunaChatActions([
+      { label: 'Unknown', actions: [{ type: 'execute_javascript', code: 'alert(1)' }] },
+      { label: 'Stale property', actions: [{ type: 'open_entity', workspace: 'properties', entityType: 'property', entityId: 'missing' }] },
+    ], portfolio)).toEqual([])
   })
 })
 

@@ -96,7 +96,6 @@
   padding: 10px 12px;
   border-radius: 14px;
   background: var(--soft-surface, rgba(39, 121, 92, .08));
-  white-space: pre-wrap;
   line-height: 1.4;
 }
 
@@ -104,10 +103,72 @@
   align-self: flex-end;
   background: var(--accent, #27795c);
   color: white;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .luna-message.assistant { align-self: flex-start; }
 .luna-message.muted { opacity: .6; }
+
+.luna-message-content {
+  overflow-wrap: anywhere;
+}
+
+.luna-message-content p {
+  margin: 0;
+}
+
+.luna-message-content p + p,
+.luna-message-content p + ul,
+.luna-message-content p + ol,
+.luna-message-content ul + p,
+.luna-message-content ol + p {
+  margin-top: .65em;
+}
+
+.luna-message-content ul,
+.luna-message-content ol {
+  margin: .45em 0 0;
+  padding-left: 1.35em;
+}
+
+.luna-message-content li + li {
+  margin-top: .28em;
+}
+
+.luna-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.luna-chat-action {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid color-mix(in srgb, var(--accent, #27795c) 30%, transparent);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--accent, #27795c) 9%, var(--panel, #fff));
+  color: var(--accent, #27795c);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.luna-chat-action:hover,
+.luna-chat-action:focus-visible {
+  background: color-mix(in srgb, var(--accent, #27795c) 16%, var(--panel, #fff));
+}
+
+.luna-chat-action:focus-visible {
+  outline: 2px solid var(--accent, #27795c);
+  outline-offset: 2px;
+}
 
 .luna-confirm {
   display: flex;
@@ -175,5 +236,10 @@
     display: grid;
     place-items: center;
     border-radius: 10px;
+  }
+
+  .luna-chat-action {
+    min-height: 44px;
+    padding-inline: 12px;
   }
 }
