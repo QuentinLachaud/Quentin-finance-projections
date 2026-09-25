@@ -49,6 +49,7 @@ import { supportConfig } from './support.js'
 import { exportTabularReport } from './reportExports.js'
 import { bufferStrokeOffset, bufferVisualTarget, interpolateBufferVisual } from './bufferAnimation.js'
 import NotificationCenter, { NotificationBell } from './NotificationCenter.jsx'
+import LunaAssistant from './LunaAssistant.jsx'
 import { actionableNotifications, complianceDiaryItems, dismissNotification, normalizeNotificationPreferences, snoozeNotification } from './notifications.js'
 import { disablePushNotifications, enablePushNotifications, syncPushNotifications } from './notificationPush.js'
 import { mergeRemotePortfolio, serverVersionIsNewer } from './portfolioSync.js'
@@ -1573,7 +1574,7 @@ function SettingsSwitch({ checked, disabled = false, label, onChange }) {
   ><span aria-hidden="true" /></button>
 }
 
-function PortfolioApp({ user }) {
+function PortfolioApp({ user, accessToken }) {
   const [state, setState] = useState(null)
   const [entitlement, setEntitlement] = useState(null)
   const [billingError, setBillingError] = useState('')
@@ -2567,6 +2568,11 @@ function PortfolioApp({ user }) {
         </div>
       </main>
 
+      <LunaAssistant
+        accessToken={accessToken}
+        onPortfolioChange={(portfolio) => setState((current) => mergeRemotePortfolio(current, portfolio))}
+      />
+
       <nav className="mobile-bottom-nav" aria-label="Mobile workspace navigation">
         {visibleWorkspaceNavigation.slice(0, 4).map(([label, shortLabel, Icon]) => <button key={label} className={section === label ? 'active' : ''} onClick={() => navigateMobile(label)}><Icon size={20} /><span>{prankWorkspaceLabel(shortLabel, prankMode)}</span></button>)}
         <button className={visibleWorkspaceNavigation.slice(4).some(([label]) => label === section) ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
@@ -2594,5 +2600,5 @@ export default function App() {
 
   if (!isSupabaseConfigured) return <div className="app-status-screen"><CloudOff size={32} /><h1>Authentication is not configured</h1><p>Add the Supabase project URL and publishable key to the deployment environment.</p></div>
   if (session === undefined) return <div className="app-status-screen"><BrandLogo surface="auto" className="status-brand-wordmark" /><h1>Checking your session…</h1></div>
-  return session ? <PortfolioApp user={session.user} /> : <AuthScreen />
+  return session ? <PortfolioApp user={session.user} accessToken={session.access_token} /> : <AuthScreen />
 }

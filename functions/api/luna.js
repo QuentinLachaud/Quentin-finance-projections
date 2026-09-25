@@ -1,0 +1,231 @@
+import { executePortfolioAction, LUNA_PHASE_ONE_OPERATIONS } from '../../src/lunaCapabilities.js'
+
+const json = (body, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'private, no-store' },
+})
+
+const apiError = async (response, fallback) => {
+  const payload = await response.json().catch(() => ({}))
+  const error = new Error(payload.error?.message || payload.message || payload.error || fallback)
+  error.status = response.status
+  throw error
+}
+
+const supabaseConfiguration = (env) => ({
+  url: env.SUPABASE_URL || env.VITE_SUPABASE_URL,
+  key: env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY,
+})
+
+const authenticateUser = async (request, env) => {
+  const authorization = request.headers.get('authorization')
+  const { url, key } = supabaseConfiguration(env)
+  if (!authorization?.startsWith('Bearer ') || !url || !key) return null
+  const response = await fetch(`${url}/auth/v1/user`, { headers: { authorization, apikey: key } })
+  return response.ok ? response.json() : null
+}
+
+const supabaseFetch = async (env, authorization, path, options = {}) => {
+  const { url, key } = supabaseConfiguration(env)
+  if (!url || !key) throw new Error('Supabase is not configured.')
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: key,
+      authorization,
+      'content-type': 'application/json',
+      ...options.headers,
+    },
+  })
+  if (!response.ok) return apiError(response, 'Portfolio data could not be saved securely.')
+  if (response.status === 204) return null
+  const text = await response.text()
+  return text ? JSON.parse(text) : null
+}
+
+const loadPortfolio = async (env, authorization, userId) => {
+  const rows = await supabaseFetch(
+    env,
+    authorization,
+    `portfolio_states?user_id=eq.${encodeURIComponent(userId)}&select=portfolio,updated_at`,
+  )
+  return rows?.[0]?.portfolio || { properties: [], settings: {} }
+}
+
+const savePortfolio = async (env, authorization, userId, portfolio) => {
+  const rows = await supabaseFetch(
+    env,
+    authorization,
+    'portfolio_states?on_conflict=user_id',
+    {
+      method: 'POST',
+      headers: { prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify({ user_id: userId, portfolio }),
+    },
+  )
+  return rows?.[0]?.portfolio || portfolio
+}
+
+const OPENAI_ROOT = 'https://api.openai.com/v1'
+
+const portfolioTool = {
+  type: 'function',
+  name: 'portfolio_action',
+  description: [
+    'Read or change the authenticated user’s BTL Portfolio using one supported semantic operation.',
+    'Use names/addresses when IDs are unknown; the server resolves unambiguous targets.',
+    'Rates are decimals in storage: 4.84% should be sent as 4.84 or 0.0484; the server normalises either.',
+    `Supported operations: ${LUNA_PHASE_ONE_OPERATIONS.join(', ')}.`,
+  ].join(' '),
+  parameters: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: LUNA_PHASE_ONE_OPERATIONS },
+      target: { type: ['string', 'null'], description: 'Existing entity ID/name/description, or null when not applicable.' },
+      data: { type: ['object', 'null'], description: 'Fields required for the operation.' },
+    },
+    required: ['operation', 'target', 'data'],
+    additionalProperties: false,
+  },
+  strict: false,
+}
+
+const instructions = [
+  'You are Luna inside BTL Portfolio, a private property-portfolio application.',
+  'Use portfolio_action whenever the answer depends on the user’s portfolio or whenever the user asks to change it.',
+  'Never invent portfolio facts, entity IDs, balances, dates, tenants, expenses, loans or successful writes.',
+  'Prefer a read operation before asking a clarification when an existing entity can be resolved from a name or description.',
+  'For a requested write, execute it rather than merely explaining how to use the manual UI.',
+  'Destructive operations are intercepted by the application and require explicit user confirmation.',
+  'Do not expose raw authentication tokens, API keys, or unrelated private data.',
+  'Keep final answers concise and state exactly what changed.',
+  'Phase one intentionally excludes secret credential values, billing actions, bank-connection creation and external side effects.',
+].join('\n')
+
+const openAIResponse = async (env, input) => {
+  if (!env.OPENAI_API_KEY) {
+    const error = new Error('Luna is not configured yet. Add OPENAI_API_KEY to the server environment.')
+    error.status = 503
+    error.code = 'not_configured'
+    throw error
+  }
+  const root = String(env.OPENAI_BASE_URL || OPENAI_ROOT).replace(/\/$/, '')
+  const response = await fetch(`${root}/responses`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: env.OPENAI_MODEL || 'gpt-6-luna',
+      instructions,
+      input,
+      tools: [portfolioTool],
+      tool_choice: 'auto',
+      parallel_tool_calls: false,
+      reasoning: { effort: 'none' },
+      max_output_tokens: 800,
+      store: false,
+    }),
+  })
+  if (!response.ok) return apiError(response, 'Luna could not complete this request.')
+  return response.json()
+}
+
+const responseText = (response) => {
+  for (const item of response?.output || []) {
+    if (item.type !== 'message') continue
+    for (const content of item.content || []) {
+      if (content.type === 'output_text' && content.text) return content.text
+    }
+  }
+  return ''
+}
+
+const executeConfirmed = async ({ env, authorization, user, confirmation }) => {
+  if (confirmation?.name !== 'portfolio_action' || !confirmation.arguments) {
+    return json({ error: 'This Luna confirmation is invalid.' }, 400)
+  }
+  const portfolio = await loadPortfolio(env, authorization, user.id)
+  const result = executePortfolioAction(portfolio, confirmation.arguments, { confirmed: true })
+  if (!result.mutated) return json({ error: 'The confirmed action did not change the portfolio.' }, 400)
+  const saved = await savePortfolio(env, authorization, user.id, result.state)
+  return json({ message: result.result?.message || 'Done.', changed: true, portfolio: saved })
+}
+
+export async function onRequestGet({ env }) {
+  return json({
+    configured: Boolean(env.OPENAI_API_KEY),
+    model: env.OPENAI_MODEL || 'gpt-6-luna',
+    phaseOneOperations: LUNA_PHASE_ONE_OPERATIONS.length,
+  })
+}
+
+export async function onRequestPost({ request, env }) {
+  try {
+    const user = await authenticateUser(request, env)
+    if (!user) return json({ error: 'Your session could not be verified.' }, 401)
+    const authorization = request.headers.get('authorization')
+    const body = await request.json().catch(() => ({}))
+
+    if (body.confirmation) return executeConfirmed({ env, authorization, user, confirmation: body.confirmation })
+
+    const message = String(body.message || '').trim()
+    if (!message || message.length > 3000) return json({ error: 'Enter a short request for Luna.' }, 400)
+
+    let portfolio = await loadPortfolio(env, authorization, user.id)
+    let changed = false
+    const input = [{ role: 'user', content: message }]
+
+    for (let step = 0; step < 8; step += 1) {
+      const response = await openAIResponse(env, input)
+      const outputs = Array.isArray(response.output) ? response.output : []
+      input.push(...outputs)
+      const calls = outputs.filter((item) => item.type === 'function_call')
+
+      if (!calls.length) {
+        const messageText = responseText(response)
+        if (!messageText) throw new Error('Luna returned no answer.')
+        return json({ message: messageText, changed, portfolio: changed ? portfolio : null })
+      }
+
+      for (const call of calls) {
+        if (call.name !== 'portfolio_action') throw new Error(`Luna requested unsupported tool: ${call.name}`)
+        let args
+        try {
+          args = JSON.parse(call.arguments || '{}')
+        } catch {
+          throw new Error('Luna returned invalid tool arguments.')
+        }
+
+        const result = executePortfolioAction(portfolio, args)
+        if (result.confirmationRequired) {
+          return json({
+            message: result.confirmationPrompt,
+            changed,
+            portfolio: changed ? portfolio : null,
+            confirmation: { name: call.name, arguments: args },
+          })
+        }
+
+        if (result.mutated) {
+          portfolio = await savePortfolio(env, authorization, user.id, result.state)
+          changed = true
+        }
+
+        input.push({
+          type: 'function_call_output',
+          call_id: call.call_id,
+          output: JSON.stringify(result.result),
+        })
+      }
+    }
+
+    return json({ error: 'Luna reached the action limit for one request. Split the request into smaller steps.' }, 409)
+  } catch (error) {
+    return json(
+      { error: error.message || 'Luna is temporarily unavailable.', code: error.code },
+      error.status >= 400 && error.status < 600 ? error.status : 500,
+    )
+  }
+}

@@ -77,3 +77,16 @@ select vault.create_secret('replace-with-the-same-long-random-secret', 'notifica
 ```
 
 The cron endpoint checks Europe/London time and only sends during 09:00-17:59. It records one successful delivery claim per reminder/snooze cycle, uses low Web Push urgency, collapses duplicate device notifications, and removes subscriptions reported gone by the push service. An authorised manual test can POST to `/api/push-dispatch?force=1` with the `x-notification-dispatch-secret` header.
+
+## Luna portfolio assistant
+
+BTL Portfolio includes a server-side Luna assistant at `/api/luna`. It authenticates with the signed-in Supabase session and uses the same RLS-scoped portfolio row as the manual UI. Phase one exposes 50 deterministic portfolio operations covering core BTL, tenant, expense, loan, contractor, settings, cash-flow-line and timeline CRUD.
+
+Configure these **server-only** Cloudflare Pages variables:
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL=gpt-6-luna`
+- optional `OPENAI_BASE_URL=https://api.openai.com/v1`
+
+Do not prefix the OpenAI key with `VITE_`. See `docs/luna-capability-audit.md` for the complete capability audit and rollout plan.
+
