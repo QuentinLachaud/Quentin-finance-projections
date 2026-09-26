@@ -186,7 +186,8 @@
 
 .luna-input {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
   gap: 8px;
   padding: 12px;
   border-top: 1px solid var(--line, rgba(20, 48, 43, .14));
@@ -200,6 +201,48 @@
   background: var(--panel, #fff);
   color: inherit;
   font: inherit;
+}
+
+.luna-voice-button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line, rgba(20, 48, 43, .18));
+  border-radius: 12px;
+  background: var(--panel, #fff);
+  color: var(--accent, #27795c);
+  cursor: pointer;
+}
+
+.luna-voice-button:hover,
+.luna-voice-button:focus-visible {
+  background: color-mix(in srgb, var(--accent, #27795c) 9%, var(--panel, #fff));
+}
+
+.luna-voice-button:focus-visible {
+  outline: 2px solid var(--accent, #27795c);
+  outline-offset: 2px;
+}
+
+.luna-voice-button.recording {
+  background: color-mix(in srgb, var(--accent, #27795c) 16%, var(--panel, #fff));
+}
+
+.luna-voice-button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.luna-voice-status {
+  grid-column: 1 / -1;
+  font-size: .76rem;
+  opacity: .68;
+  padding-inline: 2px;
+}
+
+.luna-voice-status.error {
+  opacity: 1;
 }
 
 @media (max-width: 700px) {

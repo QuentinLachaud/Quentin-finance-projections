@@ -272,3 +272,78 @@ describe('Luna panel structure', () => {
     expect(messages.querySelector('.luna-input')).toBeNull()
   })
 })
+describe('Luna speech-to-text input', () => {
+  it('records, transcribes and places speech into the existing Luna draft without auto-sending', async () => {
+    const trackStop = vi.fn()
+    const getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop: trackStop }] }))
+    const navigatorStub = Object.create(globalThis.navigator)
+    Object.defineProperty(navigatorStub, 'mediaDevices', { value: { getUserMedia }, configurable: true })
+    vi.stubGlobal('navigator', navigatorStub)
+
+    class FakeMediaRecorder {
+      static isTypeSupported = vi.fn((type) => type.startsWith('audio/webm'))
+
+      constructor(_stream, options = {}) {
+        this.mimeType = options.mimeType || 'audio/webm'
+        this.state = 'inactive'
+        this.ondataavailable = null
+        this.onstop = null
+      }
+
+      start() {
+        this.state = 'recording'
+      }
+
+      stop() {
+        this.state = 'inactive'
+        this.ondataavailable?.({ data: new Blob(['voice'], { type: this.mimeType }) })
+        this.onstop?.()
+      }
+    }
+    vi.stubGlobal('MediaRecorder', FakeMediaRecorder)
+
+    const fetchMock = vi.fn(async (url, options) => {
+      expect(url).toBe('/api/luna-transcribe')
+      expect(options.method).toBe('POST')
+      expect(options.headers.authorization).toBe('Bearer token')
+      expect(options.headers['content-type']).toBeUndefined()
+      expect(options.body).toBeInstanceOf(FormData)
+      return new Response(JSON.stringify({ text: 'What is the rent for BTL1?' }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderLuna()
+    await click(host.querySelector('[aria-label="Ask Luna"]'))
+    await click(host.querySelector('[aria-label="Start voice input"]'))
+    expect(getUserMedia).toHaveBeenCalledWith({ audio: true })
+    expect(host.querySelector('[aria-label="Stop voice input"]')).not.toBeNull()
+
+    await click(host.querySelector('[aria-label="Stop voice input"]'))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(trackStop).toHaveBeenCalled()
+    expect(host.querySelector('[aria-label="Ask Luna"]').value).toBe('What is the rent for BTL1?')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports unavailable microphone support without making a network request', async () => {
+    const navigatorStub = Object.create(globalThis.navigator)
+    Object.defineProperty(navigatorStub, 'mediaDevices', { value: undefined, configurable: true })
+    vi.stubGlobal('navigator', navigatorStub)
+    vi.stubGlobal('MediaRecorder', undefined)
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderLuna()
+    await click(host.querySelector('[aria-label="Ask Luna"]'))
+    await click(host.querySelector('[aria-label="Start voice input"]'))
+
+    expect(host.textContent).toContain('Voice input is not supported by this browser.')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
