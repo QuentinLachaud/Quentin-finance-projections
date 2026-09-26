@@ -2383,6 +2383,7 @@ function PortfolioApp({ user, accessToken }) {
             <div className="overview-property-view-stage" data-view="rows">
               <section className="overview-property-rows">
                 {calculated.map((p) => <OverviewPropertyRow key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
+                {/* Add BTL remains available from the Overview header; no duplicate footer action here. */}
               </section>
             </div>
           </>}
