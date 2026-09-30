@@ -162,7 +162,7 @@ const workspaceNavigation = [
 const navigationGroups = ['PORTFOLIO', 'PLANNING', 'COMPANY', 'ACCOUNT']
 
 // Account-specific review prank. Change only this constant when moving the feature to its final target.
-const PRANK_TARGET_EMAIL = 'dumbass@inbox.lv'
+const PRANK_TARGET_EMAIL = null
 const PRANK_COMPANY_NAME = 'Asshole Ltd'
 const normalizedEmail = (value) => String(value || '').trim().toLowerCase()
 const prankWorkspaceLabel = (label, enabled) => enabled ? `Asshole ${label}` : label
@@ -1616,7 +1616,7 @@ function PortfolioApp({ user, accessToken }) {
   const [lunaAcquisitionRequest, setLunaAcquisitionRequest] = useState(null)
   const [pushStatus, setPushStatus] = useState('idle')
   const [privateIncomePromptOpen, setPrivateIncomePromptOpen] = useState(false)
-  const prankEligible = normalizedEmail(user.email) === PRANK_TARGET_EMAIL
+  const prankEligible = Boolean(PRANK_TARGET_EMAIL) && normalizedEmail(user.email) === PRANK_TARGET_EMAIL
   const [prankMode, setPrankMode] = useState(false)
   const [prankDialog, setPrankDialog] = useState(() => prankEligible ? 'choice' : null)
   const accentKey = accentStorageKey(user.id)

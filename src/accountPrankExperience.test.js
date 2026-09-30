@@ -5,9 +5,10 @@ const app = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8')
 const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 
 describe('targeted account prank experience', () => {
-  it('is gated by one easily swappable normalized email constant', () => {
-    expect(app).toContain("const PRANK_TARGET_EMAIL = 'dumbass@inbox.lv'")
-    expect(app).toContain("normalizedEmail(user.email) === PRANK_TARGET_EMAIL")
+  it('keeps the retired prank disabled for the former target account', () => {
+    expect(app).toContain("const PRANK_TARGET_EMAIL = null")
+    expect(app).toContain("const prankEligible = Boolean(PRANK_TARGET_EMAIL) && normalizedEmail(user.email) === PRANK_TARGET_EMAIL")
+    expect(app).not.toContain('dumbass@inbox.lv')
     expect(app).toContain("const [prankDialog, setPrankDialog] = useState(() => prankEligible ? 'choice' : null)")
   })
 
