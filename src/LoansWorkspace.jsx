@@ -1,10 +1,11 @@
 import BrainDrainNumericInput from './BrainDrainNumericInput.jsx'
-import React, { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronUp, GripVertical, Plus, Trash2 } from 'lucide-react'
 import { addMonths, currency, shortDate } from './calculations.js'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
 import { createBlankLoan, effectiveLoanAmount, inferLtvBand, loanCostSummary } from './loans.js'
 import { groupLoans, loanGroupTotals, LOAN_SORT_OPTIONS } from './loanSorting.js'
+import { reorderVisibleLoans } from './loanReordering.js'
 
 const RATE_BANDS = [50, 55, 60, 65, 70, 75, 80, 85, 90]
 
@@ -123,29 +124,113 @@ export function LoanEditor({ loan, properties, onSave, onDelete, allowAssociatio
   </div>
 }
 
-export default function LoansWorkspace({ loans = [], properties = [], onSave, onDelete, selectionRequest = null }) {
+export default function LoansWorkspace({ loans = [], properties = [], onSave, onDelete, onReorder = null, selectionRequest = null }) {
   const [expandedId, setExpandedId] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [groupByBtl, setGroupByBtl] = useState(true)
-  const [sortOrder, setSortOrder] = useState('expiry-asc')
-  const [collapsedGroups, setCollapsedGroups] = useState([])
+  const [sortOrder, setSortOrder] = useState(() => {
+    if (typeof window === 'undefined') return 'expiry-asc'
+    const stored = window.localStorage?.getItem('btl-loans-sort')
+    return LOAN_SORT_OPTIONS.some((option) => option.value === stored) ? stored : 'expiry-asc'
+  })
+  const [expandedGroups, setExpandedGroups] = useState([])
+  const [dragState, setDragState] = useState(null)
+  const loanNodes = useRef(new Map())
   const allDisplayGroups = useMemo(() => groupLoans(loans, properties, sortOrder, groupByBtl), [loans, properties, sortOrder, groupByBtl])
   const displayGroups = selectionRequest?.propertyId && groupByBtl
     ? allDisplayGroups.filter((group) => String(group.id) === selectionRequest.propertyId)
     : allDisplayGroups
-  const toggleGroup = (id) => setCollapsedGroups((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
+  const toggleGroup = (id) => setExpandedGroups((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
+  const changeSortOrder = (value) => {
+    setSortOrder(value)
+    if (typeof window !== 'undefined') window.localStorage?.setItem('btl-loans-sort', value)
+  }
   const propertyMap = useMemo(() => new Map(properties.map((property) => [property.id, property])), [properties])
 
   useEffect(() => {
     if (!selectionRequest?.propertyId) return
     setGroupByBtl(true)
-    setCollapsedGroups((current) => current.filter((id) => String(id) !== selectionRequest.propertyId))
+    setExpandedGroups((current) => current.some((id) => String(id) === selectionRequest.propertyId) ? current : [...current, selectionRequest.propertyId])
   }, [selectionRequest?.id, selectionRequest?.propertyId])
 
   const addLoan = () => {
     const loan = createBlankLoan()
     onSave(loan)
     setExpandedId(loan.id)
+    setExpandedGroups((current) => current.includes('unlinked') ? current : [...current, 'unlinked'])
+  }
+
+  const commitLoanMove = (group, fromIndex, toIndex) => {
+    if (!onReorder || fromIndex === toIndex || toIndex < 0 || toIndex >= group.loans.length) return
+    const reordered = reorderVisibleLoans(loans, group.loans, fromIndex, toIndex)
+    changeSortOrder('manual')
+    onReorder(reordered)
+  }
+
+  const loanDragShift = (groupId, index) => {
+    if (!dragState || dragState.groupId !== String(groupId) || index === dragState.fromIndex) return 0
+    const distance = dragState.height + dragState.gap
+    if (dragState.fromIndex < dragState.toIndex && index > dragState.fromIndex && index <= dragState.toIndex) return -distance
+    if (dragState.fromIndex > dragState.toIndex && index >= dragState.toIndex && index < dragState.fromIndex) return distance
+    return 0
+  }
+
+  const beginLoanDrag = (event, group, loan, index) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const node = loanNodes.current.get(loan.id)
+    if (!node || group.loans.length < 2) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    const rect = node.getBoundingClientRect()
+    const stack = node.parentElement
+    const gap = Number.parseFloat(stack ? window.getComputedStyle(stack).rowGap : '8') || 8
+    setDragState({
+      id: loan.id,
+      groupId: String(group.id),
+      pointerId: event.pointerId,
+      fromIndex: index,
+      toIndex: index,
+      startY: event.clientY,
+      currentY: event.clientY,
+      height: rect.height,
+      gap,
+    })
+  }
+
+  const updateLoanDrag = (event, group) => {
+    if (!dragState || dragState.pointerId !== event.pointerId || dragState.groupId !== String(group.id)) return
+    event.preventDefault()
+    const pointerY = event.clientY
+    let targetIndex = dragState.fromIndex
+
+    for (let index = 0; index < group.loans.length; index += 1) {
+      if (index === dragState.fromIndex) continue
+      const node = loanNodes.current.get(group.loans[index].id)
+      if (!node) continue
+      const rect = node.getBoundingClientRect()
+      const midpoint = rect.top + (rect.height / 2)
+      if (index < dragState.fromIndex && pointerY < midpoint) {
+        targetIndex = index
+        break
+      }
+      if (index > dragState.fromIndex && pointerY > midpoint) targetIndex = index
+    }
+
+    setDragState((current) => current && current.pointerId === event.pointerId
+      ? { ...current, currentY: pointerY, toIndex: targetIndex }
+      : current)
+  }
+
+  const finishLoanDrag = (event, group, cancelled = false) => {
+    if (!dragState || dragState.pointerId !== event.pointerId || dragState.groupId !== String(group.id)) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+    const { fromIndex, toIndex } = dragState
+    setDragState(null)
+    if (!cancelled) commitLoanMove(group, fromIndex, toIndex)
   }
 
   return <>
@@ -153,7 +238,7 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
       <header className="panel loans-toolbar copy-actions-only">
         <div className="loan-view-controls">
           <label className="loan-view-field"><span>View</span><select aria-label="Group loans" value={groupByBtl ? 'btl' : 'all'} onChange={(event) => setGroupByBtl(event.target.value === 'btl')}><option value="btl">Group by BTL</option><option value="all">All loans</option></select></label>
-          <label className="loan-view-field"><span>Sort by</span><select aria-label="Sort loans" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>{LOAN_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="loan-view-field"><span>Sort by</span><select aria-label="Sort loans" value={sortOrder} onChange={(event) => changeSortOrder(event.target.value)}>{LOAN_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         </div>
         <button type="button" className="primary-button" onClick={addLoan}><Plus size={16} /> Add loan</button>
       </header>
@@ -167,25 +252,62 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
 
         {displayGroups.map((group) => {
           const totals = loanGroupTotals(group.loans)
-          const collapsed = groupByBtl && collapsedGroups.includes(group.id)
+          const collapsed = groupByBtl && !expandedGroups.includes(group.id)
           return <section className={groupByBtl ? "loan-property-card" : "loan-ungrouped-list"} data-loan-group={group.id} key={group.id}>
             {groupByBtl && <button type="button" className="loan-group-heading" aria-controls={`loan-group-${group.id}`} aria-expanded={!collapsed} aria-label={`${group.name}, ${totals.count} loans`} onClick={() => toggleGroup(group.id)}>
               <span className="loan-group-title"><strong>{group.name}</strong><small>{totals.count} loan{totals.count === 1 ? '' : 's'}</small></span>
               <span className="loan-group-totals"><span><small>Balance</small><strong>{currency(totals.balance)}</strong></span><span><small>Monthly payment</small><strong>{currency(totals.monthlyPayment)}</strong></span></span>
               {collapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
             </button>}
-            {!collapsed && <div className="loan-group-body" id={`loan-group-${group.id}`}>
+            <div className="loan-group-body" id={`loan-group-${group.id}`} hidden={collapsed}>
               {groupByBtl && <div className="loan-list-head" aria-hidden="true">
                 <span>Loan / BTL</span><span>Loan balance</span><span>Rate</span><span>Fixed period</span><span>Monthly payment</span><span>LTV band</span><span />
               </div>}
-            {group.loans.map((loan) => {
+            {group.loans.map((loan, loanIndex) => {
           const property = propertyMap.get(loan.propertyId) || null
           const fixed = fixedLabel(loan)
           const actual = actualLtv(loan, property)
           const band = Number(loan.ltvBand || 0) || inferLtvBand(loan.loanAmount, property?.latestValuation)
           const costs = loanCostSummary(loan)
           const expanded = expandedId === loan.id
-          return <article className={`loan-row ${expanded ? 'expanded' : ''}`} key={loan.id}>
+          const dragging = dragState?.id === loan.id
+          const shift = loanDragShift(group.id, loanIndex)
+          const dragOffset = dragging ? dragState.currentY - dragState.startY : 0
+          return <article
+            ref={(node) => {
+              if (node) loanNodes.current.set(loan.id, node)
+              else loanNodes.current.delete(loan.id)
+            }}
+            className={`loan-row ${expanded ? 'expanded' : ''} ${dragging ? 'is-dragging' : ''}`}
+            style={{
+              '--loan-reorder-y': `${dragging ? dragOffset : shift}px`,
+              '--loan-reorder-scale': dragging ? '1.012' : '1',
+            }}
+            key={loan.id}
+          >
+            <button
+              type="button"
+              className="loan-reorder-handle"
+              aria-label={`Reorder ${loan.lender || 'loan'}`}
+              title="Drag to reorder"
+              disabled={group.loans.length < 2 || !onReorder}
+              onPointerDown={(event) => beginLoanDrag(event, group, loan, loanIndex)}
+              onPointerMove={(event) => updateLoanDrag(event, group)}
+              onPointerUp={(event) => finishLoanDrag(event, group)}
+              onPointerCancel={(event) => finishLoanDrag(event, group, true)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault()
+                  commitLoanMove(group, loanIndex, loanIndex - 1)
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault()
+                  commitLoanMove(group, loanIndex, loanIndex + 1)
+                }
+              }}
+            >
+              <GripVertical size={17} aria-hidden="true" />
+            </button>
             <button
               type="button"
               className="loan-summary-row"
@@ -196,11 +318,11 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
               <span className="loan-mobile-summary">
                 <span className="loan-mobile-amounts">
                   <span><small>Balance</small><strong>{currency(loan.loanAmount)}</strong></span>
-                  <span><small>Monthly payment</small><strong>{currency(costs.monthlyPayment)}</strong></span>
+                  <span><small>Payment</small><strong>{currency(costs.monthlyPayment)}</strong></span>
                 </span>
                 <span className="loan-mobile-meta">
                   <span><strong>{rateLabel(loan.rate)}</strong><small>Rate</small></span>
-                  <span><strong>{Number(loan.fixedRateMonths || 0) ? `${Number(loan.fixedRateMonths)} mo` : 'Not set'}</strong><small>{fixed.detail || 'Fixed period'}</small></span>
+                  <span><strong>{Number(loan.fixedRateMonths || 0) ? `${Number(loan.fixedRateMonths)} mo` : 'Not set'}</strong><small>Fixed</small></span>
                   <span><strong>{actual > 0 ? `${actual.toFixed(1)}%` : '—'}</strong><small>{band ? `${band}% band` : 'LTV'}</small></span>
                 </span>
               </span>
@@ -214,7 +336,7 @@ export default function LoansWorkspace({ loans = [], properties = [], onSave, on
             {expanded && <LoanEditor loan={loan} properties={properties} onSave={onSave} onDelete={() => setDeleteTarget(loan)} />}
           </article>
             })}
-            </div>}
+            </div>
           </section>
         })}
       </div>}

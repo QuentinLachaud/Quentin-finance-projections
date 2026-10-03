@@ -22,6 +22,7 @@ describe('Loans workspace integration', () => {
     expect(app).toContain('const next = applyLoanToPortfolio(current, loan)')
     expect(app).toContain('portfolioLoanChangeEvents(previousLoan, nextLoan, current, next)')
     expect(app).toContain("{section === 'Loans' && <LoansWorkspace")
+    expect(app).toContain('onReorder={reorderLoansForDisplay}')
   })
 
   it('makes property Loan amount edits pre-fee inputs while retaining effective loanAmount in the property model', () => {

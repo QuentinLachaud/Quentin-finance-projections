@@ -2037,6 +2037,14 @@ function PortfolioApp({ user, accessToken }) {
     const timelineChanges = portfolioLoanChangeEvents(previousLoan, null, current, next)
     return { ...next, propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges] }
   })
+  const reorderLoansForDisplay = (orderedLoans) => setState((current) => {
+    const currentLoans = current.loans || []
+    if (!Array.isArray(orderedLoans) || orderedLoans.length !== currentLoans.length) return current
+    const currentIds = new Set(currentLoans.map((loan) => String(loan.id)))
+    const nextIds = orderedLoans.map((loan) => String(loan.id))
+    if (new Set(nextIds).size !== currentIds.size || nextIds.some((id) => !currentIds.has(id))) return current
+    return { ...current, loans: orderedLoans }
+  })
 
   const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
     ...current,
@@ -2568,7 +2576,7 @@ function PortfolioApp({ user, accessToken }) {
 
           {section === 'IDs & Credentials' && <CredentialsWorkspace credentials={state.credentials || []} onChange={updateCredentials} />}
 
-          {section === 'Loans' && <LoansWorkspace loans={state.loans || []} properties={calculated} onSave={saveLoan} onDelete={removeLoan} selectionRequest={lunaSelectionFor('loans')} />}
+          {section === 'Loans' && <LoansWorkspace loans={state.loans || []} properties={calculated} onSave={saveLoan} onDelete={removeLoan} onReorder={reorderLoansForDisplay} selectionRequest={lunaSelectionFor('loans')} />}
 
           {section === 'Tenants' && <TenantsWorkspace tenants={includedTenants} properties={includedProperties} onSave={saveTenant} onRemove={removeTenant} selectionRequest={lunaSelectionFor('tenants')} />}
 

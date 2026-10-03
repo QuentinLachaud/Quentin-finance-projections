@@ -3,6 +3,7 @@ import { dateInputValue } from './dateUtils.js'
 import { loanCostSummary } from './loans.js'
 
 export const LOAN_SORT_OPTIONS = [
+  { value: 'manual', label: 'Manual order' },
   { value: 'expiry-asc', label: 'Fixed ending first' },
   { value: 'expiry-desc', label: 'Fixed ending last' },
   { value: 'balance-desc', label: 'Balance: high to low' },
@@ -23,10 +24,12 @@ export function loanDisplayBalance(loan) {
 }
 
 export function sortLoans(loans = [], sort = 'expiry-asc') {
+  const source = [...(Array.isArray(loans) ? loans : [])]
   const valid = LOAN_SORT_OPTIONS.some((option) => option.value === sort) ? sort : 'expiry-asc'
+  if (valid === 'manual') return source
   const [field, direction] = valid.split('-')
   const sign = direction === 'desc' ? -1 : 1
-  return [...(Array.isArray(loans) ? loans : [])].sort((a, b) => {
+  return source.sort((a, b) => {
     let difference = 0
     if (field === 'expiry') {
       const first = loanFixedExpiry(a)
@@ -59,6 +62,7 @@ export function groupLoans(loans = [], properties = [], sort = 'expiry-asc', gro
 
   const populated = [...groups.values()].filter((group) => group.loans.length)
   const validSort = LOAN_SORT_OPTIONS.some((option) => option.value === sort) ? sort : 'expiry-asc'
+  if (validSort === 'manual') return populated.concat(unlinked.loans.length ? [unlinked] : [])
   const [field, direction] = validSort.split('-')
   const sign = direction === 'desc' ? -1 : 1
   const groupMetric = (group) => {

@@ -54,8 +54,9 @@ describe('BTL loan card containment', () => {
   it('retains independent, accessible group and loan controls', () => {
     const first = groupMarkup(render(), 'p1')
     expect(first).toContain('aria-controls="loan-group-p1"')
-    expect(first).toContain('aria-expanded="true"')
-    expect(first.match(/aria-expanded="false"/g)).toHaveLength(2)
+    expect(first).toContain('aria-expanded="false"')
+    expect(first).toContain('hidden=""')
+    expect(first.match(/aria-expanded="false"/g)).toHaveLength(3)
     expect(render()).toContain('aria-label="Group loans"')
     expect(render()).toContain('aria-label="Sort loans"')
   })
