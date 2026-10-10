@@ -32,10 +32,12 @@ describe('refined Overview cash-flow rent schedule', () => {
     expect(component).not.toContain("return dueDay < currentDay ? 'Paid'")
   })
 
-  it('keeps the dial as supporting context with today and payment-day markers', () => {
-    expect(component).toContain('className="rent-schedule-hand"')
-    expect(component).toContain("className={`rent-schedule-band ${group.dueDay === currentDay ? 'today' : ''}`}")
-    expect(component).toContain('<small>Today</small><strong>{currentDay}</strong>')
+  it('shows today, days until next rent and previous / next scheduled rent dates', () => {
+    expect(component).toContain('className="rent-progress-wheel"')
+    expect(component).toContain('className="rent-progress-centre"')
+    expect(component).toContain('<strong>{currentDay}</strong>')
+    expect(component).toContain('cycle.daysUntil')
+    expect(component).toContain('className="rent-progress-range"')
   })
 
   it('adds larger Apple-native responsive styling without decorative gradients', () => {
