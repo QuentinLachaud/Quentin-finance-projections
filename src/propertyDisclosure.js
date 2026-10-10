@@ -128,10 +128,18 @@ export const propertyMetricSupported = (property = {}, supportKey = '') => {
   return Boolean(support[supportKey])
 }
 
+export const PROPERTY_ADMINISTRATION_KEYS = new Set([
+  'factorsProvider', 'factorsAccountNumber', 'mortgageNumber',
+  'buildingsInsuranceProvider', 'buildingsInsurancePolicyNumber',
+  'buildingsInsuranceInsuredValue', 'depositScheme', 'depositRegistrationNumber',
+])
+
 export const supportedPropertyRows = (rows = [], advanced = false, properties = []) => {
   const propertyList = Array.isArray(properties) ? properties : []
   return (Array.isArray(rows) ? rows : []).filter((row) => {
     if (!advanced && row?.[3] === true) return false
+    // Full details must expose every administrative field, including values not yet supplied.
+    if (advanced && PROPERTY_ADMINISTRATION_KEYS.has(row?.[6])) return true
     const supportKey = row?.[6]
     if (!supportKey || propertyList.length === 0) return true
     return propertyList.some((property) => propertyMetricSupported(property, supportKey))

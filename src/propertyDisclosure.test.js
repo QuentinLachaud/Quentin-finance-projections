@@ -3,6 +3,7 @@ import { editableSections } from './data.js'
 import {
   PROPERTY_EDITOR_CORE_KEYS,
   PROPERTY_EDITOR_OPTIONAL_SECTIONS,
+  PROPERTY_ADMINISTRATION_KEYS,
   propertyFieldHasValue,
   propertyHasMortgage,
   propertyMetricSupported,
@@ -63,6 +64,16 @@ describe('property progressive disclosure semantics', () => {
     expect(propertyMetricSupported({ latestValuation: 180000, fixedRateMonths: 24 }, 'expectedRemortgageValue')).toBe(false)
     expect(propertyMetricSupported({ eicrExpiry: '2029-01-01' }, 'eicrExpiry')).toBe(true)
     expect(propertyMetricSupported({}, 'eicrExpiry')).toBe(false)
+  })
+
+  it('exposes every administration field in Full details even for empty/legacy records', () => {
+    const fields = [...PROPERTY_ADMINISTRATION_KEYS]
+    expect(fields).toHaveLength(8)
+    const rows = fields.map((key) => [key, (p) => p[key], 'text', true, key, null, key])
+    expect(supportedPropertyRows(rows, false, [{ id: 'p1' }])).toEqual([])
+    expect(supportedPropertyRows(rows, true, [{ id: 'p1' }]).map((row) => row[0])).toEqual(fields)
+    expect(supportedPropertyRows(rows, true, []).map((row) => row[0])).toEqual(fields)
+    expect(supportedPropertyRows(rows, true, [{ id: 'p1', factorsProvider: 'Speirs Gumley' }])).toHaveLength(8)
   })
 
   it('preserves Basic/Full semantics and retains a row when any compared property supports it', () => {
