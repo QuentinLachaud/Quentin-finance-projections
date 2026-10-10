@@ -81,7 +81,7 @@ const LUNA_BANK_READ_OPERATIONS = ['bank.accounts', 'bank.transactions', 'bank.s
 
 const validatedBankOptions = (raw) => {
   const data = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
-  const allowed = new Set(['limit', 'account', 'accountId', 'property', 'propertyId', 'category', 'from', 'to', 'query'])
+  const allowed = new Set(['limit', 'offset', 'account', 'accountId', 'property', 'propertyId', 'category', 'from', 'to', 'query'])
   const invalid = Object.keys(data).filter((key) => !allowed.has(key))
   if (invalid.length) throw new Error('Unsupported banking query option(s): ' + invalid.join(', '))
   const limit = data.limit == null ? 100 : Number(data.limit)
@@ -91,7 +91,9 @@ const validatedBankOptions = (raw) => {
       throw new Error('Invalid bank date: ' + key)
     }
   }
-  return { ...data, limit }
+  const offset = data.offset == null ? 0 : Number(data.offset)
+  if (!Number.isInteger(offset) || offset < 0 || offset > 100000) throw new Error('Bank transaction offset must be 0 to 100000.')
+  return { ...data, limit, offset }
 }
 
 const bankAccounts = async (env, authorization, userId) => {
@@ -136,7 +138,7 @@ const readBankRecords = async (env, authorization, user, portfolio, args) => {
   const query = (raw, op, comparator = 'eq') => raw == null || raw === '' ? '' : '&' + op + '=' + comparator + '.' + encodeURIComponent(raw)
   const params = 'bank_transactions?user_id=eq.' + encodeURIComponent(user.id)
     + '&select=id,account_id,booked_at,value_at,amount,currency,description,counterparty,status,category,is_transfer,category_overridden,property_id,performance_treatment,exclude_from_performance,source_type'
-    + '&order=booked_at.desc&limit=' + opts.limit
+    + '&order=booked_at.desc,id.desc&limit=' + opts.limit + '&offset=' + opts.offset
     + query(matches?.[0]?.id, 'account_id')
     + query(property?.id, 'property_id')
     + query(opts.category, 'category')
@@ -150,7 +152,8 @@ const readBankRecords = async (env, authorization, user, portfolio, args) => {
     .some((value) => String(value).toLowerCase().includes(term))) : mapped
   return {
     count: filtered.length, items: filtered,
-    cappedAt: opts.limit, mayHaveMore: (rows || []).length >= opts.limit,
+    cappedAt: opts.limit, offset: opts.offset, nextOffset: (rows || []).length >= opts.limit ? opts.offset + opts.limit : null,
+    mayHaveMore: (rows || []).length >= opts.limit,
     note: term
       ? 'Text search filters the most recent bounded set; older matches may exist. Dates/bank/property/category filters are applied at source.'
       : 'Cached bank transactions; may include imported bank statements. Consult sourceType and bookedAt for provenance.',
@@ -249,9 +252,9 @@ const portfolioTool = {
     'For a property rent or other direct property field use property.get. For complete linked property context use property.context.',
     'For portfolio-wide or selected BTL financial calculations use portfolio.financial_summary, with data.properties as an array of names/IDs for a subset.',
     'For portfolio projections use portfolio.projection with optional months and milestones; never invent financial calculations.',
-    'For expenses and receipt metadata search use expense.filtered with property, category, date and query filters; for generated property history use timeline.view. For targeted cross-domain records use portfolio.context with data.collections (up to four): properties, loans, tenants, expenses, contractors, contractorTags, propertyTimelineEvents, performanceEvents, acquisitionScenarios, remortgageComparisons, companyCosts, extractions, notificationPreferences. It excludes credentials and external banking tables.',
+    'For expenses and receipt metadata search use expense.filtered with property, category, date, query and offset filters; for generated property history use timeline.view. For targeted cross-domain records use portfolio.context with data.collections (up to four), optional limit and offset: properties, loans, tenants, expenses, contractors, contractorTags, propertyTimelineEvents, performanceEvents, acquisitionScenarios, remortgageComparisons, companyCosts, extractions, notificationPreferences. It excludes credentials and external banking tables.',
     'For multiple linked writes in one transaction use portfolio.batch with data.actions array, each containing operation, target and data. Never run a partially successful batch.',
-    'For bank balances and transactions use bank.accounts, bank.summary, or bank.transactions. Bank data is stored separately from portfolio JSON; use data.account or accountId and data.property or propertyId plus optional from, to, category, limit. Results contain cached time-stamped balances and transaction provenance. These operations are read-only.',
+    'For bank balances and transactions use bank.accounts, bank.summary, or bank.transactions. Bank data is stored separately from portfolio JSON; use data.account or accountId and data.property or propertyId plus optional from, to, category, limit, offset. Results contain cached time-stamped balances and transaction provenance. These operations are read-only.',
 
     'Property administration keys: factorsProvider, factorsAccountNumber, mortgageNumber, buildingsInsuranceProvider, buildingsInsurancePolicyNumber, buildingsInsuranceInsuredValue, depositScheme, depositRegistrationNumber.',
     'Saved acquisition scenario actions: acquisition.create/update/duplicate/reorder/delete. Scenario fields: name, purchasePrice, expectedMonthlyRent, jurisdiction, ltv, adsRate, legalFees, mortgageFee, mortgageFeeAddedToLoan, sourceUrl, sourceProvider. Reorder uses data.index.',
