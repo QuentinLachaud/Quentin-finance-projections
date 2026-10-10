@@ -17737,6 +17737,13 @@ button.contractor-tag-chip { cursor: pointer; }
 .property-single-editor input:focus-visible, .property-single-editor select:focus-visible, .property-single-picker select:focus-visible { outline: 2px solid var(--ui-accent, currentColor); outline-offset: 2px; }
 .property-single-empty { padding: 24px; }
 @media (max-width: 720px) {
+  /* All three workspace modes must remain reachable on phones. */
+  .properties-controls-bar { display: flex; justify-content: stretch; }
+  .properties-controls-bar .properties-tools { width: 100%; justify-content: stretch; }
+  .properties-controls-bar .property-workspace-mode { width: 100%; display: flex; }
+  .properties-controls-bar .property-view-choice { flex: 1 1 0; min-width: 0; padding-inline: 8px; white-space: normal; }
+  .properties-controls-bar .properties-tools > .property-view-mode:not(.property-workspace-mode) { display: none; }
+  .properties-controls-bar .properties-search { display: none; }
   .properties-controls-bar.property-single-controls { display: flex; justify-content: stretch; }
   .properties-controls-bar.property-single-controls .properties-tools { width: 100%; justify-content: stretch; }
   .properties-controls-bar.property-single-controls .property-workspace-mode { width: 100%; display: flex; }
