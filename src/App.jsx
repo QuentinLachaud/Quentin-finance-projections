@@ -1452,17 +1452,22 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove, selectionRequ
   </div>
 }
 
-function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose, onDelete, isNew, focusField = '' }) {
+function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose, onDelete, isNew, focusField = '', inline = false, onDirtyChange }) {
   const [draft, setDraft] = useState(property)
   const [stagedLoans, setStagedLoans] = useState(() => loans.map((loan) => ({ ...loan })))
   const [removedLoanIds, setRemovedLoanIds] = useState([])
+  const [dirty, setDirty] = useState(false)
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
+  const changeStagedLoans = (next) => { setDirty(true); setStagedLoans(next) }
   const removeStagedLoan = (id) => {
+    setDirty(true)
     const original = loans.find((loan) => loan.id === id && loan.propertyId === property.id)
     if (original) setRemovedLoanIds((current) => [...new Set([...current, id])])
     setStagedLoans((current) => current.filter((loan) => loan.id !== id))
   }
   const drawerRef = useRef(null)
   useEffect(() => {
+    if (inline) return undefined
     const onKeyDown = (event) => event.key === 'Escape' && onClose()
     const previousOverflow = document.body.style.overflow
     document.addEventListener('keydown', onKeyDown)
@@ -1471,8 +1476,8 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
     }
-  }, [onClose])
-  useEffect(() => { setDraft(property); setStagedLoans(loans.map((loan) => ({ ...loan }))); setRemovedLoanIds([]) }, [property?.id])
+  }, [onClose, inline])
+  useEffect(() => { setDraft(property); setStagedLoans(loans.map((loan) => ({ ...loan }))); setRemovedLoanIds([]); setDirty(false) }, [property?.id])
   useEffect(() => {
     if (!focusField || !drawerRef.current) return undefined
     const focusTarget = () => {
@@ -1490,11 +1495,14 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
     const frame = requestAnimationFrame(focusTarget)
     return () => cancelAnimationFrame(frame)
   }, [focusField, property?.id])
-  const update = (key, value, type) => setDraft((current) => {
+  const update = (key, value, type) => {
+    setDirty(true)
+    setDraft((current) => {
     const parsed = type === 'percent' ? Number(value) / 100 : type === 'number' ? Number(value) : type === 'optional-number' ? (value === '' ? '' : Number(value)) : value
     if (key === 'loanAmount') return updatePropertyMortgageInput(current, parsed)
     return { ...current, [key]: parsed }
-  })
+    })
+  }
   const renderField = ([key, label, type, optional = false, placeholder = '']) => <label key={key} className={type === 'text' && ['address', 'depositHeld', 'tenantOccupation'].includes(key) ? 'wide' : ''}>
     <span>{label}{optional && <small>Optional</small>}</span>
     <div className={type === 'percent' ? 'input-suffix' : ''}>
@@ -1517,10 +1525,9 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
     count: propertySectionCompletion(draft, section.keys),
   }))
 
-  return (
-    <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <aside ref={drawerRef} className="drawer" role="dialog" aria-modal="true" aria-labelledby="property-editor-title">
-        <header><div><span className="kicker">Portfolio property</span><h2 id="property-editor-title">{isNew ? 'Add a BTL' : `Edit ${draft.name}`}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><X /></button></header>
+  const content = (
+    <>
+        <header><div><span className="kicker">Portfolio property</span><h2 id="property-editor-title">{isNew ? 'Add a BTL' : `Edit ${draft.name}`}</h2></div>{inline ? <span className="property-single-save-hint">{dirty ? 'Unsaved changes' : 'Edit fields, then save'}</span> : <button className="icon-button" onClick={onClose} aria-label="Close"><X /></button>}</header>
         <div className="drawer-body property-editor-progressive">
           <section className="form-section property-editor-essentials">
             <div className="property-editor-section-heading"><div><span className="kicker">START HERE</span><h3>Essentials</h3></div><p>These are enough to start. Add other details when they are useful to you.</p></div>
@@ -1528,21 +1535,27 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
           </section>
           <section className="property-editor-more" aria-label="Optional property details">
             <div className="property-editor-more-heading"><div><span className="kicker">OPTIONAL</span><h3>Add more details</h3></div><small>Financing, tenancy, costs and compliance stay available without blocking setup.</small></div>
-            {optionalSections.map((section) => <details className="property-editor-disclosure" key={section.id}>
+            {optionalSections.map((section) => <details className="property-editor-disclosure" key={section.id} open={inline || undefined}>
               <summary data-property-field={section.id === 'financing' ? 'financing' : undefined}><span><b>{section.title}</b><small>{section.id === 'financing' ? `${stagedLoans.length} loan${stagedLoans.length === 1 ? '' : 's'} associated` : section.count ? `${section.count} detail${section.count === 1 ? '' : 's'} added` : section.description}</small></span><ChevronDown size={18} /></summary>
               {section.id === 'financing'
-                ? <div className="property-editor-financing-body"><PropertyLoansEditor property={draft} loans={stagedLoans} availableLoans={availableLoans} onChange={setStagedLoans} onRemove={removeStagedLoan} /></div>
+                ? <div className="property-editor-financing-body"><PropertyLoansEditor property={draft} loans={stagedLoans} availableLoans={availableLoans} onChange={changeStagedLoans} onRemove={removeStagedLoan} expandAll={inline} /></div>
                 : <div className="form-grid">{section.fields.map(renderField)}</div>}
             </details>)}
           </section>
         </div>
         <footer>
-          {!isNew && <button className="danger-button" onClick={() => onDelete(draft.id)}><Trash2 size={16} /> Delete</button>}
+          {!inline && !isNew && <button className="danger-button" onClick={() => onDelete(draft.id)}><Trash2 size={16} /> Delete</button>}
           <span />
           <button className="secondary-button" onClick={onClose}>Cancel</button>
-          <button className="primary-button" onClick={() => onSave(draft, stagedLoans, removedLoanIds)}><Check size={17} /> Save BTL</button>
+          <button className="primary-button" disabled={inline && !dirty} onClick={() => { onSave(draft, stagedLoans, removedLoanIds); setDirty(false) }}><Check size={17} /> Save BTL</button>
         </footer>
-      </aside>
+    </>
+  )
+  return inline ? (
+    <section ref={drawerRef} className="panel property-single-editor" aria-labelledby="property-editor-title">{content}</section>
+  ) : (
+    <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <aside ref={drawerRef} className="drawer" role="dialog" aria-modal="true" aria-labelledby="property-editor-title">{content}</aside>
     </div>
   )
 }
@@ -1619,6 +1632,7 @@ function PortfolioApp({ user, accessToken }) {
   const [search, setSearch] = useState('')
   const [advancedPropertyView, setAdvancedPropertyView] = useState(false)
   const [propertyWorkspaceView, setPropertyWorkspaceView] = useState('compare')
+  const [singlePropertyDirty, setSinglePropertyDirty] = useState(false)
   const [mobilePropertyId, setMobilePropertyId] = useState('')
   const [editingField, setEditingField] = useState('')
   const [collapsedPropertyGroups, setCollapsedPropertyGroups] = useState(
@@ -2102,6 +2116,20 @@ function PortfolioApp({ user, accessToken }) {
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
   const mobileProperty = calculated.find((property) => property.id === mobilePropertyId) || filtered[0] || calculated[0] || null
+  const singleProperty = state.properties.find((property) => property.id === mobileProperty?.id) || null
+  const discardSingleChanges = () => propertyWorkspaceView !== 'single' || !singlePropertyDirty || window.confirm('Discard unsaved property changes?')
+  const changePropertyWorkspaceView = (nextView) => {
+    if (!discardSingleChanges()) return
+    setSinglePropertyDirty(false)
+    setPropertyWorkspaceView(nextView)
+    if (nextView === 'timeline') setSearch('')
+  }
+  const selectSingleProperty = (id) => {
+    if (id === mobileProperty?.id || !discardSingleChanges()) return
+    setSinglePropertyDirty(false)
+    setMobilePropertyId(id)
+    setSearch('')
+  }
   const visibleWorkspaceNavigation = workspaceNavigation.filter(([label]) => {
     if (state.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(label)) return false
     return true
@@ -2416,11 +2444,12 @@ function PortfolioApp({ user, accessToken }) {
           </>}
 
           {section === 'Properties' && <>
-            <section className="properties-controls-bar" aria-label="Property comparison controls">
+            <section className={`properties-controls-bar ${propertyWorkspaceView === 'single' ? 'property-single-controls' : ''}`} aria-label="Property workspace controls">
               <div className="table-tools properties-tools">
                 <div className="property-view-mode property-workspace-mode" role="group" aria-label="Property workspace view">
-                  <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'compare' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'compare'} onClick={() => setPropertyWorkspaceView('compare')}>Compare</button>
-                  <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'timeline' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'timeline'} onClick={() => { setPropertyWorkspaceView('timeline'); setSearch('') }}>Timeline</button>
+                  <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'compare' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'compare'} onClick={() => changePropertyWorkspaceView('compare')}>Compare</button>
+                  <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'single' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'single'} onClick={() => changePropertyWorkspaceView('single')}>Single property</button>
+                  <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'timeline' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'timeline'} onClick={() => changePropertyWorkspaceView('timeline')}>Timeline</button>
                 </div>
                 {propertyWorkspaceView === 'compare' && <div className="property-view-mode" role="group" aria-label="Property detail level">
                   <button
@@ -2457,7 +2486,16 @@ function PortfolioApp({ user, accessToken }) {
               onDeleteEvent={removePropertyTimelineEvent}
               onAddDocument={(propertyId) => { setDocumentCaptureRequest({ propertyId, nonce: Date.now() }); setSection('Documents & Expenses') }}
               onOpenSource={openTimelineSource}
-            /> : <>
+            /> : propertyWorkspaceView === 'single' ? <div className="property-single-workspace">
+              <label className="property-single-picker"><span>Selected BTL</span>
+                <select aria-label="Select property to edit" value={mobileProperty?.id || ''} onChange={(event) => selectSingleProperty(event.target.value)} disabled={!calculated.length}>
+                  {calculated.length === 0 && <option value="">No properties yet</option>}
+                  {calculated.map((property) => <option key={property.id} value={property.id}>{property.name}{property.postcode ? ` · ${property.postcode}` : ''}</option>)}
+                </select>
+              </label>
+              {singleProperty ? <EditDrawer key={singleProperty.id} inline property={singleProperty} loans={loansForProperty(state.loans || [], singleProperty.id)} availableLoans={state.loans || []} isNew={false} onDirtyChange={setSinglePropertyDirty} onSave={saveProperty} onClose={() => { if (discardSingleChanges()) { setSinglePropertyDirty(false); setPropertyWorkspaceView('compare') } }} onDelete={removeProperty} />
+                : <section className="panel property-single-empty"><h2>No BTL selected</h2><p>Add a property from Overview to start editing.</p></section>}
+            </div> : <>
             <div className="mobile-property-tabs-sticky" aria-label="Choose property">
               <div className="mobile-property-segments" role="tablist" aria-label="BTLs">
                 {calculated.map((property) => <button type="button" role="tab" aria-selected={mobileProperty?.id === property.id} className={mobileProperty?.id === property.id ? 'active' : ''} key={property.id} onClick={() => { setMobilePropertyId(property.id); setSearch('') }}>{property.name}</button>)}
