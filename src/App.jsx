@@ -2417,6 +2417,10 @@ function PortfolioApp({ user, accessToken }) {
         />
 
         <div className="content">
+          {writeConflict.current && saveStatus === 'error' && <div className="portfolio-write-conflict" role="alert">
+            This portfolio changed in another tab or device while you were editing. Your local changes were not saved.
+            Copy anything you need from this tab, then reload to get the latest saved version.
+          </div>}
           <section className="hero-row">
             <div className="hero-copy">
               <h1>{pageMeta.title}</h1>
