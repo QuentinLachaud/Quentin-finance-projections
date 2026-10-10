@@ -72,7 +72,7 @@ export default function LunaAssistant({ accessToken, userId, onPortfolioChange, 
     })
     const result = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(result.error || 'Luna could not complete that request.')
-    if (result.portfolio) onPortfolioChange?.(result.portfolio)
+    if (result.portfolio) onPortfolioChange?.(result.portfolio, result.updatedAt || null)
     if (Array.isArray(result.uiActions) && result.uiActions.length) onUiActions?.(result.uiActions)
     return result
   }
