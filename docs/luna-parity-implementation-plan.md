@@ -16,16 +16,16 @@ The goal is **capability parity**, not that Luna can click every element in the 
 | Properties / BTLs | **Now:** full property and linked context; calculated cashflow | **Now:** create, update many fields, clone, archive/delete, transactional batches | Administration fields added; strict validation. Multi-loan account number must target a particular loan. Property metadata validation beyond the field list needs work. |
 | Loans | List, get, linked loans, loan metrics | Create/update/delete, property account sync for exactly one loan | Need explicit property-scoped selection of one loan, repayment schedules and remortgage lifecycle actions. |
 | Tenants | Get, list, linked to BTL | Create/update/delete | Property-owned deposit canonical data correctly shown on tenant cards; tenant allocation and related updates need wider atomic workflows. |
-| Costs and cash flow | Expenses and company cost/extraction lists and summary | Create/update/delete expenses, company costs and extractions | Need advanced filters, by-period reporting and connection to bank transaction truth. |
+| Costs and cash flow | Computed portfolio summary; filtered expenses by BTL, date/category and company cost/extraction reads | Expense and company cost/extraction CRUD | Need reconciled period reports and cross-referencing with bank transaction truth. |
 | Documents and receipts | Expense document metadata stored in portfolio | Metadata in expense records | **Not yet:** authenticated Supabase Storage file upload/download/rename/delete and direct Google Drive attachment/link flows. Must not claim a file was uploaded when only metadata changed. |
 | Contractors/tags | List, get | CRUD/tag CRUD | Need richer searches and document/job association operations. |
-| Property timelines | Raw event list | Manual event CRUD | Need composite generated timeline view and filters. |
-| Performance | Raw performance-event list; financial summary/projection | — | **Not yet:** manual performance-event CRUD, XIRR and bank-actual performance chart queries with precise scopes. |
-| Acquisition Simulator | Saved scenarios list, existing client simulation through UI | — | **Not yet:** scenario CRUD/reorder, listing URL import and direct server-side acquisition calculation endpoints. |
-| Remortgage Simulator | Saved comparisons list | — | **Not yet:** comparison CRUD, scenario side updates, direct rate/fee break-even calculations. |
-| Projections and Next BTL | **Now:** portfolio cash-flow projection milestones through the app engine | Settings only | **Not yet:** edit Next BTL saved preferences, run acquisition/equity-release calculations independent of the open browser view. |
-| Notifications / compliance | Notification preferences, BTL dates through property context | Notifications on/off via settings | **Not yet:** dismiss/snooze individual reminders and web push subscriptions. Push permission is browser controlled. |
-| Banking | — | — | Data in separate Supabase tables and banking API. Needs authenticated read-only account/transaction tools, then guarded transaction review/categorisation and sync; never fabricate balances or mark transfers without verified identifiers. |
+| Property timelines | Raw manual event lists and **canonical generated history** via `timeline.view` | Manual timeline event CRUD | Advanced filtering and drilldown remain. |
+| Performance | Portfolio projections and stored performance events | **Implemented:** manual performance event CRUD | Full XIRR/bank-actual performance calculations still pending. |
+| Acquisition Simulator | Saved acquisition scenarios, client-side deterministic simulator | **Implemented:** create, update, duplicate, reorder and delete scenarios | Direct deterministic cost/affordability endpoint and external listing import pending. |
+| Remortgage Simulator | Saved comparisons plus canonical deterministic scenario comparison | **Implemented:** create, update both sides, duplicate and delete | More rate/fee break-even and product rules pending. |
+| Projections and Next BTL | Portfolio forecasts and saved Next BTL preferences | **Implemented:** change Next BTL preferences | Direct equity-release timing and scenario modelling still pending. |
+| Notifications / compliance | Generated scheduled/actionable reminders and preferences | **Implemented:** dismiss/snooze reminders, enable/disable global reminders | Web Push browser permission/subscriptions still a user-visible handoff. |
+| Banking | **Implemented:** authenticated, RLS-scoped balances/account lists and bounded stored transaction queries by property, account, category and date | — | Bank sync, connection authorisation, category corrections, reconciliation and transaction updates pending. Balances are cached, not live-confirmed. |
 | Company Financial Summary | Partial portfolio calculations | Company settings updates | **Not yet:** use same company financial snapshot as UI, with bank transaction sourcing, period/date and tax assumptions. |
 | Companies House | — | — | Requires reusing the existing public Companies House adapter through server-side authenticated tools; no fake filings or official data. |
 | IDs and credentials | — | — | Existing credential values are sensitive. Offer labels/expiry/status read with redaction; secret reading and modification must use a separate security policy / explicit approval. |
@@ -38,7 +38,7 @@ The goal is **capability parity**, not that Luna can click every element in the 
 2. **Conflicting loan identity:** property \`mortgageNumber\` is a derived/display field when a loan is linked. PR #8 updates the linked loan for a single-loan property and refuses to guess among multiple loans.
 3. **No linked transactional edits:** PR #8 adds up-to-12 \`portfolio.batch\` transactions. Failures happen before persistence; deletion confirmation is preserved.
 4. **Fragmented query context:** PR #8 adds restricted \`portfolio.context\`, \`property.context\`, \`portfolio.financial_summary\` and \`portfolio.projection\`, reusing the existing engines. Credentials and external banking tables remain inaccessible through the generic snapshot.
-5. **Whole-document stale writes:** the Luna API now uses \`updated_at\` compare-and-swap when the record has a version, and the UI skips immediately rewriting a Luna-delivered change. **Remaining:** ordinary browser autosaves still use unconditional upsert and can race with another browser tab; resolve this end-to-end.
+5. **Whole-document stale writes:** Both Luna and ordinary browser portfolio writes now use `updated_at` compare-and-swap when a saved row is present. Stale tabs are blocked with a visible error; fine-grained conflict merging and unsaved in-flight edit reconciliation remain future work.
 6. **Unverified success:** PR #8 explicitly verifies saved field values and reports actual changed keys. Extend verification to all other domain operations and test against an independent reload.
 
 ## Implementation stages after PR #8
@@ -53,17 +53,17 @@ The goal is **capability parity**, not that Luna can click every element in the 
 
 ### Stage 2 — full in-portfolio CRUD (P1)
 
-- Acquisition: create/rename/edit/duplicate/reorder/delete saved scenarios via existing \`acquisition.js\`; deterministic \`acquisitionCosts\` and affordability calculations, with assumptions surfaced.
-- Remortgage: create/edit/duplicate/delete comparisons with existing \`remortgage.js\`, fee handling, loan-to-value and comparison calculations.
-- Performance: manual event CRUD, cashflow model queries, XIRR with sourced event IDs and duplicate-expense warnings.
-- Compliance: composite timeline/compliance queries, reminder dismiss/snooze operations, notification preference editing.
-- Expense/document metadata: filters, association, tagging, renaming and contractor links.
+- **Acquisition CRUD implemented.** Add standalone acquisition costs/affordability queries and source listing import.
+- **Remortgage CRUD/comparison implemented.** Add fee break-even and external product terms.
+- **Manual performance event CRUD implemented.** Add bank-actual performance metrics, XIRR, provenance and duplicate-expense checks.
+- **Generated timeline and reminder actions implemented.** Extend notification and Web Push workflows with explicit browser handoffs.
+- **Filtered expense reads implemented.** Add full document tagging, renaming, linking and storage lifecycle actions.
 - Next BTL simulation: saved target/preference CRUD and backend derivation of timeline, cash requirement and equity-release outcomes.
 - Same-user batch operations must support these new actions atomically.
 
 ### Stage 3 — external and binary sources (P1/P2)
 
-- Banking: add a separate **read-only** authenticated API tool over \`bank_accounts\`, \`bank_transactions\` and snapshots with RLS; cap results, support date/property/category filters and clear freshness/authority labels. Then add audited mutation actions for categorisation, internal-transfer recognition, review, reconciliation and sync.
+- **Read-only banking API implemented** over RLS-protected account and transaction data. Next add explicit transaction-review and sync actions with audit trails.
 - Documents: use Supabase Storage server-backed metadata + signed short-lived URLs, virus/type/size checks, user-specific ownership enforcement. Google Drive linking/import requires OAuth scope choices and source provenance.
 - Company financial reports: reuse \`buildCompanyFinancialSnapshot\` and its transaction evidence; distinguish forecast from booked transactions and document date range.
 - Companies House: reuse the app's existing adapter for official queries; do not write filings without a dedicated user-authorised external flow.
@@ -98,4 +98,4 @@ The goal is **capability parity**, not that Luna can click every element in the 
 - "Import this document from Google Drive" → ask for provider authorisation or browser handoff if absent; never claim binary transfer without success.
 - "Reveal a company auth code" → explicit credential security policy, not a broad portfolio-context leak.
 
-**Definition of done:** only call Luna "UI-parity complete" once every row above is either implemented with the same observable behavior as the UI or intentionally restricted with a visible, tested user handoff. PR #8 is the safe foundation, not yet full parity.
+**Definition of done:** only call Luna "UI-parity complete" once every row above is either implemented with the same observable behavior as the UI or intentionally restricted with a visible, tested user handoff. PR #8 implements most in-portfolio administrative CRUD plus safe, contextual reads; it is not yet full UI parity.
