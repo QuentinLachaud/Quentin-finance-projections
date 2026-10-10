@@ -54,6 +54,7 @@ export const realisticEquityReleaseCandidatesAtMonth = ({
   schedule = [],
   annualAppreciationRate = 0,
   month = 0,
+  rateShock = 0,
   now = new Date(),
 }) => {
   const currentMonth = Math.max(0, Math.trunc(finite(month)))
@@ -69,6 +70,7 @@ export const realisticEquityReleaseCandidatesAtMonth = ({
       targetLtv: entry.targetLtv,
       annualAppreciationRate,
       month: currentMonth,
+      rateShock,
     })
     const release = Math.max(0, finite(detail.release))
 
