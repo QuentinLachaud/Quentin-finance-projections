@@ -45,3 +45,19 @@ export function formatRentCycleDate(iso) {
   return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
     .format(new Date(year, month - 1, day, 12))
 }
+
+
+/**
+ * Scheduled amount on a rent-cycle boundary. These are expected rents,
+ * not confirmed receipts; use the same active-tenancy schedule as the wheel.
+ * Return null when no valid date is supplied (distinct from a £0 rent).
+ */
+export function scheduledRentAmountForDate(tenants = [], properties = [], iso = null) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return null
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = new Date(year, month - 1, day, 12)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null
+  return rentScheduleForMonth(tenants, properties, date).events
+    .filter((event) => event.dueDate === iso)
+    .reduce((total, event) => total + event.amount, 0)
+}
