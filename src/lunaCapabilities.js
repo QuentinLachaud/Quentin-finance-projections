@@ -24,11 +24,12 @@ import { normalizeTimelineEvent, propertyChangeEvents } from './propertyTimeline
 import { calculateProperty, calculatePortfolio, projectPortfolio } from './calculations.js'
 import { withPropertyLoans, summarizePropertyLoans } from './loans.js'
 import { propertyOperatingCashflow } from './portfolioFields.js'
-import { complianceDiaryItems } from './notifications.js'
+import { complianceDiaryItems, actionableNotifications, dismissNotification, snoozeNotification } from './notifications.js'
 import { normalizeDocumentMeta } from './documents.js'
 import { createAcquisition, nextAcquisitionName, reorderAcquisitions } from './acquisition.js'
 import { createRemortgageComparison, duplicateRemortgageComparison, updateRemortgageScenario, compareRemortgageScenarios } from './remortgage.js'
 import { createPerformanceEvent, normalizePerformanceEvent, PERFORMANCE_EVENT_TYPES } from './performance.js'
+import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
 
 const clean = (value) => String(value ?? '').trim()
 const lower = (value) => clean(value).toLowerCase()
@@ -92,6 +93,11 @@ export const LUNA_PHASE_ONE_OPERATIONS = [
   'remortgage.delete',
   'remortgage.compare',
   'notification_preferences.get',
+  'notification.list',
+  'notification.dismiss',
+  'notification.snooze',
+  'next_btl.get',
+  'next_btl.update',
   'property.create',
   'property.update',
   'property.clone',
@@ -396,6 +402,19 @@ const updatedPerformanceEvent = (source, raw, state) => {
   return normalized
 }
 
+
+const NEXT_BTL_FIELDS = new Set([
+  'targetSource', 'selectedAcquisitionId', 'targetPrice', 'appreciationPercent',
+  'scenarioIndex', 'preserveBuffer', 'includeExtraction', 'includeRentGrowth',
+  'releaseMode', 'assumptions', 'equityReleaseOptions',
+])
+const findComplianceEvent = (state, ref) => {
+  const events = complianceDiaryItems(withPropertyLoans(state.properties, state.loans))
+  const matches = events.filter((event) => event.key === ref || referenceKey(event.propertyName + ' ' + event.label) === referenceKey(ref))
+  if (matches.length !== 1) throw new Error('Reminder not found or ambiguous: ' + ref)
+  return matches[0]
+}
+
 const linkedExpenses = (state, property) => state.expenses.filter((entry) => {
   const document = normalizeDocumentMeta(entry.document)
   if (document?.association?.kind === 'property') return document.association.id === property.id
@@ -593,7 +612,7 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
     const actions = data.actions
     if (!Array.isArray(actions) || actions.length < 1 || actions.length > 12) throw new Error('Batch must contain 1 to 12 actions.')
     if (actions.some((action) => !action || typeof action !== 'object' || action.operation === 'portfolio.batch'
-      || !LUNA_PHASE_ONE_OPERATIONS.includes(action.operation) || !/^(property|tenant|loan|expense|contractor|contractor_tag|settings|company_cost|extraction|timeline|acquisition|remortgage|performance_event)\.(create|update|delete|set_active|clone|duplicate|reorder)$/.test(action.operation))) {
+      || !LUNA_PHASE_ONE_OPERATIONS.includes(action.operation) || !/^(property|tenant|loan|expense|contractor|contractor_tag|settings|company_cost|extraction|timeline|acquisition|remortgage|performance_event|notification|next_btl)\.(create|update|delete|set_active|clone|duplicate|reorder|dismiss|snooze)$/.test(action.operation))) {
       throw new Error('Unsupported operation in portfolio batch.')
     }
     if (!confirmed && actions.some((action) => LUNA_DESTRUCTIVE_OPERATIONS.has(action.operation))) {
@@ -737,6 +756,44 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
     if (pending) return pending
     state.performanceEvents = state.performanceEvents.filter((candidate) => candidate.id !== before.id)
     return writeResult(state, 'Deleted performance event ' + (before.title || before.id) + '.')
+  }
+
+
+  if (operation === 'next_btl.get') return readResult(normalizeNextBtlPreferences(state.nextBtlPreferences))
+  if (operation === 'next_btl.update') {
+    if (!data || typeof data !== 'object' || Array.isArray(data) || !Object.keys(data).length) {
+      throw new Error('Specify Next BTL preferences to change.')
+    }
+    const invalid = Object.keys(data).filter((key) => !NEXT_BTL_FIELDS.has(key))
+    if (invalid.length) throw new Error('Unsupported Next BTL preference(s): ' + invalid.join(', '))
+    const next = normalizeNextBtlPreferences({ ...state.nextBtlPreferences, ...data })
+    for (const key of Object.keys(data)) if (!Object.prototype.hasOwnProperty.call(next, key)) {
+      throw new Error('Invalid Next BTL preference: ' + key)
+    }
+    state.nextBtlPreferences = next
+    return writeResult(state, 'Updated Next BTL preferences.', { preferences: next })
+  }
+  if (operation === 'notification.list') {
+    const properties = withPropertyLoans(state.properties, state.loans)
+    return readResult({
+      scheduled: complianceDiaryItems(properties),
+      actionable: actionableNotifications({
+        properties, preferences: state.notificationPreferences,
+        enabled: state.settings.notificationsEnabled !== false,
+      }),
+      preferences: state.notificationPreferences || {},
+    })
+  }
+  if (operation === 'notification.dismiss' || operation === 'notification.snooze') {
+    const event = findComplianceEvent(state, clean(target || data?.key))
+    if (operation === 'notification.dismiss') {
+      state.notificationPreferences = dismissNotification(state.notificationPreferences, event)
+    } else {
+      const days = data?.days === undefined ? 7 : Number(data.days)
+      if (!Number.isInteger(days) || days < 1 || days > 30) throw new Error('Snooze days must be 1–30.')
+      state.notificationPreferences = snoozeNotification(state.notificationPreferences, event, new Date(), days)
+    }
+    return writeResult(state, (operation === 'notification.dismiss' ? 'Dismissed ' : 'Snoozed ') + event.label + ' for ' + event.propertyName + '.', { event })
   }
 
   if (operation === 'property.create') {
