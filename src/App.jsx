@@ -2695,7 +2695,11 @@ function PortfolioApp({ user, accessToken }) {
         accessToken={accessToken}
         userId={user.id}
         uiActionContext={{ properties: state.properties, accountType: state.settings.accountType }}
-        onPortfolioChange={(portfolio) => setState((current) => mergeRemotePortfolio(current, portfolio))}
+        onPortfolioChange={(portfolio, updatedAt) => {
+          if (updatedAt) lastServerUpdatedAt.current = updatedAt
+          remoteApplying.current = true
+          setState((current) => mergeRemotePortfolio(current, portfolio))
+        }}
         onUiActions={handleLunaUiActions}
       />
 
