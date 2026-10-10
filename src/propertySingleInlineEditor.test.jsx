@@ -19,6 +19,22 @@ describe('single BTL inline editor', () => {
     expect(app).toContain('property-comparison-table')
   })
 
+  it('keeps Compare, Timeline and Single property in one row on desktop and mobile', () => {
+    const tabGroup = app.match(/<div className="property-view-mode property-workspace-mode"[\\s\\S]*?<\\/div>/)?.[0]
+    expect(tabGroup).toBeDefined()
+    expect(tabGroup.match(/<button type="button"/g)).toHaveLength(3)
+    expect(tabGroup.indexOf('>Compare</button>')).toBeLessThan(tabGroup.indexOf('>Timeline</button>'))
+    expect(tabGroup.indexOf('>Timeline</button>')).toBeLessThan(tabGroup.indexOf('>Single property</button>'))
+
+    const switcherCss = styles.slice(styles.indexOf('/* Three property workspace views share one compact horizontal control.'))
+    expect(switcherCss).toMatch(/\\.properties-controls-bar \\.property-workspace-mode \\{[\\s\\S]*?display: grid;[\\s\\S]*?grid-template-columns: minmax\\(0, 1fr\\) minmax\\(0, 1fr\\) minmax\\(max-content, 1\\.4fr\\)/)
+    expect(switcherCss).toMatch(/\\.property-workspace-mode > \\.property-view-choice \\{[\\s\\S]*?white-space: nowrap;/)
+    expect(switcherCss).toContain('.properties-controls-bar .property-workspace-mode { width: 100%; display: grid; }')
+    expect(switcherCss).toContain('.properties-controls-bar.property-single-controls .property-workspace-mode { width: 100%; display: grid; }')
+    expect(switcherCss).toContain('white-space: nowrap;')
+    expect(styles).toContain('grid-template-columns: 1fr 1fr;') // Other two-option selectors remain unchanged.
+  })
+
   it('reuses canonical property fields and the existing property/loan save pathway', () => {
     expect(app).toContain('editableFieldsFor(PROPERTY_EDITOR_CORE_KEYS)')
     expect(app).toContain('PROPERTY_EDITOR_OPTIONAL_SECTIONS.map')
