@@ -94,4 +94,19 @@ describe('Luna saved-planning and compliance operations', () => {
     expect(result.state.acquisitionScenarios).toHaveLength(1)
     expect(result.state.properties[0].factorsProvider).toBe('Speirs Gumley')
   })
+  it('filters actual expenses by property and uses the composite property history engine', () => {
+    const current = state()
+    current.expenses = [
+      { id: 'e1', property: 'BTL1', amount: -500, description: 'Plumber', category: 'repairs', date: '2026-09-01' },
+      { id: 'e2', property: 'OTHER', amount: -100, description: 'Unrelated', category: 'repairs', date: '2026-09-01' },
+    ]
+    const filtered = execute(current, 'expense.filtered', 'BTL 1', { category: 'repairs', from: '2026-01-01' }).result
+    expect(filtered.total).toBe(1)
+    expect(filtered.summary.expense).toBe(500)
+    expect(filtered.items[0].description).toBe('Plumber')
+    const history = execute(current, 'timeline.view', 'BTL1').result
+    expect(history.history.some((item) => item.title.includes('Plumber'))).toBe(true)
+    expect(() => execute(current, 'expense.filtered', 'BTL1', { inventedFilter: true })).toThrow(/Unsupported/)
+  })
+
 })
