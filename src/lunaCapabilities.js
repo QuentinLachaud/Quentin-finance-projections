@@ -458,6 +458,8 @@ const contextCollections = (state, target, data) => {
   }
   const property = target ? resolveProperty(state, target) : null
   const limit = Math.min(100, Math.max(1, Number.isInteger(data?.limit) ? data.limit : 40))
+  const offset = data?.offset === undefined ? 0 : Number(data.offset)
+  if (!Number.isInteger(offset) || offset < 0 || offset > 100000) throw new Error('Context offset must be 0 to 100000.')
   const collections = Object.fromEntries(requested.map((key) => {
     if (key === 'notificationPreferences') return [key, state.notificationPreferences || {}]
     const items = key === 'companyCosts' || key === 'extractions' ? listLineItems(state, key) : array(state[key])
@@ -466,7 +468,7 @@ const contextCollections = (state, target, data) => {
         : key === 'contractors' ? array(item.propertyIds).includes(property.id)
         : item.propertyId === property.id || item.sourcePropertyId === property.id)
       : property ? items.filter((item) => item.id === property.id) : items
-    return [key, { total: selected.length, items: selected.slice(0, limit), truncated: selected.length > limit }]
+    return [key, { total: selected.length, items: selected.slice(offset, offset + limit), nextOffset: selected.length > offset + limit ? offset + limit : null }]
   }))
   return { property: property ? propertyIdentity(property) : null, collections }
 }
@@ -613,18 +615,20 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
 
   if (operation === 'expense.filtered') {
     const filters = data || {}
-    const allowed = new Set(['property', 'category', 'recurrence', 'type', 'from', 'to', 'query', 'limit'])
+    const allowed = new Set(['property', 'category', 'recurrence', 'type', 'from', 'to', 'query', 'limit', 'offset'])
     const invalid = Object.keys(filters).filter((key) => !allowed.has(key))
     if (invalid.length) throw new Error('Unsupported expense filter(s): ' + invalid.join(', '))
     const property = target || filters.property ? resolveProperty(state, target || filters.property) : null
     const maxItems = filters.limit === undefined ? 100 : Number(filters.limit)
     if (!Number.isInteger(maxItems) || maxItems < 1 || maxItems > 200) throw new Error('Expense limit must be 1 to 200.')
+    const offset = filters.offset === undefined ? 0 : Number(filters.offset)
+    if (!Number.isInteger(offset) || offset < 0 || offset > 100000) throw new Error('Expense offset must be 0 to 100000.')
     const scoped = property ? linkedExpenses(state, property) : state.expenses
     const items = filterExpenses(scoped, { ...filters, property: '' })
     return readResult({
       scope: property ? propertyIdentity(property) : 'all properties',
-      total: items.length, summary: summarizeExpenses(items), items: items.slice(0, maxItems),
-      truncated: items.length > maxItems,
+      total: items.length, summary: summarizeExpenses(items), items: items.slice(offset, offset + maxItems),
+      nextOffset: items.length > offset + maxItems ? offset + maxItems : null,
     })
   }
   if (operation === 'timeline.view') {
