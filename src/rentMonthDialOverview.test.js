@@ -19,7 +19,7 @@ function renderOnOctoberTenth(props = { properties, tenants }) {
   vi.useFakeTimers()
   try {
     vi.setSystemTime(new Date(2026, 9, 10, 12))
-    return renderToStaticMarkup(<RentMonthDial {...props} />)
+    return renderToStaticMarkup(React.createElement(RentMonthDial, props))
   } finally {
     vi.useRealTimers()
   }
