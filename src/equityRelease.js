@@ -1,3 +1,5 @@
+import { projectedPropertyLoanBalance } from './loans.js'
+
 const finite = (value, fallback = 0) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -25,9 +27,11 @@ export const potentialEquityReleaseForProperty = ({
   targetLtv = DEFAULT_EQUITY_RELEASE_TARGET_LTV,
   annualAppreciationRate = 0,
   month = 0,
+  rateShock = 0,
 }) => {
   const currentValue = Math.max(0, finite(property?.latestValuation))
-  const loanAmount = Math.max(0, finite(property?.loanAmount))
+  const currentLoanAmount = projectedPropertyLoanBalance(property, 0)
+  const loanAmount = projectedPropertyLoanBalance(property, month, rateShock)
   const normalizedTargetLtv = normalizeEquityReleaseTargetLtv(targetLtv)
   const projectedValue = projectedExistingPropertyValue(property, annualAppreciationRate, month)
   const targetDebt = projectedValue * normalizedTargetLtv
@@ -39,7 +43,7 @@ export const potentialEquityReleaseForProperty = ({
     currentValue,
     projectedValue,
     loanAmount,
-    currentLtv: currentValue ? loanAmount / currentValue : 0,
+    currentLtv: currentValue ? currentLoanAmount / currentValue : 0,
     targetLtv: normalizedTargetLtv,
     targetDebt,
     release,
@@ -51,6 +55,7 @@ export const potentialEquityReleaseAtMonth = ({
   selections = {},
   annualAppreciationRate = 0,
   month = 0,
+  rateShock = 0,
 }) => {
   const details = (Array.isArray(properties) ? properties : []).flatMap((property) => {
     const propertyId = String(property?.id ?? '')
@@ -62,6 +67,7 @@ export const potentialEquityReleaseAtMonth = ({
       targetLtv: selection.targetLtv,
       annualAppreciationRate,
       month,
+      rateShock,
     })]
   })
 

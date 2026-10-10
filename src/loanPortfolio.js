@@ -292,3 +292,21 @@ export const projectPropertyLoans = (property, months = 0, rateShock = 0, events
   const financeLoans = [...projected, ...extraLoans]
   return { ...applyLoansToProperty(property, financeLoans), financeLoans }
 }
+
+/**
+ * Outstanding debt after scheduled repayments from the recorded balance.
+ * A recorded currentBalance is an as-of-now snapshot, not a starting balance
+ * to amortise retroactively. Product start dates are not repayment ledgers.
+ */
+export const projectedPropertyLoanBalance = (property, months = 0, rateShock = 0) => {
+  if (Array.isArray(property?.financeLoans)) {
+    return projectPropertyLoans(property, months, rateShock).loanAmount
+  }
+  const balance = positive(property?.loanAmount)
+  if (!balance || property?.mortgageInterestOnly !== false) return balance
+  return projectLoan({
+    principalAmount: balance, currentBalance: balance,
+    rate: positive(property?.baseRate), interestOnly: false,
+    termMonths: property?.mortgageTermMonths,
+  }, months, rateShock).currentBalance
+}

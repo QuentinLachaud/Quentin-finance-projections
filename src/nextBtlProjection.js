@@ -156,6 +156,7 @@ export const projectTimeToNextBtl = ({
     selections: equityReleaseSelections,
     annualAppreciationRate: finite(settings.appreciationRate),
     month: 0,
+    rateShock: finite(settings.rateShock),
   })
 
   if (releaseMode === 'smooth') {
@@ -176,6 +177,7 @@ export const projectTimeToNextBtl = ({
       selections: equityReleaseSelections,
       annualAppreciationRate: finite(settings.appreciationRate),
       month,
+      rateShock: finite(settings.rateShock),
     }).total)
 
     const nextBtlProjection = buildNextBtlProjection({
@@ -244,6 +246,7 @@ export const projectTimeToNextBtl = ({
       schedule: realisticSchedule,
       annualAppreciationRate: finite(settings.appreciationRate),
       month,
+      rateShock: finite(settings.rateShock),
       now,
     })
     const shortfall = Math.max(0, cashRequired - cashWithoutRelease)
