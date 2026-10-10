@@ -21,6 +21,8 @@ export const newAccountDefaults = {
   rateShock: 0,
 }
 
+export const DEFAULT_DEPOSIT_SCHEME = 'SafeDeposits Scotland'
+
 const sharedCosts = {
   legionella: 0,
   gasCertificate: 0,
@@ -62,6 +64,13 @@ export const createBlankProperty = (name = 'BTL1') => ({
   qualifyingFinanceBalance: '',
   voidsOverride: '',
   factorsFees: 0,
+  factorsProvider: '',
+  factorsAccountNumber: '',
+  buildingsInsuranceProvider: '',
+  buildingsInsurancePolicyNumber: '',
+  buildingsInsuranceInsuredValue: '',
+  depositScheme: DEFAULT_DEPOSIT_SCHEME,
+  depositRegistrationNumber: '',
   tenantName: '',
   tenantEmail: '',
   tenantPhone: '',
@@ -78,6 +87,23 @@ export const createBlankProperty = (name = 'BTL1') => ({
   ...sharedCosts,
 })
 
+// Migration for older user portfolios; never infer the factors provider.
+export const normalizePropertyRecord = (property = {}) => {
+  const value = property && typeof property === 'object' ? property : {}
+  return {
+    ...value,
+    mortgageNumber: value.mortgageNumber ?? '',
+    factorsProvider: value.factorsProvider ?? '',
+    factorsAccountNumber: value.factorsAccountNumber ?? '',
+    buildingsInsuranceProvider: value.buildingsInsuranceProvider ?? '',
+    buildingsInsurancePolicyNumber: value.buildingsInsurancePolicyNumber ?? '',
+    buildingsInsuranceInsuredValue: value.buildingsInsuranceInsuredValue ?? '',
+    depositScheme: typeof value.depositScheme === 'string' && value.depositScheme.trim()
+      ? value.depositScheme.trim() : DEFAULT_DEPOSIT_SCHEME,
+    depositRegistrationNumber: value.depositRegistrationNumber ?? '',
+  }
+}
+
 export const editableSections = [
   {
     title: 'Property',
@@ -93,11 +119,24 @@ export const editableSections = [
   {
     title: 'Loan & costs',
     fields: [
-      ['lender', 'Current lender', 'text'], ['mortgageNumber', 'Mortgage reference (private)', 'text'],
+      ['lender', 'Current lender', 'text'],
       ['baseRate', 'Base interest rate', 'percent'], ['fixedRateMonths', 'Fixed period (months)', 'number'],
       ['qualifyingFinanceBalance', 'Private-tax qualifying finance balance (blank = full loan)', 'optional-number'],
       ['factorsFees', 'Factors fees / month', 'number'], ['repairs', 'Repairs budget / month', 'number'],
       ['latestRemortgage', 'Latest remortgage', 'date', true],
+    ],
+  },
+  {
+    title: 'Property administration',
+    fields: [
+      ['factorsProvider', 'Building Factors provider', 'text', true, 'Speirs Gumley'],
+      ['factorsAccountNumber', 'Factors account number', 'text', true],
+      ['mortgageNumber', 'Mortgage provider account number', 'text', true],
+      ['buildingsInsuranceProvider', 'Buildings insurance provider', 'text', true],
+      ['buildingsInsurancePolicyNumber', 'Buildings insurance policy number', 'text', true],
+      ['buildingsInsuranceInsuredValue', 'Buildings insurance insured value', 'optional-number', true],
+      ['depositScheme', 'Deposit scheme', 'text', true],
+      ['depositRegistrationNumber', 'Deposit registration number', 'text', true],
     ],
   },
   {

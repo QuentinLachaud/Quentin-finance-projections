@@ -6,7 +6,7 @@ import {
   Pencil, Plus, RotateCcw, Search, ShieldCheck, Sparkles, Trash2, TrendingUp, Moon, Sun,
   WalletCards, X, LogOut, Settings, Cloud, CloudOff, ReceiptText, FileText, Users, UserRound, RefreshCw, AlertTriangle, Coffee, KeyRound, Wrench,
 } from 'lucide-react'
-import { assumptions, createBlankProperty, editableSections, newAccountDefaults } from './data.js'
+import { assumptions, createBlankProperty, DEFAULT_DEPOSIT_SCHEME, editableSections, newAccountDefaults, normalizePropertyRecord } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
 import { calendarDate, dateInputValue } from './dateUtils.js'
 import {
@@ -35,7 +35,7 @@ import { canAddProperty, normalizeEntitlement, showFreeSupport } from './billing
 import { isSupabaseConfigured, supabase } from './supabase.js'
 import { formatPropertyAddress, formatRateComposition, includedPortfolioProperties, propertyOperatingCashflow, shouldSelectZeroInput, tenantsForIncludedProperties, visiblePropertyRows } from './portfolioFields.js'
 import { PROPERTY_EDITOR_CORE_KEYS, PROPERTY_EDITOR_OPTIONAL_SECTIONS, propertyFieldHasValue, propertyMetricSupported, propertySectionCompletion, supportedPropertyRows } from './propertyDisclosure.js'
-import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, syncPropertyTenant, tenantBelongsToProperty, tenantTenure } from './tenants.js'
+import { applyTenantToProperty, createTenant, importPropertyTenants, propertyVoidHistory, removeTenantsForProperty, stripPropertyDepositFields, syncPropertyTenant, tenantBelongsToProperty, tenantDepositDetails, tenantTenure } from './tenants.js'
 import { accentOptions, accentStorageKey, initialAccent, initialTheme, userAvatarUrl } from './preferences.js'
 import { normalizeNextBtlPreferences } from './nextBtlPreferences.js'
 import { applyLoanToPortfolio, applyLoansToProperty, loansForProperty, normalizeLoans, reconcileLoanPortfolio, removeLoanFromPortfolio, removePropertyFromLoanPortfolio, savePropertyLoans, updatePropertyMortgageInput, withPropertyLoans } from './loans.js'
@@ -93,6 +93,16 @@ const propertyGroups = [
     ['EPC rating', (p) => p.epc, 'text', false, 'epc', null, 'epc'],
     ['Area', (p) => `${p.areaSqm} m²`, 'integer', true, 'areaSqm', null, 'area'],
     ['First purchased', (p) => shortDate(p.purchaseDate), 'date', true, 'purchaseDate', null, 'purchaseDate'],
+  ]},
+  { title: 'Property administration', description: 'Factors, mortgage account, insurance and deposit registration', tone: 'blue', emptyLabel: 'No property administration details have been added yet.', emptyEditField: 'factorsProvider', rows: [
+    ['Building Factors provider', (p) => p.factorsProvider, 'text', false, 'factorsProvider', null, 'factorsProvider'],
+    ['Factors account number', (p) => p.factorsAccountNumber, 'text', false, 'factorsAccountNumber', null, 'factorsAccountNumber'],
+    ['Mortgage provider account number', (p) => p.mortgageNumber, 'text', false, 'mortgageNumber', null, 'mortgageNumber'],
+    ['Buildings insurance provider', (p) => p.buildingsInsuranceProvider, 'text', false, 'buildingsInsuranceProvider', null, 'buildingsInsuranceProvider'],
+    ['Buildings insurance policy number', (p) => p.buildingsInsurancePolicyNumber, 'text', false, 'buildingsInsurancePolicyNumber', null, 'buildingsInsurancePolicyNumber'],
+    ['Buildings insurance insured value', (p) => currency(p.buildingsInsuranceInsuredValue), 'money', false, 'buildingsInsuranceInsuredValue', null, 'buildingsInsuranceInsuredValue'],
+    ['Deposit scheme', (p) => p.depositScheme, 'text', false, 'depositScheme', null, 'depositScheme'],
+    ['Deposit registration number', (p) => p.depositRegistrationNumber, 'text', false, 'depositRegistrationNumber', null, 'depositRegistrationNumber'],
   ]},
   { title: 'Compliance & timing', description: 'Remortgage and statutory safety dates', tone: 'amber', emptyLabel: 'No compliance dates have been added yet.', emptyEditField: 'gasExpiry', rows: [
     ['Call broker', (p) => shortDate(p.brokerDate), 'date', false, null, null, 'brokerDate'],
@@ -1358,7 +1368,6 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove, selectionRequ
   const [draft, setDraft] = useState(null)
   const startNew = () => setDraft(createTenant(properties[0]?.id || ''))
   const edit = (tenant) => setDraft({ ...tenant })
-  const propertyName = (id) => properties.find((property) => property.id === id)?.name || 'Unknown BTL'
   const visibleTenants = selectionRequest?.propertyId
     ? tenants.filter((tenant) => String(tenant.propertyId) === selectionRequest.propertyId)
     : tenants
@@ -1377,15 +1386,18 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove, selectionRequ
       { key: 'moveIn', label: 'Move-in date' },
       { key: 'moveOut', label: 'Move-out date' },
       { key: 'depositHeld', label: 'Deposit held' },
+      { key: 'depositScheme', label: 'Deposit scheme' },
+      { key: 'depositRegistrationNumber', label: 'Deposit registration number' },
       { key: 'tenure', label: 'Tenure' },
     ]
     const rows = tenants.map((tenant) => {
       const property = properties.find((candidate) => candidate.id === tenant.propertyId)
+      const depositDetails = tenantDepositDetails(tenant, properties)
       const tenure = tenantTenure(tenant)
       return {
         status: tenure.archived ? 'Archived' : tenure.live ? 'Live tenant' : 'Upcoming',
         name: tenant.name || '',
-        property: property?.name || 'Unknown BTL',
+        property: depositDetails.propertyName,
         address: property ? formatPropertyAddress(property.flatNumber, property.address) || property.postcode || '' : '',
         email: tenant.email || '',
         phone: tenant.phone || '',
@@ -1394,6 +1406,8 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove, selectionRequ
         moveIn: tenant.moveIn || '',
         moveOut: tenant.moveOut || '',
         depositHeld: tenant.depositHeld || '',
+        depositScheme: depositDetails.scheme,
+        depositRegistrationNumber: depositDetails.registrationNumber,
         tenure: tenure.label,
       }
     })
@@ -1417,7 +1431,8 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove, selectionRequ
   }
   const tenantCard = (tenant) => {
     const tenure = tenantTenure(tenant)
-    return <article className={`panel tenant-card ${tenure.live ? 'live' : ''}`} key={tenant.id}><header><div><span className={`tenant-status ${tenure.live ? 'live' : tenure.archived ? 'archived' : 'future'}`}>{tenure.live ? 'Live tenant' : tenure.archived ? 'Archived' : 'Upcoming'}</span><h2>{tenant.name || 'Unnamed tenant'}</h2><p>{propertyName(tenant.propertyId)} · {tenure.label}</p></div><Users size={20} /></header><dl><div><dt>Email</dt><dd>{tenant.email || '—'}</dd></div><div><dt>Phone</dt><dd>{tenant.phone || '—'}</dd></div><div><dt>Occupation</dt><dd>{tenant.occupation || '—'}</dd></div><div><dt>Rent payment date</dt><dd>{formatOrdinalDay(tenant.rentPaymentDay)} monthly</dd></div><div><dt>Deposit</dt><dd>{tenant.depositHeld || '—'}</dd></div></dl><footer><button className="text-button" onClick={() => edit(tenant)}><Pencil size={15} /> Edit</button><button className="text-button tenant-delete" onClick={() => onRemove(tenant.id)}><Trash2 size={15} /> Remove</button></footer></article>
+    const depositDetails = tenantDepositDetails(tenant, properties)
+    return <article className={`panel tenant-card ${tenure.live ? 'live' : ''}`} key={tenant.id}><header><div><span className={`tenant-status ${tenure.live ? 'live' : tenure.archived ? 'archived' : 'future'}`}>{tenure.live ? 'Live tenant' : tenure.archived ? 'Archived' : 'Upcoming'}</span><h2>{tenant.name || 'Unnamed tenant'}</h2><p>{depositDetails.propertyName} · {tenure.label}</p></div><Users size={20} /></header><dl><div><dt>BTL / property</dt><dd>{depositDetails.propertyName}</dd></div><div><dt>Email</dt><dd>{tenant.email || '—'}</dd></div><div><dt>Phone</dt><dd>{tenant.phone || '—'}</dd></div><div><dt>Occupation</dt><dd>{tenant.occupation || '—'}</dd></div><div><dt>Rent payment date</dt><dd>{formatOrdinalDay(tenant.rentPaymentDay)} monthly</dd></div><div><dt>Deposit held</dt><dd>{tenant.depositHeld || '—'}</dd></div><div><dt>Deposit scheme</dt><dd>{depositDetails.scheme || '—'}</dd></div><div><dt>Deposit registration number</dt><dd>{depositDetails.registrationNumber || '—'}</dd></div></dl><footer><button className="text-button" onClick={() => edit(tenant)}><Pencil size={15} /> Edit</button><button className="text-button tenant-delete" onClick={() => onRemove(tenant.id)}><Trash2 size={15} /> Remove</button></footer></article>
   }
   const submit = (event) => {
     event.preventDefault()
@@ -1461,7 +1476,7 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
   useEffect(() => {
     if (!focusField || !drawerRef.current) return undefined
     const focusTarget = () => {
-      const financingFields = new Set(['loanAmount', 'baseRate', 'lender', 'fixedRateMonths', 'latestRemortgage', 'mortgageNumber', 'qualifyingFinanceBalance'])
+      const financingFields = new Set(['loanAmount', 'baseRate', 'lender', 'fixedRateMonths', 'latestRemortgage', 'qualifyingFinanceBalance'])
       const targetField = financingFields.has(focusField) ? 'financing' : focusField
       const input = drawerRef.current?.querySelector(`[data-property-field="${focusField}"]`)
         || drawerRef.current?.querySelector(`[data-property-field="${targetField}"]`)
@@ -1480,7 +1495,7 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
     if (key === 'loanAmount') return updatePropertyMortgageInput(current, parsed)
     return { ...current, [key]: parsed }
   })
-  const renderField = ([key, label, type, optional = false]) => <label key={key} className={type === 'text' && ['address', 'depositHeld', 'tenantOccupation'].includes(key) ? 'wide' : ''}>
+  const renderField = ([key, label, type, optional = false, placeholder = '']) => <label key={key} className={type === 'text' && ['address', 'depositHeld', 'tenantOccupation'].includes(key) ? 'wide' : ''}>
     <span>{label}{optional && <small>Optional</small>}</span>
     <div className={type === 'percent' ? 'input-suffix' : ''}>
       <BrainDrainNumericInput
@@ -1489,6 +1504,7 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
         step={type === 'percent' ? '0.1' : ['number', 'optional-number'].includes(type) ? 'any' : undefined}
         value={key === 'loanAmount' ? (draft.mortgagePrincipalAmount ?? draft.loanAmount ?? '') : type === 'percent' ? percentInputValue(draft[key]) : type === 'date' ? dateInputValue(draft[key]) : draft[key] ?? ''}
         onChange={(event) => update(key, event.target.value, type)}
+        placeholder={placeholder || undefined}
       />
       {type === 'percent' && <small>%</small>}
       {type === 'date' && optional && dateInputValue(draft[key]) && <button type="button" className="text-button" aria-label={`Clear ${label}`} onClick={(event) => { event.preventDefault(); update(key, '', type) }}>Clear</button>}
@@ -1700,7 +1716,7 @@ function PortfolioApp({ user, accessToken }) {
       const existingAccountDefaults = isEstablishedPortfolio ? { companyName: 'Quark Holdings', onboardingComplete: true, taxJurisdiction: 'scotland' } : {}
       const migratedProperties = storedProperties
         .map((property) => ({
-          ...property,
+          ...normalizePropertyRecord(property),
           mortgageOverride: '',
           mortgageOverrideRate: null,
           mortgageOverrideLoanAmount: null,
@@ -1878,7 +1894,7 @@ function PortfolioApp({ user, accessToken }) {
     if (!state.properties.some((property) => property.id === draft.id) && !requestPropertySlot()) return
     setState((current) => {
       const previousProperty = current.properties.find((property) => property.id === draft.id) || null
-      const synced = syncPropertyTenant(draft, current.tenants)
+      const synced = syncPropertyTenant(normalizePropertyRecord(draft), current.tenants)
       const intendedLoans = stagedLoans ?? loansForProperty(current.loans || [], draft.id)
       const next = savePropertyLoans(current, synced.property, intendedLoans, removedLoanIds)
       const effectiveProperty = next.properties.find((property) => property.id === draft.id) || synced.property
@@ -1904,7 +1920,7 @@ function PortfolioApp({ user, accessToken }) {
   const cloneProperty = (id) => {
     if (!requestPropertySlot()) return
     const source = state.properties.find((p) => p.id === id)
-    const clone = applyLoansToProperty({ ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', tenantMoveOut: '', depositHeld: '', mortgageNumber: '' }, [])
+    const clone = applyLoansToProperty({ ...source, id: crypto.randomUUID(), name: `BTL${state.properties.length + 1}`, address: `${source.address} (copy)`, active: true, tenantId: '', tenantName: '', tenantEmail: '', tenantPhone: '', tenantOccupation: '', tenantMoveIn: '', tenantMoveOut: '', depositHeld: '', mortgageNumber: '', factorsProvider: '', factorsAccountNumber: '', buildingsInsuranceProvider: '', buildingsInsurancePolicyNumber: '', buildingsInsuranceInsuredValue: '', depositScheme: DEFAULT_DEPOSIT_SCHEME, depositRegistrationNumber: '' }, [])
     setEditingField('')
     setPendingProperty(clone)
     setEditingId(null)
@@ -2046,11 +2062,14 @@ function PortfolioApp({ user, accessToken }) {
     return { ...current, loans: orderedLoans }
   })
 
-  const saveTenant = (tenant) => setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
-    ...current,
-    tenants: current.tenants.some((item) => item.id === tenant.id) ? current.tenants.map((item) => item.id === tenant.id ? tenant : item) : [...current.tenants, tenant],
-    properties: current.properties.map((property) => applyTenantToProperty(tenant, property)),
-  }) : current)
+  const saveTenant = (submittedTenant) => {
+    const tenant = stripPropertyDepositFields(submittedTenant)
+    setState((current) => tenantBelongsToProperty(tenant, current.properties) ? ({
+      ...current,
+      tenants: current.tenants.some((item) => item.id === tenant.id) ? current.tenants.map((item) => item.id === tenant.id ? tenant : item) : [...current.tenants, tenant],
+      properties: current.properties.map((property) => applyTenantToProperty(tenant, property)),
+    }) : current)
+  }
   const removeTenant = (id) => setState((current) => {
     const tenant = current.tenants.find((item) => item.id === id)
     return {
