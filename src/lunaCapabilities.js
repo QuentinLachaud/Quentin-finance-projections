@@ -172,10 +172,16 @@ const TIMELINE_FIELDS = new Set([
   'sourceField', 'before', 'after', 'major',
 ])
 
-const patchFrom = (source, allowed) => Object.fromEntries(
-  Object.entries(source && typeof source === 'object' ? source : {})
-    .filter(([key]) => allowed.has(key)),
-)
+const patchFrom = (source, allowed, { extra = [] } = {}) => {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Update fields must be an object.')
+  const unknown = Object.keys(source).filter((key) => !allowed.has(key) && !extra.includes(key))
+  if (unknown.length) throw new Error('Unsupported field(s): ' + unknown.join(', ') + '. No changes were saved.')
+  const patch = Object.fromEntries(Object.entries(source).filter(([key]) => allowed.has(key)))
+  if (!Object.keys(patch).length && !extra.some((key) => Object.prototype.hasOwnProperty.call(source, key))) {
+    throw new Error('No supported fields supplied; no changes were saved.')
+  }
+  return patch
+}
 
 const withId = (item) => ({ ...item, id: clean(item?.id) || crypto.randomUUID() })
 
@@ -616,14 +622,14 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
 
   if (operation === 'tenant.create') {
     const property = resolveProperty(state, data.propertyId || data.property || target)
-    const tenant = { ...createTenant(property.id), ...patchFrom(data, TENANT_FIELDS), propertyId: property.id }
+    const tenant = { ...createTenant(property.id), ...patchFrom(data, TENANT_FIELDS, { extra: ['property'] }), propertyId: property.id }
     state.tenants.push(tenant)
     return writeResult(state, `Added tenant ${tenant.name || 'record'} to ${property.name}.`, { entity: tenant })
   }
 
   if (operation === 'tenant.update') {
     const previous = requireEntity(state.tenants, target, 'Tenant', ['name', 'email', 'phone'])
-    const patch = patchFrom(data, TENANT_FIELDS)
+    const patch = patchFrom(data, TENANT_FIELDS, { extra: ['property'] })
     if (patch.propertyId) patch.propertyId = propertyIdFrom(state, patch.propertyId)
     const tenant = { ...previous, ...patch }
     if (!tenantBelongsToProperty(tenant, state.properties)) throw new Error('Tenant must belong to an existing property.')
@@ -665,7 +671,7 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
   }
 
   if (operation === 'loan.create') {
-    const raw = { ...createBlankLoan(), ...patchFrom(data, LOAN_FIELDS) }
+    const raw = { ...createBlankLoan(), ...patchFrom(data, LOAN_FIELDS, { extra: ['property'] }) }
     if (data.property || raw.propertyId) raw.propertyId = propertyIdFrom(state, data.property || raw.propertyId)
     if (Object.prototype.hasOwnProperty.call(raw, 'rate')) raw.rate = normalizeRate(raw.rate)
     const next = applyLoanToPortfolio(state, raw)
@@ -675,7 +681,7 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
 
   if (operation === 'loan.update') {
     const previous = requireEntity(state.loans, target, 'Loan', ['lender', 'mortgageNumber'])
-    const patch = patchFrom(data, LOAN_FIELDS)
+    const patch = patchFrom(data, LOAN_FIELDS, { extra: ['property'] })
     if (data.property || patch.propertyId) patch.propertyId = propertyIdFrom(state, data.property || patch.propertyId)
     if (Object.prototype.hasOwnProperty.call(patch, 'rate')) patch.rate = normalizeRate(patch.rate)
     const next = applyLoanToPortfolio(state, { ...previous, ...patch })
@@ -780,7 +786,7 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
   if (operation === 'timeline.create') {
     const property = resolveProperty(state, data.propertyId || data.property || target)
     const event = normalizeTimelineEvent({
-      ...patchFrom(data, TIMELINE_FIELDS),
+      ...patchFrom(data, TIMELINE_FIELDS, { extra: ['property'] }),
       propertyId: property.id,
       occurredAt: data.occurredAt || data.date || new Date().toISOString().slice(0, 10),
       title: data.title || target,
@@ -793,7 +799,7 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
 
   if (operation === 'timeline.update') {
     const previous = requireEntity(state.propertyTimelineEvents, target, 'Timeline event', ['title'])
-    const patch = patchFrom(data, TIMELINE_FIELDS)
+    const patch = patchFrom(data, TIMELINE_FIELDS, { extra: ['property'] })
     if (data.property || patch.propertyId) patch.propertyId = propertyIdFrom(state, data.property || patch.propertyId)
     const event = normalizeTimelineEvent({ ...previous, ...patch })
     if (!event) throw new Error('Timeline event needs a property, date and title.')
