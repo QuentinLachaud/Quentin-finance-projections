@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatRentCycleDate, rentCycleForDate } from './rentProgress.js'
+import { formatRentCycleDate, rentCycleForDate, scheduledRentAmountForDate } from './rentProgress.js'
 
 const properties = [{ id: 'p1', name: 'BTL 1', active: true, rent: 1000 }]
 const tenant = (day = 31, extra = {}) => ({ id: 't1', propertyId: 'p1', rentPaymentDay: day, moveIn: '2025-01-01', ...extra })
@@ -69,5 +69,22 @@ describe('rent progress cycle', () => {
     expect(cycle.previousDueDate).toBeNull()
     expect(cycle.nextDueDate).toBe('2026-12-31')
     expect(cycle.progress).toBe(0)
+  })
+  it('looks up expected rent amounts for each boundary without implying payment', () => {
+    const otherProperty = { id: 'p2', name: 'BTL 2', active: true, rent: 750 }
+    const otherTenant = { id: 't2', propertyId: 'p2', rentPaymentDay: 12, moveIn: '2025-01-01' }
+    const allProperties = [...properties, otherProperty]
+    const allTenants = [tenant(5), otherTenant]
+    const cycle = rentCycleForDate(allTenants, allProperties, new Date(2026, 9, 10, 12))
+    expect(scheduledRentAmountForDate(allTenants, allProperties, cycle.previousDueDate)).toBe(1000)
+    expect(scheduledRentAmountForDate(allTenants, allProperties, cycle.nextDueDate)).toBe(750)
+    expect(scheduledRentAmountForDate([tenant(12), otherTenant], allProperties, '2026-10-12')).toBe(1750)
+  })
+
+  it('returns null for missing or invalid dates, but zero for valid zero-rent events', () => {
+    expect(scheduledRentAmountForDate([], [], null)).toBeNull()
+    expect(scheduledRentAmountForDate([], [], '2026-02-30')).toBeNull()
+    expect(scheduledRentAmountForDate([tenant()], [{ ...properties[0], rent: 0 }], '2026-10-31')).toBe(0)
+    expect(scheduledRentAmountForDate([tenant()], [{ ...properties[0], active: false }], '2026-10-31')).toBe(0)
   })
 })

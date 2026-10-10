@@ -1,52 +1,82 @@
-import { describe, expect, it } from 'vitest'
+import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { describe, expect, it, vi } from 'vitest'
+import RentMonthDial from './RentMonthDial.jsx'
 
-const component = readFileSync(fileURLToPath(new URL('./RentMonthDial.jsx', import.meta.url)), 'utf8')
-const styles = readFileSync(fileURLToPath(new URL('./styles.css', import.meta.url)), 'utf8')
-const marker = '/* Brain Drain 2026-09-16 21:23 BST — refined cash-flow rent schedule */'
-const start = styles.indexOf(marker)
-const next = start >= 0 ? styles.indexOf('/* Brain Drain ', start + marker.length) : -1
-const block = start >= 0 ? styles.slice(start, next >= 0 ? next : undefined) : ''
+const component = readFileSync(new URL('./RentMonthDial.jsx', import.meta.url), 'utf8')
+const styles = readFileSync(new URL('./RentMonthDial.css', import.meta.url), 'utf8')
+const properties = [
+  { id: 'one', name: 'BTL 1', active: true, rent: 1500 },
+  { id: 'two', name: 'BTL 2', active: true, rent: 1100 },
+]
+const tenants = [
+  { id: 't1', propertyId: 'one', rentPaymentDay: 6, moveIn: '2025-01-01' },
+  { id: 't2', propertyId: 'two', rentPaymentDay: 16, moveIn: '2025-01-01' },
+]
 
-describe('refined Overview cash-flow rent schedule', () => {
-  it('keeps the existing rent schedule calculation authoritative', () => {
-    expect(component).toContain("import { formatOrdinalDay, rentScheduleForMonth } from './rentSchedule.js'")
-    expect(component).toContain('rentScheduleForMonth(tenants, properties, today)')
-    expect(component).toContain('schedule.scheduledRent')
-    expect(component).toContain('schedule.missingTenants')
+function renderOnOctoberTenth(props = { properties, tenants }) {
+  vi.useFakeTimers()
+  try {
+    vi.setSystemTime(new Date(2026, 9, 10, 12))
+    return renderToStaticMarkup(React.createElement(RentMonthDial, props))
+  } finally {
+    vi.useRealTimers()
+  }
+}
+
+describe('compact Overview rent clock', () => {
+  it('retains the precise progress ring and shows the last/next date and expected amount', () => {
+    const html = renderOnOctoberTenth()
+    expect(html).toContain('rent-progress-wheel')
+    expect(html).toContain('rent-progress-fill')
+    expect(html).toContain('rent-progress-marker')
+    expect(html).toContain('>Last rent<')
+    expect(html).toContain('>Next rent<')
+    expect(html).toContain('>6 Oct</strong><b>£1,500</b>')
+    expect(html).toContain('>16 Oct</strong><b>£1,100</b>')
+    expect(html).toContain('6 days')
+    expect(html).toContain('Last scheduled rent 6 Oct, expected £1,500')
+    expect(html).toContain('Next scheduled rent 16 Oct, expected £1,100')
   })
 
-  it('uses a clear monthly summary, useful next/today callout and readable agenda', () => {
-    expect(component).toContain('className="rent-schedule-card rent-progress-layout"')
-    expect(component).toContain('Expected rent from active tenancies')
-    expect(component).toContain('scheduled this month')
-    expect(component).toContain("dueToday ? 'DUE TODAY' : nextDue ? 'NEXT DUE'")
-    expect(component).toContain('className="rent-schedule-agenda"')
-    expect(component).toContain('className="rent-schedule-date"')
-    expect(component).toContain('className="rent-schedule-amount"')
+  it('removes the summary, total, due callout and payment agenda entirely', () => {
+    const html = renderOnOctoberTenth()
+    for (const removed of [
+      'Expected rent from active tenancies', 'scheduled this month',
+      'rent-schedule-summary', 'rent-schedule-total', 'rent-schedule-focus',
+      'rent-schedule-agenda', 'Payment dates', 'Expected rent',
+      'rent-schedule-list', 'payment-count',
+    ]) {
+      expect(html).not.toContain(removed)
+      expect(component).not.toContain(removed)
+    }
   })
 
-  it('never implies historical dates were paid without payment-state data', () => {
-    expect(component).toContain("return dueDay < currentDay ? 'Earlier this month' : 'Upcoming'")
-    expect(component).not.toContain("return dueDay < currentDay ? 'Paid'")
+  it('uses clear missing-state placeholders instead of inventing zero-value rents', () => {
+    const html = renderOnOctoberTenth({ tenants: [], properties: [] })
+    expect(html).toContain('No rent scheduled')
+    expect(html).toContain('>Last rent<')
+    expect(html).toContain('>Next rent<')
+    expect(html).not.toContain('£0')
+    expect(html).not.toContain('rent-progress-fill')
   })
 
-  it('shows today, days until next rent and previous / next scheduled rent dates', () => {
-    expect(component).toContain('className="rent-progress-wheel"')
-    expect(component).toContain('className="rent-progress-centre"')
-    expect(component).toContain('<strong>{currentDay}</strong>')
-    expect(component).toContain('cycle.daysUntil')
-    expect(component).toContain('className="rent-progress-range"')
+  it('centres a smaller desktop dial and places an even smaller wheel left of stacked rent details on mobile', () => {
+    expect(styles).toMatch(/\.rent-schedule-card\.rent-progress-layout\s*\{[^}]*display:\s*flex;[^}]*justify-content:\s*center;/)
+    expect(styles).toContain('width: 188px;')
+    expect(styles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));')
+    const mobile = styles.slice(styles.indexOf('@media (max-width: 700px)'))
+    expect(mobile).toContain('flex-direction: row;')
+    expect(mobile).toContain('width: clamp(110px, 32vw, 134px);')
+    expect(mobile).toContain('grid-template-columns: minmax(0, 1fr);')
+    expect(mobile).toContain('border-top: 1px solid')
+    expect(styles).not.toContain('linear-gradient')
   })
 
-  it('adds larger Apple-native responsive styling without decorative gradients', () => {
-    expect(start).toBeGreaterThanOrEqual(0)
-    expect(block).toContain('font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif')
-    expect(block).toMatch(/\.rent-schedule-total strong\s*\{[\s\S]*?font-size:\s*clamp\(36px, 3vw, 48px\)/)
-    expect(block).toContain('.rent-schedule-row')
-    expect(block).toContain('@media (max-width: 1080px)')
-    expect(block).toContain('@media (max-width: 700px)')
-    expect(block).not.toContain('linear-gradient')
+  it('leaves tenant date and rent information in the canonical rent scheduling functions', () => {
+    expect(component).toContain('rentCycleForDate(tenants, properties, today)')
+    expect(component).toContain('scheduledRentAmountForDate(tenants, properties, cycle.previousDueDate)')
+    expect(component).toContain('scheduledRentAmountForDate(tenants, properties, cycle.nextDueDate)')
   })
 })
