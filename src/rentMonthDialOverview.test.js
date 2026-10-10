@@ -18,7 +18,7 @@ describe('refined Overview cash-flow rent schedule', () => {
   })
 
   it('uses a clear monthly summary, useful next/today callout and readable agenda', () => {
-    expect(component).toContain('className="rent-schedule-card"')
+    expect(component).toContain('className="rent-schedule-card rent-progress-layout"')
     expect(component).toContain('Expected rent from active tenancies')
     expect(component).toContain('scheduled this month')
     expect(component).toContain("dueToday ? 'DUE TODAY' : nextDue ? 'NEXT DUE'")
