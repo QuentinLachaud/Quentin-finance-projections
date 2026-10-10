@@ -18,7 +18,7 @@ export const nextRemortgageDateForProperty = (property) => {
   // A multi-loan property may not have scalar remortgage dates; use its
   // canonical per-loan schedule rather than declaring it ineligible.
   const scheduledDates = (Array.isArray(property?.remortgageSchedule) ? property.remortgageSchedule : [])
-    .map((item) => /^\\d{4}-\\d{2}-\\d{2}$/.test(String(item?.date || ''))
+    .map((item) => /^\d{4}-\d{2}-\d{2}$/.test(String(item?.date || ''))
       ? new Date(`${item.date}T12:00:00`) : null)
     .filter(validDate)
   if (scheduledDates.length) return new Date(Math.min(...scheduledDates.map((date) => date.getTime())))
