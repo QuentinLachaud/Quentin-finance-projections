@@ -1,4 +1,4 @@
-import { createBlankProperty } from './data.js'
+import { createBlankProperty, editableSections } from './data.js'
 import {
   applyTenantToProperty,
   createTenant,
@@ -21,9 +21,11 @@ import {
   normalizeContractorTags,
 } from './contractors.js'
 import { normalizeTimelineEvent, propertyChangeEvents } from './propertyTimeline.js'
-import { calculateProperty } from './calculations.js'
+import { calculateProperty, calculatePortfolio, projectPortfolio } from './calculations.js'
 import { withPropertyLoans, summarizePropertyLoans } from './loans.js'
 import { propertyOperatingCashflow } from './portfolioFields.js'
+import { complianceDiaryItems } from './notifications.js'
+import { normalizeDocumentMeta } from './documents.js'
 
 const clean = (value) => String(value ?? '').trim()
 const lower = (value) => clean(value).toLowerCase()
@@ -47,6 +49,11 @@ const ensureState = (raw = {}) => {
 
 export const LUNA_PHASE_ONE_OPERATIONS = [
   'portfolio.summary',
+  'portfolio.context',
+  'portfolio.financial_summary',
+  'portfolio.projection',
+  'portfolio.batch',
+  'property.context',
   'property.list',
   'property.get',
   'property.loans',
@@ -121,6 +128,9 @@ const PROPERTY_FIELDS = new Set([
   'gasExpiry', 'eicrExpiry', 'epcExpiry', 'patExpiry',
   'tenantName', 'tenantEmail', 'tenantPhone', 'tenantOccupation',
   'tenantMoveIn', 'tenantMoveOut', 'depositHeld', 'active',
+  'factorsProvider', 'factorsAccountNumber', 'mortgageNumber',
+  'buildingsInsuranceProvider', 'buildingsInsurancePolicyNumber', 'buildingsInsuranceInsuredValue',
+  'depositScheme', 'depositRegistrationNumber',
 ])
 
 const TENANT_FIELDS = new Set([
@@ -239,6 +249,167 @@ const requiresConfirmation = (operation, confirmed, state, description) => {
 const listLineItems = (state, collection) => array(state.settings?.[collection])
 const findLineItem = (state, collection, target) => requireEntity(listLineItems(state, collection), target, collection === 'companyCosts' ? 'Company cost' : 'Extraction')
 
+
+const propertyFieldDefinitions = new Map(
+  editableSections.flatMap((section) => section.fields)
+    .map(([key, label, type]) => [key, { label, type }]),
+)
+
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key)
+const numberOrNull = (value) => value === '' || value == null ? null : Number(value)
+
+const validatedPropertyPatch = (raw) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Property fields must be an object.')
+  const keys = Object.keys(raw)
+  if (!keys.length) throw new Error('Specify at least one property field to update.')
+  const unknown = keys.filter((key) => !PROPERTY_FIELDS.has(key))
+  if (unknown.length) throw new Error('Unsupported property field(s): ' + unknown.join(', ') + '. No changes were saved.')
+  const patch = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === undefined) throw new Error('Undefined value for property field: ' + key)
+    const definition = propertyFieldDefinitions.get(key)
+    if (definition?.type === 'optional-number' || definition?.type === 'number') {
+      const parsed = numberOrNull(value)
+      if (parsed === null && definition.type === 'optional-number') {
+        patch[key] = ''
+      } else if (parsed === null || !Number.isFinite(parsed) || parsed < 0 || parsed > 1e12) {
+        throw new Error('Invalid numeric property field: ' + key)
+      } else {
+        patch[key] = parsed
+      }
+    } else if (definition && ['text', 'date', 'email', 'tel'].includes(definition.type)) {
+      if (value !== null && typeof value !== 'string' && typeof value !== 'number') throw new Error('Invalid text property field: ' + key)
+      const text = String(value ?? '').trim()
+      if (text.length > 512) throw new Error('Property field too long: ' + key)
+      if (definition.type === 'date' && text && !/^\d{4}-\d{2}-\d{2}$/.test(text)) throw new Error('Invalid date property field: ' + key)
+      patch[key] = text
+    } else if (key === 'active') {
+      if (typeof value !== 'boolean') throw new Error('Property active must be a boolean.')
+      patch[key] = value
+    } else {
+      if (value === null || Array.isArray(value) || typeof value === 'object') throw new Error('Invalid property field: ' + key)
+      patch[key] = value
+    }
+  }
+  return patch
+}
+
+const linkedExpenses = (state, property) => state.expenses.filter((entry) => {
+  const document = normalizeDocumentMeta(entry.document)
+  if (document?.association?.kind === 'property') return document.association.id === property.id
+  return referenceKey(entry.property) === referenceKey(property.name)
+})
+const linkedContext = (state, property) => {
+  const financed = withPropertyLoans([property], state.loans)[0]
+  const calculated = calculateProperty(financed, state.settings)
+  return {
+    property: financed,
+    metrics: {
+      value: calculated.latestValuation, loanBalance: calculated.loanAmount,
+      equity: calculated.equity, ltv: calculated.currentLtv,
+      monthlyRent: calculated.rent, monthlyMortgagePayment: calculated.monthlyPayment,
+      monthlyOperatingCashflow: propertyOperatingCashflow(calculated, state.settings),
+      grossYield: calculated.grossYield, netYield: calculated.netYield,
+      nextRemortgage: calculated.nextRemortgage,
+    },
+    loans: state.loans.filter((loan) => loan.propertyId === property.id),
+    tenants: state.tenants.filter((tenant) => tenant.propertyId === property.id),
+    expenses: linkedExpenses(state, property),
+    contractors: state.contractors.filter((item) => array(item.propertyIds).includes(property.id)),
+    timeline: state.propertyTimelineEvents.filter((item) => item.propertyId === property.id),
+    performanceEvents: state.performanceEvents.filter((item) => item.propertyId === property.id),
+    compliance: complianceDiaryItems([financed]),
+  }
+}
+
+const CONTEXT_COLLECTIONS = new Set([
+  'properties', 'loans', 'tenants', 'expenses', 'contractors', 'contractorTags',
+  'propertyTimelineEvents', 'performanceEvents', 'acquisitionScenarios',
+  'remortgageComparisons', 'companyCosts', 'extractions', 'notificationPreferences',
+])
+const contextCollections = (state, target, data) => {
+  const requested = data?.collections ?? ['properties', 'loans', 'tenants', 'expenses']
+  if (!Array.isArray(requested) || requested.length < 1 || requested.length > 4
+      || requested.some((key) => !CONTEXT_COLLECTIONS.has(key))) {
+    throw new Error('Specify one to four supported portfolio context collections.')
+  }
+  const property = target ? resolveProperty(state, target) : null
+  const limit = Math.min(100, Math.max(1, Number.isInteger(data?.limit) ? data.limit : 40))
+  const collections = Object.fromEntries(requested.map((key) => {
+    if (key === 'notificationPreferences') return [key, state.notificationPreferences || {}]
+    const items = key === 'companyCosts' || key === 'extractions' ? listLineItems(state, key) : array(state[key])
+    const selected = property && key !== 'properties'
+      ? items.filter((item) => key === 'expenses' ? linkedExpenses(state, property).includes(item)
+        : key === 'contractors' ? array(item.propertyIds).includes(property.id)
+        : item.propertyId === property.id || item.sourcePropertyId === property.id)
+      : property ? items.filter((item) => item.id === property.id) : items
+    return [key, { total: selected.length, items: selected.slice(0, limit), truncated: selected.length > limit }]
+  }))
+  return { property: property ? propertyIdentity(property) : null, collections }
+}
+
+const financialSummary = (state, data = {}) => {
+  const references = data?.properties
+  if (references != null && (!Array.isArray(references) || references.length === 0 || references.length > 25)) {
+    throw new Error('properties must be an array of 1 to 25 BTL names or IDs.')
+  }
+  const properties = references
+    ? [...new Map(references.map((reference) => {
+      const property = resolveProperty(state, reference)
+      return [property.id, { ...property, active: true }]
+    })).values()]
+    : state.properties
+  const scoped = Boolean(references)
+  const settings = scoped
+    ? { ...state.settings, companyCosts: [], extractions: [] }
+    : state.settings
+  const calculated = calculatePortfolio(withPropertyLoans(properties, state.loans), settings)
+  return {
+    scope: scoped ? 'selected properties, excluding shared company costs and extractions' : 'active properties, including company costs and tax',
+    propertyNames: calculated.selected.map((item) => item.name),
+    propertyCount: calculated.count,
+    monthlyRent: calculated.rent,
+    totalValue: calculated.totalValue,
+    totalDebt: calculated.totalLoans,
+    totalEquity: calculated.totalEquity,
+    monthlyMortgagePayments: calculated.mortgagePayments,
+    monthlyFixedCosts: calculated.fixedCosts,
+    monthlyVariableCosts: calculated.variableCosts,
+    portfolioCashHeld: scoped ? null : calculated.cashHeld,
+    portfolioBufferMonths: scoped ? null : calculated.bufferMonths,
+    scenarios: calculated.scenarios.map((item) => ({
+      id: item.id, monthlyCashflowAfterTax: item.cashflow, monthlyBankCashflowAfterTax: item.bankCashflow,
+      monthlyTax: item.tax, monthlyCollectedRent: item.collectedRent, monthlyTotalGain: item.totalGain,
+    })),
+    perProperty: calculated.selected.map((item) => ({
+      id: item.id, name: item.name, value: item.latestValuation,
+      loanBalance: item.loanAmount, equity: item.equity, ltv: item.currentLtv,
+      rent: item.rent, mortgagePayment: item.monthlyPayment,
+      operatingCashflow: propertyOperatingCashflow(item, settings),
+    })),
+  }
+}
+
+const portfolioProjection = (state, data = {}) => {
+  const months = data.months === undefined ? 60 : Number(data.months)
+  if (!Number.isInteger(months) || months < 12 || months > 120) throw new Error('Projection months must be 12 to 120.')
+  const series = projectPortfolio(withPropertyLoans(state.properties, state.loans), state.settings, months)
+  const requested = data.milestones === undefined ? [0, 12, 24, 36, 60, months] : data.milestones
+  if (!Array.isArray(requested) || requested.length > 12 || requested.some((value) => !Number.isInteger(value) || value < 0 || value > months)) {
+    throw new Error('Projection milestones must be months within the forecast horizon.')
+  }
+  return {
+    months, assumptions: {
+      appreciationRate: state.settings?.appreciationRate,
+      rentGrowthRate: state.settings?.rentGrowthRate,
+      rateShock: state.settings?.rateShock,
+    },
+    milestones: [...new Set(requested.filter((value) => value <= months).concat(months))]
+      .sort((a, b) => a - b).map((month) => series[month]),
+    note: 'Uses the existing app projection engine; scenarios depend on configured assumptions, not guaranteed outcomes.',
+  }
+}
+
 const listSummary = (state) => ({
   properties: state.properties.length,
   activeProperties: state.properties.filter((item) => item.active !== false).length,
@@ -312,6 +483,30 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
   if (!LUNA_PHASE_ONE_OPERATIONS.includes(operation)) throw new Error(`Unsupported Luna operation: ${operation}`)
 
   if (operation === 'portfolio.summary') return readResult(listSummary(state))
+  if (operation === 'portfolio.context') return readResult(contextCollections(state, target, data))
+  if (operation === 'portfolio.financial_summary') return readResult(financialSummary(state, data))
+  if (operation === 'portfolio.projection') return readResult(portfolioProjection(state, data))
+  if (operation === 'property.context') return readResult(linkedContext(state, resolveProperty(state, target)))
+  if (operation === 'portfolio.batch') {
+    const actions = data.actions
+    if (!Array.isArray(actions) || actions.length < 1 || actions.length > 12) throw new Error('Batch must contain 1 to 12 actions.')
+    if (actions.some((action) => !action || typeof action !== 'object' || action.operation === 'portfolio.batch'
+      || !LUNA_PHASE_ONE_OPERATIONS.includes(action.operation) || !/^(property|tenant|loan|expense|contractor|contractor_tag|settings|company_cost|extraction|timeline)\.(create|update|delete|set_active|clone)$/.test(action.operation))) {
+      throw new Error('Unsupported operation in portfolio batch.')
+    }
+    if (!confirmed && actions.some((action) => LUNA_DESTRUCTIVE_OPERATIONS.has(action.operation))) {
+      return requiresConfirmation('property.delete', false, state, 'execute the batch containing deletions')
+    }
+    let working = state
+    const results = []
+    for (const action of actions) {
+      const outcome = executePortfolioAction(working, action, { confirmed })
+      if (!outcome.mutated) throw new Error('A batch action did not write: ' + action.operation)
+      working = outcome.state
+      results.push(outcome.result)
+    }
+    return writeResult(working, 'Applied ' + results.length + ' actions atomically.', { actions: results })
+  }
   if (operation === 'property.list') return readResult(state.properties)
   if (operation === 'property.get') return readResult(resolveProperty(state, target))
   if (operation === 'property.loans') {
@@ -346,20 +541,32 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
 
   if (operation === 'property.create') {
     const name = clean(data.name) || `BTL${state.properties.length + 1}`
-    const property = { ...createBlankProperty(name), ...patchFrom(data, PROPERTY_FIELDS) }
+    const property = { ...createBlankProperty(name), ...validatedPropertyPatch({ ...data, name }) }
     state.properties.push(property)
     return writeResult(state, `Created ${property.name}.`, { entity: property })
   }
 
   if (operation === 'property.update') {
     const previous = resolveProperty(state, target)
-    const patch = patchFrom(data, PROPERTY_FIELDS)
+    const patch = validatedPropertyPatch(data)
+    const linkedLoans = state.loans.filter((loan) => loan.propertyId === previous.id)
+    if (hasOwn(patch, 'mortgageNumber') && linkedLoans.length > 1) {
+      throw new Error('Property has multiple loans. Update the intended loan mortgage number explicitly.')
+    }
+    if (hasOwn(patch, 'mortgageNumber') && linkedLoans.length === 1) {
+      state.loans = state.loans.map((loan) => loan.id === linkedLoans[0].id
+        ? { ...loan, mortgageNumber: patch.mortgageNumber } : loan)
+    }
     const draft = { ...previous, ...patch }
     const synced = syncPropertyTenant(draft, state.tenants)
     state.properties = state.properties.map((item) => item.id === previous.id ? synced.property : item)
     state.tenants = synced.tenants
     state.propertyTimelineEvents.push(...propertyChangeEvents(previous, synced.property))
-    return writeResult(state, `Updated ${synced.property.name}.`, { entity: synced.property })
+    return writeResult(state, 'Updated ' + synced.property.name + ': ' + Object.keys(patch).join(', ') + '.', {
+      entity: synced.property,
+      changes: Object.fromEntries(Object.keys(patch).map((key) => [key, synced.property[key]])),
+      linkedLoanUpdated: hasOwn(patch, 'mortgageNumber') && linkedLoans.length === 1,
+    })
   }
 
   if (operation === 'property.clone') {
@@ -379,6 +586,11 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
       tenantMoveOut: '',
       depositHeld: '',
       mortgageNumber: '',
+      factorsAccountNumber: '',
+      buildingsInsurancePolicyNumber: '',
+      buildingsInsuranceInsuredValue: '',
+      depositScheme: '',
+      depositRegistrationNumber: '',
     }
     state.properties.push(property)
     return writeResult(state, `Cloned ${source.name} as ${property.name}.`, { entity: property })
