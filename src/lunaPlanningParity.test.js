@@ -104,6 +104,10 @@ describe('Luna saved-planning and compliance operations', () => {
     expect(filtered.total).toBe(1)
     expect(filtered.summary.expense).toBe(500)
     expect(filtered.items[0].description).toBe('Plumber')
+    const second = execute(current, 'expense.filtered', null, { offset: 1, limit: 1 }).result
+    expect(second.total).toBe(2)
+    expect(second.items).toHaveLength(1)
+    expect(second.nextOffset).toBeNull()
     const history = execute(current, 'timeline.view', 'BTL1').result
     expect(history.history.some((item) => item.title.includes('Plumber'))).toBe(true)
     expect(() => execute(current, 'expense.filtered', 'BTL1', { inventedFilter: true })).toThrow(/Unsupported/)
