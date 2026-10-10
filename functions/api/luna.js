@@ -170,6 +170,11 @@ const portfolioTool = {
     'For targeted cross-domain records use portfolio.context with data.collections (up to four): properties, loans, tenants, expenses, contractors, contractorTags, propertyTimelineEvents, performanceEvents, acquisitionScenarios, remortgageComparisons, companyCosts, extractions, notificationPreferences. It excludes credentials and external banking tables.',
     'For multiple linked writes in one transaction use portfolio.batch with data.actions array, each containing operation, target and data. Never run a partially successful batch.',
     'Property administration keys: factorsProvider, factorsAccountNumber, mortgageNumber, buildingsInsuranceProvider, buildingsInsurancePolicyNumber, buildingsInsuranceInsuredValue, depositScheme, depositRegistrationNumber.',
+    'Saved acquisition scenario actions: acquisition.create/update/duplicate/reorder/delete. Scenario fields: name, purchasePrice, expectedMonthlyRent, jurisdiction, ltv, adsRate, legalFees, mortgageFee, mortgageFeeAddedToLoan, sourceUrl, sourceProvider. Reorder uses data.index.',
+    'Saved remortgage actions: remortgage.create/update/duplicate/delete/compare. Create with target BTL name and data.name or data.left/right. Scenario side fields: propertyValue, loanAmount, ltv, rate (percent, e.g. 5.66), feeMode, feeValue, addFeeToLoan. Compare uses existing deterministic comparison.',
+    'Manual investment cashflow entries: performance_event.create/update/delete with title, type (initial_capital/acquisition_cost/tax/refinance_cash/other), amount and occurredAt YYYY-MM-DD; a BTL target determines property association.',
+    'Compliance reminders: notification.list gives actual reminder keys, then notification.dismiss or notification.snooze with reminder key and optional data.days 1-30. Next BTL planning preference fields via next_btl.get/update.',
+
     'Other property fields use storage field names such as rent, latestValuation, epc, gasExpiry, purchaseDate. Only send requested changes, never rewrite unrelated fields.',
     'Mortgage numbers are stored on the linked loan as well as displayed on the property. For multiple loans update the specific loan.',
     'Use empty string only when explicitly clearing a field. Unknown fields are rejected, not silently ignored.',
@@ -248,6 +253,9 @@ const instructions = [
   'You can inspect cross-linked portfolio records with property.context and portfolio.context; use tools to fetch real data before deriving an answer.',
   'Use portfolio.financial_summary or portfolio.projection for financial numbers, tax and simulations; preserve their metric scope and assumptions.',
   'Use portfolio.batch for related writes to multiple entities or properties where partial completion is unacceptable.',
+  'For saved acquisitions, remortgage comparisons, performance events, compliance reminders and Next BTL preferences, call the dedicated deterministic operations, not arbitrary settings mutation.',
+  'Remortgage rates inside saved scenarios are percentages (5.66), while linked loan rates are decimals (0.0566). Do not conflate these schemas.',
+
   'For text fields use strings; for insured values use a nonnegative numeric amount, never paste a block-wide insured value into a flat-only field without checking its meaning.',
   'If an integration such as banking, Google Drive or credential access is not supported, say so; do not invent access.',
 
