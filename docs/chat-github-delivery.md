@@ -30,11 +30,15 @@ The authoritative human-readable cross-repository contract is
    `npm test` and `npm run build` as the `validate-btl-portfolio` job.
    Inspect both the GitHub Actions run and commit status; investigate and fix
    failures on the same PR while the chat turn is active.
-5. **Approval.** Leave the PR unmerged by default and report the link, scope,
-   tests and any remaining deployment/migration steps. Merge only after
-   explicit user approval for that PR; enable auto-merge only if explicitly
-   authorised and the `main` protection rules are verified. Never push
-   directly to `main`.
+5. **Conditional auto-merge (standing authorisation, 2026-10-10).**
+   For a routine, non-destructive change, enable GitHub native auto-merge on the
+   PR. GitHub must enforce the existing `main` branch ruleset and every
+   required check, including `validate-btl-portfolio`. Failed, pending,
+   cancelled or otherwise blocked required checks must prevent merging.
+   For database/data migrations, RLS/auth/security, financial calculations,
+   billing, production settings/secrets, materially destructive or otherwise
+   high-risk/uncertain changes, keep the PR open until explicit user approval.
+   Never push directly to `main` or bypass required checks.
 6. **Deploy.** A successful merge into `main` is expected to trigger the
    connected Cloudflare Pages production build. Verify its final status and
    the live site separately. A green GitHub CI run or a merged PR alone does
@@ -45,6 +49,15 @@ The authoritative human-readable cross-repository contract is
 ## Failures and safety
 
 - Failed, pending or cancelled required checks block merge.
+- The user's existing ruleset is the merge gate; do not create duplicate
+  rulesets. Repository auto-merge support alone does not establish enforcement
+  of a particular ruleset. If protection appears missing, stop rather than
+  merging automatically.
+- Activating auto-merge is not permission to disable rules or manually merge
+  failed changes. If GitHub cannot enable it, report the blocker.
+- ChatGPT need not remain connected after enabling GitHub-native auto-merge:
+  GitHub performs the eventual merge once requirements are met.
+
 - Do not weaken tests or suppress build errors to obtain a green CI check.
 - Supabase SQL migrations and Cloudflare settings may require a separate
   authorised operational step; code rollback does not undo database changes.
