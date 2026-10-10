@@ -1,0 +1,127 @@
+/* Flat rent-cycle progress ring. Scope these styles to the dial to avoid
+   changing the existing monthly summary or payment agenda. */
+.rent-schedule-card.rent-progress-layout {
+  grid-template-columns: minmax(230px, 1fr) minmax(255px, 300px) minmax(300px, 1.15fr);
+  gap: clamp(18px, 2.2vw, 30px);
+}
+.rent-progress-widget {
+  --rent-progress-green: #21996d;
+  --rent-progress-track: color-mix(in srgb, var(--ui-muted, var(--muted)) 24%, var(--ui-surface, #fff));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 300px;
+  min-width: 0;
+  margin: auto;
+  color: var(--ui-text, var(--ink));
+  font-variant-numeric: tabular-nums lining-nums;
+}
+:root[data-theme='dark'] .rent-progress-widget {
+  --rent-progress-green: #68d9ad;
+  --rent-progress-track: #34433e;
+}
+.rent-progress-wheel {
+  position: relative;
+  width: min(100%, 264px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+}
+.rent-progress-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.rent-progress-track, .rent-progress-fill {
+  fill: none;
+  stroke-width: 8;
+}
+.rent-progress-track { stroke: var(--rent-progress-track); }
+.rent-progress-fill {
+  stroke: var(--rent-progress-green);
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 60px 60px;
+  transition: stroke-dasharray 240ms ease;
+}
+.rent-progress-marker {
+  fill: var(--ui-surface, #fff);
+  stroke: var(--rent-progress-green);
+  stroke-width: 2;
+}
+.rent-progress-centre {
+  position: absolute;
+  inset: 12%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+.rent-progress-centre .rent-progress-eyebrow {
+  color: var(--ui-muted, var(--muted));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.rent-progress-centre strong {
+  margin: 3px 0 0;
+  font-size: clamp(46px, 5vw, 58px);
+  font-weight: 750;
+  letter-spacing: -.055em;
+  line-height: 1;
+}
+.rent-progress-centre .rent-progress-month {
+  margin-top: 5px;
+  color: var(--ui-muted, var(--muted));
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: .23em;
+}
+.rent-progress-divider {
+  width: 52%;
+  height: 1px;
+  margin: 12px 0 10px;
+  background: var(--ui-line, var(--line));
+}
+.rent-progress-days {
+  color: var(--rent-progress-green);
+  font-size: clamp(17px, 2vw, 23px);
+  font-weight: 750;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.rent-progress-subtext {
+  margin-top: 3px;
+  color: var(--ui-muted, var(--muted));
+  font-size: 12px;
+}
+.rent-progress-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 12px;
+  padding: 12px 10px;
+  border: 1px solid var(--ui-line, var(--line));
+  border-radius: 15px;
+  background: var(--ui-surface, #fff);
+}
+.rent-progress-range > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.rent-progress-range > div + div { border-left: 1px solid var(--ui-line, var(--line)); }
+.rent-progress-range strong { font-size: 17px; font-weight: 700; }
+.rent-progress-range span { color: var(--ui-muted, var(--muted)); font-size: 11px; }
+@media (max-width: 1150px) {
+  .rent-schedule-card.rent-progress-layout { grid-template-columns: minmax(0, 1fr) minmax(230px, 280px); }
+  .rent-schedule-card.rent-progress-layout .rent-schedule-agenda { grid-column: 1 / -1; }
+}
+@media (max-width: 700px) {
+  .rent-schedule-card.rent-progress-layout { grid-template-columns: minmax(0, 1fr); }
+  .rent-progress-widget { max-width: 280px; }
+  .rent-schedule-card.rent-progress-layout .rent-schedule-agenda { grid-column: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rent-progress-fill { transition: none; }
+}

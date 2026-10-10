@@ -16,14 +16,15 @@ describe('Overview rent month dial integration', () => {
     if (projectionsAt >= 0) expect(dialAt).toBeLessThan(projectionsAt)
   })
 
-  it('uses actual month length, green circumference bands and a rotating current-day hand', () => {
-    expect(dial).toContain('pathLength={schedule.daysInMonth}')
-    expect(dial).toContain('strokeDashoffset={-(group.dueDay - 1)}')
-    expect(dial).toContain('transform="rotate(-90 60 60)"')
-    expect(dial).toContain('handAngle')
-    expect(dial).toContain('rent-schedule-hand')
-    expect(styles).toContain('.rent-schedule-band')
-    expect(styles).toContain('var(--semantic-positive')
+  it('shows a ring ending at today and the rent-to-rent date range', () => {
+    expect(dial).toContain('rentCycleForDate(tenants, properties, today)')
+    expect(dial).toContain('strokeDasharray={[cycle.progress * circumference, circumference].join')
+    expect(dial).toContain('className="rent-progress-marker"')
+    expect(dial).toContain('formatRentCycleDate(cycle.previousDueDate)')
+    expect(dial).toContain('formatRentCycleDate(cycle.nextDueDate)')
+    expect(dial).toContain('rent-progress-range')
+    expect(dial).not.toContain('rent-schedule-hand')
+    expect(dial).not.toContain('rent-schedule-band')
   })
 
   it('exposes tenant rent payment day as a required 1-31 control', () => {
