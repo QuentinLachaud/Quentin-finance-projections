@@ -26,6 +26,7 @@ import { withPropertyLoans, summarizePropertyLoans } from './loans.js'
 import { propertyOperatingCashflow } from './portfolioFields.js'
 import { complianceDiaryItems } from './notifications.js'
 import { normalizeDocumentMeta } from './documents.js'
+import { createAcquisition, nextAcquisitionName, reorderAcquisitions } from './acquisition.js'
 
 const clean = (value) => String(value ?? '').trim()
 const lower = (value) => clean(value).toLowerCase()
@@ -74,6 +75,11 @@ export const LUNA_PHASE_ONE_OPERATIONS = [
   'timeline.list',
   'performance_event.list',
   'acquisition.list',
+  'acquisition.create',
+  'acquisition.update',
+  'acquisition.duplicate',
+  'acquisition.reorder',
+  'acquisition.delete',
   'remortgage.list',
   'notification_preferences.get',
   'property.create',
@@ -118,6 +124,7 @@ export const LUNA_DESTRUCTIVE_OPERATIONS = new Set([
   'company_cost.delete',
   'extraction.delete',
   'timeline.delete',
+  'acquisition.delete',
 ])
 
 const PROPERTY_FIELDS = new Set([
@@ -298,6 +305,34 @@ const validatedPropertyPatch = (raw) => {
     }
   }
   return patch
+}
+
+
+const ACQUISITION_FIELDS = new Set([
+  'name', 'sourceUrl', 'sourceProvider', 'purchasePrice', 'expectedMonthlyRent',
+  'jurisdiction', 'ltv', 'adsRate', 'legalFees', 'mortgageFee', 'mortgageFeeAddedToLoan',
+])
+const validatedAcquisition = (raw) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Acquisition data must be an object.')
+  const unknown = Object.keys(raw).filter((key) => !ACQUISITION_FIELDS.has(key))
+  if (unknown.length) throw new Error('Unsupported acquisition field(s): ' + unknown.join(', '))
+  const result = { ...raw }
+  for (const key of ['purchasePrice', 'expectedMonthlyRent', 'ltv', 'adsRate', 'legalFees', 'mortgageFee']) {
+    if (!hasOwn(result, key)) continue
+    const n = Number(result[key])
+    if (result[key] === '' || result[key] == null) continue
+    if (typeof result[key] === 'boolean' || !Number.isFinite(n) || n < 0
+      || n > (key === 'ltv' || key === 'adsRate' ? 100 : 1e12)) throw new Error('Invalid acquisition amount: ' + key)
+    result[key] = n
+  }
+  for (const key of ['name', 'sourceUrl', 'sourceProvider']) {
+    if (!hasOwn(result, key)) continue
+    if (typeof result[key] !== 'string' || result[key].length > 1000) throw new Error('Invalid acquisition field: ' + key)
+    result[key] = result[key].trim()
+  }
+  if (hasOwn(result, 'jurisdiction') && !['scotland', 'england-ni', 'wales'].includes(result.jurisdiction)) throw new Error('Invalid acquisition jurisdiction.')
+  if (hasOwn(result, 'mortgageFeeAddedToLoan') && typeof result.mortgageFeeAddedToLoan !== 'boolean') throw new Error('Invalid acquisition fee flag.')
+  return result
 }
 
 const linkedExpenses = (state, property) => state.expenses.filter((entry) => {
@@ -497,7 +532,7 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
     const actions = data.actions
     if (!Array.isArray(actions) || actions.length < 1 || actions.length > 12) throw new Error('Batch must contain 1 to 12 actions.')
     if (actions.some((action) => !action || typeof action !== 'object' || action.operation === 'portfolio.batch'
-      || !LUNA_PHASE_ONE_OPERATIONS.includes(action.operation) || !/^(property|tenant|loan|expense|contractor|contractor_tag|settings|company_cost|extraction|timeline)\.(create|update|delete|set_active|clone)$/.test(action.operation))) {
+      || !LUNA_PHASE_ONE_OPERATIONS.includes(action.operation) || !/^(property|tenant|loan|expense|contractor|contractor_tag|settings|company_cost|extraction|timeline|acquisition)\.(create|update|delete|set_active|clone|duplicate|reorder)$/.test(action.operation))) {
       throw new Error('Unsupported operation in portfolio batch.')
     }
     if (!confirmed && actions.some((action) => LUNA_DESTRUCTIVE_OPERATIONS.has(action.operation))) {
@@ -544,6 +579,47 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
   if (operation === 'acquisition.list') return readResult(state.acquisitionScenarios)
   if (operation === 'remortgage.list') return readResult(state.remortgageComparisons)
   if (operation === 'notification_preferences.get') return readResult(state.notificationPreferences || {})
+
+
+  if (operation === 'acquisition.create') {
+    const fields = validatedAcquisition(data)
+    const name = fields.name || nextAcquisitionName(state.properties.length, state.acquisitionScenarios)
+    const item = createAcquisition({ ...fields, name }, state.settings.taxJurisdiction === 'scotland' ? 'scotland' : 'england-ni')
+    state.acquisitionScenarios.unshift(item)
+    return writeResult(state, 'Created acquisition scenario ' + item.name + '.', { entity: item })
+  }
+  if (operation === 'acquisition.update') {
+    const before = requireEntity(state.acquisitionScenarios, target, 'Acquisition', ['name'])
+    const fields = validatedAcquisition(data)
+    if (!Object.keys(fields).length) throw new Error('Specify acquisition fields to update.')
+    const item = { ...before, ...fields }
+    state.acquisitionScenarios = state.acquisitionScenarios.map((candidate) => candidate.id === item.id ? item : candidate)
+    return writeResult(state, 'Updated acquisition scenario ' + item.name + '.', { entity: item })
+  }
+  if (operation === 'acquisition.duplicate') {
+    const before = requireEntity(state.acquisitionScenarios, target, 'Acquisition', ['name'])
+    const fields = validatedAcquisition(data)
+    const item = createAcquisition({ ...before, ...fields, id: crypto.randomUUID(), name: fields.name || (before.name + ' copy') })
+    state.acquisitionScenarios.unshift(item)
+    return writeResult(state, 'Duplicated acquisition scenario ' + before.name + '.', { entity: item })
+  }
+  if (operation === 'acquisition.reorder') {
+    const before = requireEntity(state.acquisitionScenarios, target, 'Acquisition', ['name'])
+    const fromIndex = state.acquisitionScenarios.findIndex((item) => item.id === before.id)
+    const toIndex = Number(data.index)
+    if (!Number.isInteger(toIndex) || toIndex < 0 || toIndex >= state.acquisitionScenarios.length || Object.keys(data).some((key) => key !== 'index')) {
+      throw new Error('Specify a valid acquisition destination index.')
+    }
+    state.acquisitionScenarios = reorderAcquisitions(state.acquisitionScenarios, fromIndex, toIndex)
+    return writeResult(state, 'Reordered acquisitions.')
+  }
+  if (operation === 'acquisition.delete') {
+    const before = requireEntity(state.acquisitionScenarios, target, 'Acquisition', ['name'])
+    const pending = requiresConfirmation(operation, confirmed, state, 'delete acquisition ' + before.name)
+    if (pending) return pending
+    state.acquisitionScenarios = state.acquisitionScenarios.filter((item) => item.id !== before.id)
+    return writeResult(state, 'Deleted acquisition ' + before.name + '.')
+  }
 
   if (operation === 'property.create') {
     const name = clean(data.name) || `BTL${state.properties.length + 1}`
