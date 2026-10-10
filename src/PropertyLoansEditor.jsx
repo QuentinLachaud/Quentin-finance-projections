@@ -5,7 +5,7 @@ import { createBlankLoan, effectiveLoanAmount, summarizePropertyLoans } from './
 import { LoanEditor } from './LoansWorkspace.jsx'
 import DeleteConfirmDialog from './DeleteConfirmDialog.jsx'
 
-export default function PropertyLoansEditor({ property, loans = [], availableLoans = [], onChange, onRemove }) {
+export default function PropertyLoansEditor({ property, loans = [], availableLoans = [], onChange, onRemove, expandAll = false }) {
   const [expandedId, setExpandedId] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const summary = useMemo(() => summarizePropertyLoans(property, loans), [property, loans])
@@ -25,12 +25,14 @@ export default function PropertyLoansEditor({ property, loans = [], availableLoa
     </div>
     {loans.length === 0 && <p className="property-loans-empty">No loans associated with this BTL.</p>}
     {loans.map((loan) => {
-      const expanded = expandedId === loan.id
+      const expanded = expandAll || expandedId === loan.id
       return <section className="property-loan-item" key={loan.id}>
-        <button type="button" className="property-loan-heading" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? '' : loan.id)}>
+        {expandAll ? <div className="property-loan-heading property-loan-heading-static">
+          <span><b>{loan.lender || 'New loan'}</b><small>{currency(effectiveLoanAmount(loan))} · {(Number(loan.rate || 0) * 100).toFixed(2)}% · {loan.interestOnly !== false ? 'Interest only' : 'Repayment'}</small></span>
+        </div> : <button type="button" className="property-loan-heading" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? '' : loan.id)}>
           <span><b>{loan.lender || 'New loan'}</b><small>{currency(effectiveLoanAmount(loan))} · {(Number(loan.rate || 0) * 100).toFixed(2)}% · {loan.interestOnly !== false ? 'Interest only' : 'Repayment'}</small></span>
           <ChevronDown size={17} />
-        </button>
+        </button>}
         {expanded && <LoanEditor loan={loan} properties={[property]} allowAssociation={false} onSave={update} onDelete={() => setDeleteTarget(loan)} />}
       </section>
     })}

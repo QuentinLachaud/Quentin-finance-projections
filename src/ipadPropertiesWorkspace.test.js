@@ -10,7 +10,7 @@ describe('iPad Properties comparison workspace', () => {
   const block = start >= 0 ? styles.slice(start) : ''
 
   it('removes the redundant comparison hero while preserving decision controls', () => {
-    expect(app).toContain('className="properties-controls-bar"')
+    expect(app).toContain('properties-controls-bar ${propertyWorkspaceView')
     expect(app).not.toContain('className="properties-toolbar-copy"')
     expect(app).not.toContain('PROPERTY COMPARISON')
     expect(app).not.toContain('<h2>Compare properties</h2>')
