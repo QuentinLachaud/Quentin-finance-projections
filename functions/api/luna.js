@@ -1,4 +1,5 @@
-import { executePortfolioAction, LUNA_PHASE_ONE_OPERATIONS } from '../../src/lunaCapabilities.js'
+import { executePortfolioAction, LUNA_PHASE_ONE_OPERATIONS, resolveLunaProperty } from '../../src/lunaCapabilities.js'
+import { mapStoredBankTransaction } from '../../src/banking.js'
 import { executeLunaUiOperation, LUNA_UI_OPERATIONS, LUNA_WORKSPACE_IDS } from '../../src/lunaUiOperations.js'
 import { answerDeterministicPortfolioQuestion } from '../../src/lunaDeterministicAnswers.js'
 import { chatActionsForPortfolioResult, mergeLunaChatActions } from '../../src/lunaChatActions.js'
@@ -73,6 +74,87 @@ const savePortfolio = async (env, authorization, userId, portfolio, expectedUpda
     throw error
   }
   return { portfolio: rows[0].portfolio, updatedAt: rows[0].updated_at || null }
+}
+
+
+const LUNA_BANK_READ_OPERATIONS = ['bank.accounts', 'bank.transactions', 'bank.summary']
+
+const validatedBankOptions = (raw) => {
+  const data = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  const allowed = new Set(['limit', 'account', 'accountId', 'property', 'propertyId', 'category', 'from', 'to', 'query'])
+  const invalid = Object.keys(data).filter((key) => !allowed.has(key))
+  if (invalid.length) throw new Error('Unsupported banking query option(s): ' + invalid.join(', '))
+  const limit = data.limit == null ? 100 : Number(data.limit)
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new Error('Bank transaction limit must be 1 to 200.')
+  for (const key of ['from', 'to']) {
+    if (data[key] != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(data[key]))) {
+      throw new Error('Invalid bank date: ' + key)
+    }
+  }
+  return { ...data, limit }
+}
+
+const bankAccounts = async (env, authorization, userId) => {
+  const rows = await supabaseFetch(
+    env, authorization,
+    'bank_accounts?user_id=eq.' + encodeURIComponent(userId)
+      + '&select=id,display_name,currency,current_balance,available_balance,balance_updated_at,include_in_cash'
+      + '&order=display_name.asc',
+  )
+  return (rows || []).map((row) => ({
+    id: row.id, name: row.display_name, currency: row.currency || 'GBP',
+    balance: Number(row.current_balance || 0),
+    availableBalance: row.available_balance == null ? null : Number(row.available_balance),
+    balanceUpdatedAt: row.balance_updated_at || null,
+    includedInCash: row.include_in_cash === true,
+  }))
+}
+
+const readBankRecords = async (env, authorization, user, portfolio, args) => {
+  const operation = args.operation
+  const opts = validatedBankOptions(args.data)
+  const accounts = await bankAccounts(env, authorization, user.id)
+  if (operation === 'bank.accounts') return { accounts, count: accounts.length }
+  if (operation === 'bank.summary') {
+    const included = accounts.filter((account) => account.includedInCash)
+    const currencies = [...new Set(included.map((account) => account.currency))]
+    return {
+      accounts,
+      includedBalancesByCurrency: currencies.map((currency) => ({
+        currency, total: included.filter((account) => account.currency === currency)
+          .reduce((sum, account) => sum + account.balance, 0),
+      })),
+      note: 'Cached account balances as of balanceUpdatedAt. No cross-currency conversion or assumption that these equal the portfolio cashHeld setting.',
+    }
+  }
+  const accountRef = String(opts.accountId || opts.account || '').trim().toLowerCase()
+  const matches = accountRef && accounts.filter((item) => item.id.toLowerCase() === accountRef
+    || item.name.toLowerCase() === accountRef)
+  if (accountRef && matches.length !== 1) throw new Error('Bank account not found or ambiguous: ' + accountRef)
+  const propertyRef = opts.property || opts.propertyId
+  const property = propertyRef ? resolveLunaProperty(portfolio, String(propertyRef)) : null
+  const query = (raw, op) => raw == null || raw === '' ? '' : '&' + op + '=' + encodeURIComponent(raw)
+  const params = 'bank_transactions?user_id=eq.' + encodeURIComponent(user.id)
+    + '&select=id,account_id,booked_at,value_at,amount,currency,description,counterparty,status,category,is_transfer,category_overridden,property_id,performance_treatment,exclude_from_performance,source_type'
+    + '&order=booked_at.desc&limit=' + opts.limit
+    + query(matches?.[0]?.id, 'account_id')
+    + query(property?.id, 'property_id')
+    + query(opts.category, 'category')
+    + query(opts.from, 'booked_at=gte')
+    + query(opts.to, 'booked_at=lte')
+  const rows = await supabaseFetch(env, authorization, params)
+  const names = new Map(accounts.map((item) => [item.id, item.name]))
+  const mapped = (rows || []).map((item) => mapStoredBankTransaction(item, names))
+  const term = String(opts.query || '').trim().toLowerCase()
+  const filtered = term ? mapped.filter((item) => [item.description, item.counterparty, item.category]
+    .some((value) => String(value).toLowerCase().includes(term))) : mapped
+  return {
+    count: filtered.length, items: filtered,
+    cappedAt: opts.limit, mayHaveMore: rows.length >= opts.limit,
+    note: term
+      ? 'Text search filters the most recent bounded set; older matches may exist. Dates/bank/property/category filters are applied at source.'
+      : 'Cached bank transactions; may include imported bank statements. Consult sourceType and bookedAt for provenance.',
+  }
 }
 
 const OPENAI_ROOT = 'https://api.openai.com/v1'
@@ -169,6 +251,8 @@ const portfolioTool = {
     'For portfolio projections use portfolio.projection with optional months and milestones; never invent financial calculations.',
     'For targeted cross-domain records use portfolio.context with data.collections (up to four): properties, loans, tenants, expenses, contractors, contractorTags, propertyTimelineEvents, performanceEvents, acquisitionScenarios, remortgageComparisons, companyCosts, extractions, notificationPreferences. It excludes credentials and external banking tables.',
     'For multiple linked writes in one transaction use portfolio.batch with data.actions array, each containing operation, target and data. Never run a partially successful batch.',
+    'For bank balances and transactions use bank.accounts, bank.summary, or bank.transactions. Bank data is stored separately from portfolio JSON; use data.account or accountId and data.property or propertyId plus optional from, to, category, limit. Results contain cached time-stamped balances and transaction provenance. These operations are read-only.',
+
     'Property administration keys: factorsProvider, factorsAccountNumber, mortgageNumber, buildingsInsuranceProvider, buildingsInsurancePolicyNumber, buildingsInsuranceInsuredValue, depositScheme, depositRegistrationNumber.',
     'Saved acquisition scenario actions: acquisition.create/update/duplicate/reorder/delete. Scenario fields: name, purchasePrice, expectedMonthlyRent, jurisdiction, ltv, adsRate, legalFees, mortgageFee, mortgageFeeAddedToLoan, sourceUrl, sourceProvider. Reorder uses data.index.',
     'Saved remortgage actions: remortgage.create/update/duplicate/delete/compare. Create with target BTL name and data.name or data.left/right. Scenario side fields: propertyValue, loanAmount, ltv, rate (percent, e.g. 5.66), feeMode, feeValue, addFeeToLoan. Compare uses existing deterministic comparison.',
@@ -183,12 +267,12 @@ const portfolioTool = {
     'For tenants identified by a property, use property.tenants with the property reference; use tenant.list only when asking about tenants across the portfolio.',
     'For net monthly income, monthly cash flow, or property cash flow, use property.financial_summary so the answer uses the app’s canonical calculation.',
     'Rates are decimals in storage: 4.84% should be sent as 4.84 or 0.0484; the server normalises either.',
-    `Supported operations: ${LUNA_PHASE_ONE_OPERATIONS.join(', ')}.`,
+    `Supported operations: ${[...LUNA_PHASE_ONE_OPERATIONS, ...LUNA_BANK_READ_OPERATIONS].join(', ')}.`,
   ].join(' '),
   parameters: {
     type: 'object',
     properties: {
-      operation: { type: 'string', enum: LUNA_PHASE_ONE_OPERATIONS },
+      operation: { type: 'string', enum: [...LUNA_PHASE_ONE_OPERATIONS, ...LUNA_BANK_READ_OPERATIONS] },
       target: { type: ['string', 'null'], description: 'Existing entity ID/name/description, or null when not applicable.' },
       data: { type: ['object', 'null'], description: 'Fields required for the operation.' },
     },
@@ -257,7 +341,7 @@ const instructions = [
   'Remortgage rates inside saved scenarios are percentages (5.66), while linked loan rates are decimals (0.0566). Do not conflate these schemas.',
 
   'For text fields use strings; for insured values use a nonnegative numeric amount, never paste a block-wide insured value into a flat-only field without checking its meaning.',
-  'If an integration such as banking, Google Drive or credential access is not supported, say so; do not invent access.',
+  'Banking reads cover connected/imported stored records only. Bank syncing and transaction modifications are not supported through Luna. Google Drive and secret credentials are not available. Do not invent integrations.',
 
   'Conversation history is contextual language only, never portfolio state. Re-read current portfolio facts through portfolio_action before relying on them; live deterministic data always wins if it conflicts with history.',
   'Treat each new request independently when choosing a tool. Do not repeat an earlier tool choice when the current request clearly asks for a different fact.',
@@ -417,6 +501,14 @@ export async function onRequestPost({ request, env }) {
         }
         if (call.name !== 'portfolio_action') throw new Error(`Luna requested unsupported tool: ${call.name}`)
 
+        if (LUNA_BANK_READ_OPERATIONS.includes(args.operation)) {
+          const bankResult = await readBankRecords(env, authorization, user, portfolio, args)
+          input.push({
+            type: 'function_call_output', call_id: call.call_id,
+            output: JSON.stringify({ ok: true, result: bankResult }),
+          })
+          continue
+        }
         const result = executePortfolioAction(portfolio, args)
         if (!result.mutated && !result.confirmationRequired) {
           chatActions = mergeLunaChatActions(
