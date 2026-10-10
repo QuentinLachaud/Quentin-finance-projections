@@ -1618,6 +1618,7 @@ function PortfolioApp({ user, accessToken }) {
   const lastServerUpdatedAt = useRef('')
   const remoteApplying = useRef(false)
   const savePending = useRef(false)
+  const writeConflict = useRef(false)
   const [editingId, setEditingId] = useState(null)
   const [pendingProperty, setPendingProperty] = useState(null)
   const sectionStorageKey = `btl-active-section:${user.id}`
@@ -1714,6 +1715,7 @@ function PortfolioApp({ user, accessToken }) {
   useEffect(() => {
     let active = true
     loaded.current = false
+    writeConflict.current = false
     setState(null)
     setLoadError('')
     const loadPortfolio = async () => {
@@ -1803,7 +1805,7 @@ function PortfolioApp({ user, accessToken }) {
   }, [])
 
   useEffect(() => {
-    if (!state || !loaded.current) return undefined
+    if (!state || !loaded.current || writeConflict.current) return undefined
     if (remoteApplying.current) {
       remoteApplying.current = false
       return undefined
@@ -1811,14 +1813,24 @@ function PortfolioApp({ user, accessToken }) {
     savePending.current = true
     setSaveStatus('saving')
     const timer = window.setTimeout(async () => {
-      const { data, error } = await supabase
-        .from('portfolio_states')
-        .upsert({ user_id: user.id, portfolio: state }, { onConflict: 'user_id' })
-        .select('updated_at')
-        .single()
+      const expectedVersion = lastServerUpdatedAt.current
+      // A background tab must not overwrite portfolio changes made by Luna or another device.
+      const { data, error } = expectedVersion
+        ? await supabase.from('portfolio_states')
+          .update({ portfolio: state })
+          .eq('user_id', user.id)
+          .eq('updated_at', expectedVersion)
+          .select('updated_at')
+          .maybeSingle()
+        : await supabase.from('portfolio_states')
+          .upsert({ user_id: user.id, portfolio: state }, { onConflict: 'user_id' })
+          .select('updated_at')
+          .single()
       if (!error && data?.updated_at) lastServerUpdatedAt.current = data.updated_at
+      const conflict = Boolean(expectedVersion && !error && !data)
+      if (conflict) writeConflict.current = true
       savePending.current = false
-      setSaveStatus(error ? 'error' : 'saved')
+      setSaveStatus(error || conflict ? 'error' : 'saved')
     }, 600)
     return () => window.clearTimeout(timer)
   }, [state, user.id])
@@ -1828,7 +1840,7 @@ function PortfolioApp({ user, accessToken }) {
     let syncing = false
 
     const syncFromServer = async () => {
-      if (!active || syncing || !loaded.current || savePending.current) return
+      if (!active || syncing || !loaded.current || savePending.current || writeConflict.current) return
       syncing = true
       const { data, error } = await supabase
         .from('portfolio_states')
@@ -2697,6 +2709,7 @@ function PortfolioApp({ user, accessToken }) {
         uiActionContext={{ properties: state.properties, accountType: state.settings.accountType }}
         onPortfolioChange={(portfolio, updatedAt) => {
           if (updatedAt) lastServerUpdatedAt.current = updatedAt
+          writeConflict.current = false
           remoteApplying.current = true
           setState((current) => mergeRemotePortfolio(current, portfolio))
         }}
