@@ -24,7 +24,7 @@ const run = (state, operation, target = null, data = {}, options = {}) =>
 
 describe('Luna phase-one portfolio capabilities', () => {
   it('publishes the audited operations plus property-centric reads without duplicates', () => {
-    expect(LUNA_PHASE_ONE_OPERATIONS).toHaveLength(76)
+    expect(LUNA_PHASE_ONE_OPERATIONS).toHaveLength(78)
     expect(new Set(LUNA_PHASE_ONE_OPERATIONS).size).toBe(LUNA_PHASE_ONE_OPERATIONS.length)
     expect(LUNA_PHASE_ONE_OPERATIONS).toEqual(expect.arrayContaining([
       'property.loans', 'property.tenants', 'property.financial_summary',
