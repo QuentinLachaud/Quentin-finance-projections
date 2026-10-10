@@ -2448,8 +2448,8 @@ function PortfolioApp({ user, accessToken }) {
               <div className="table-tools properties-tools">
                 <div className="property-view-mode property-workspace-mode" role="group" aria-label="Property workspace view">
                   <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'compare' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'compare'} onClick={() => changePropertyWorkspaceView('compare')}>Compare</button>
-                  <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'single' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'single'} onClick={() => changePropertyWorkspaceView('single')}>Single property</button>
                   <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'timeline' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'timeline'} onClick={() => changePropertyWorkspaceView('timeline')}>Timeline</button>
+                  <button type="button" className={`property-view-choice ${propertyWorkspaceView === 'single' ? 'active' : ''}`} aria-pressed={propertyWorkspaceView === 'single'} onClick={() => changePropertyWorkspaceView('single')}>Single property</button>
                 </div>
                 {propertyWorkspaceView === 'compare' && <div className="property-view-mode" role="group" aria-label="Property detail level">
                   <button
