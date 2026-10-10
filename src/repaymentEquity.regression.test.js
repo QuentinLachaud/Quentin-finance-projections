@@ -15,6 +15,7 @@ const flat = {
 const repayment = {
   id: 'repayment', propertyId: 'flat', principalAmount: 100000,
   currentBalance: 100000, rate: 0.05, interestOnly: false, termMonths: 300,
+  fixedStartDate: '2026-01-01', fixedRateMonths: 12,
   feeMode: 'amount', feeValue: 0, addFeeToLoan: false,
 }
 const interestOnly = {
