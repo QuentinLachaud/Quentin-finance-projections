@@ -1,6 +1,6 @@
 import { calculateCorporationTax, calculatePrivateLandlordTax, taxYearForDate } from './tax.js'
 import { calendarDate } from './dateUtils.js'
-import { projectPropertyLoanBalance, projectPropertyLoans, summarizePropertyLoans } from './loans.js'
+import { projectedPropertyLoanBalance, projectPropertyLoans, summarizePropertyLoans } from './loans.js'
 export { shortDate } from './dateUtils.js'
 
 const MS_YEAR = 365.2425 * 24 * 60 * 60 * 1000
