@@ -27,6 +27,7 @@ import { propertyOperatingCashflow } from './portfolioFields.js'
 import { complianceDiaryItems } from './notifications.js'
 import { normalizeDocumentMeta } from './documents.js'
 import { createAcquisition, nextAcquisitionName, reorderAcquisitions } from './acquisition.js'
+import { createRemortgageComparison, duplicateRemortgageComparison, updateRemortgageScenario, compareRemortgageScenarios } from './remortgage.js'
 
 const clean = (value) => String(value ?? '').trim()
 const lower = (value) => clean(value).toLowerCase()
@@ -81,6 +82,11 @@ export const LUNA_PHASE_ONE_OPERATIONS = [
   'acquisition.reorder',
   'acquisition.delete',
   'remortgage.list',
+  'remortgage.create',
+  'remortgage.update',
+  'remortgage.duplicate',
+  'remortgage.delete',
+  'remortgage.compare',
   'notification_preferences.get',
   'property.create',
   'property.update',
@@ -124,7 +130,7 @@ export const LUNA_DESTRUCTIVE_OPERATIONS = new Set([
   'company_cost.delete',
   'extraction.delete',
   'timeline.delete',
-  'acquisition.delete',
+  'acquisition.delete', 'remortgage.delete',
 ])
 
 const PROPERTY_FIELDS = new Set([
@@ -335,6 +341,38 @@ const validatedAcquisition = (raw) => {
   return result
 }
 
+
+const REMORTGAGE_SCENARIO_FIELDS = new Set(['propertyValue', 'loanAmount', 'ltv', 'rate', 'feeMode', 'feeValue', 'addFeeToLoan'])
+const updatedComparison = (current, raw) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Remortgage changes must be an object.')
+  const unknown = Object.keys(raw).filter((key) => !['name', 'left', 'right'].includes(key))
+  if (unknown.length) throw new Error('Unsupported remortgage field(s): ' + unknown.join(', '))
+  const updated = { ...current }
+  if (hasOwn(raw, 'name')) {
+    if (typeof raw.name !== 'string' || !raw.name.trim() || raw.name.length > 200) throw new Error('Invalid comparison name.')
+    updated.name = raw.name.trim()
+  }
+  for (const side of ['left', 'right']) {
+    if (!hasOwn(raw, side)) continue
+    const fields = raw[side]
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields)) throw new Error('Invalid remortgage scenario.')
+    const unknownFields = Object.keys(fields).filter((key) => !REMORTGAGE_SCENARIO_FIELDS.has(key))
+    if (unknownFields.length) throw new Error('Unsupported remortgage scenario field(s): ' + unknownFields.join(', '))
+    let scenario = { ...updated[side] }
+    for (const [key, value] of Object.entries(fields)) {
+      if (key === 'feeMode' && !['amount', 'percent'].includes(value)) throw new Error('Invalid fee mode.')
+      if (key === 'addFeeToLoan' && typeof value !== 'boolean') throw new Error('Invalid fee setting.')
+      if (!['feeMode', 'addFeeToLoan'].includes(key)
+        && (value === '' || value == null || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 1e12)) {
+        throw new Error('Invalid remortgage amount: ' + key)
+      }
+      scenario = updateRemortgageScenario(scenario, key, value)
+    }
+    updated[side] = scenario
+  }
+  return updated
+}
+
 const linkedExpenses = (state, property) => state.expenses.filter((entry) => {
   const document = normalizeDocumentMeta(entry.document)
   if (document?.association?.kind === 'property') return document.association.id === property.id
@@ -532,7 +570,7 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
     const actions = data.actions
     if (!Array.isArray(actions) || actions.length < 1 || actions.length > 12) throw new Error('Batch must contain 1 to 12 actions.')
     if (actions.some((action) => !action || typeof action !== 'object' || action.operation === 'portfolio.batch'
-      || !LUNA_PHASE_ONE_OPERATIONS.includes(action.operation) || !/^(property|tenant|loan|expense|contractor|contractor_tag|settings|company_cost|extraction|timeline|acquisition)\.(create|update|delete|set_active|clone|duplicate|reorder)$/.test(action.operation))) {
+      || !LUNA_PHASE_ONE_OPERATIONS.includes(action.operation) || !/^(property|tenant|loan|expense|contractor|contractor_tag|settings|company_cost|extraction|timeline|acquisition|remortgage)\.(create|update|delete|set_active|clone|duplicate|reorder)$/.test(action.operation))) {
       throw new Error('Unsupported operation in portfolio batch.')
     }
     if (!confirmed && actions.some((action) => LUNA_DESTRUCTIVE_OPERATIONS.has(action.operation))) {
@@ -619,6 +657,41 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
     if (pending) return pending
     state.acquisitionScenarios = state.acquisitionScenarios.filter((item) => item.id !== before.id)
     return writeResult(state, 'Deleted acquisition ' + before.name + '.')
+  }
+
+
+  if (operation === 'remortgage.create') {
+    const propRef = target || data?.property
+    const property = propRef ? resolveProperty(state, propRef) : null
+    const base = createRemortgageComparison(property ? withPropertyLoans([property], state.loans)[0] : null)
+    const { property: ignored, ...fields } = data || {}
+    const item = updatedComparison(base, fields)
+    state.remortgageComparisons.unshift(item)
+    return writeResult(state, 'Created remortgage comparison ' + item.name + '.', { entity: item })
+  }
+  if (operation === 'remortgage.update') {
+    const before = requireEntity(state.remortgageComparisons, target, 'Remortgage comparison', ['name'])
+    const item = updatedComparison(before, data)
+    if (JSON.stringify(before) === JSON.stringify(item)) throw new Error('No remortgage comparison changes requested.')
+    state.remortgageComparisons = state.remortgageComparisons.map((candidate) => candidate.id === before.id ? item : candidate)
+    return writeResult(state, 'Updated remortgage comparison ' + item.name + '.', { entity: item })
+  }
+  if (operation === 'remortgage.compare') {
+    const item = requireEntity(state.remortgageComparisons, target, 'Remortgage comparison', ['name'])
+    return readResult({ name: item.name, comparison: compareRemortgageScenarios(item.left, item.right) })
+  }
+  if (operation === 'remortgage.duplicate') {
+    const before = requireEntity(state.remortgageComparisons, target, 'Remortgage comparison', ['name'])
+    const item = duplicateRemortgageComparison(before)
+    state.remortgageComparisons.unshift(item)
+    return writeResult(state, 'Duplicated remortgage comparison ' + before.name + '.', { entity: item })
+  }
+  if (operation === 'remortgage.delete') {
+    const before = requireEntity(state.remortgageComparisons, target, 'Remortgage comparison', ['name'])
+    const pending = requiresConfirmation(operation, confirmed, state, 'delete remortgage comparison ' + before.name)
+    if (pending) return pending
+    state.remortgageComparisons = state.remortgageComparisons.filter((item) => item.id !== before.id)
+    return writeResult(state, 'Deleted remortgage comparison ' + before.name + '.')
   }
 
   if (operation === 'property.create') {
