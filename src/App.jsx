@@ -15,6 +15,7 @@ import {
 } from './companiesHouse.js'
 import AuthScreen from './AuthScreen.jsx'
 import BrandLogo from './BrandLogo.jsx'
+import BrandLoadingScreen from './BrandLoadingScreen.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import CompanyFinancialSummaryWorkspace from './CompanyFinancialSummaryWorkspace.jsx'
 import './companyFinancialSummary.css'
@@ -1607,7 +1608,7 @@ function SettingsSwitch({ checked, disabled = false, label, onChange }) {
   ><span aria-hidden="true" /></button>
 }
 
-function PortfolioApp({ user, accessToken }) {
+function PortfolioApp({ user, accessToken, onReady }) {
   const [state, setState] = useState(null)
   const [entitlement, setEntitlement] = useState(null)
   const [billingError, setBillingError] = useState('')
@@ -1884,8 +1885,15 @@ function PortfolioApp({ user, accessToken }) {
     return () => { active = false }
   }, [state?.settings.pushNotificationsEnabled, state?.settings.notificationsEnabled, user.id])
 
+  // Only the parent owns the startup loader, including session verification and data hydration.
+  // Let the parent uncover an error screen as well, rather than leaving the loader stuck.
+  const isPortfolioReady = Boolean(state || loadError)
+  useEffect(() => {
+    if (isPortfolioReady) onReady(user.id)
+  }, [isPortfolioReady, onReady, user.id])
+
   if (loadError) return <div className="app-status-screen"><CloudOff size={32} /><h1>We couldn’t load your portfolio</h1><p>{loadError}</p><button className="primary-button" onClick={() => window.location.reload()}>Try again</button></div>
-  if (!state) return <div className="app-status-screen"><span className="loading-mark"><Building2 /></span><h1>Loading your private portfolio…</h1></div>
+  if (!state) return null
 
   const propertiesWithLoans = withPropertyLoans(state.properties, state.loans || [])
   const portfolio = calculatePortfolio(propertiesWithLoans, state.settings)
@@ -2734,18 +2742,29 @@ function PortfolioApp({ user, accessToken }) {
 
 export default function App() {
   const [session, setSession] = useState(undefined)
+  const [portfolioReadyUserId, setPortfolioReadyUserId] = useState(null)
+  const handlePortfolioReady = React.useCallback((userId) => setPortfolioReadyUserId(userId), [])
 
   useEffect(() => {
     if (!supabase) {
       setSession(null)
       return undefined
     }
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession))
+    supabase.auth.getSession().then(({ data }) => setSession(data.session)).catch(() => setSession(null))
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!nextSession) setPortfolioReadyUserId(null)
+      setSession(nextSession)
+    })
     return () => listener.subscription.unsubscribe()
   }, [])
 
   if (!isSupabaseConfigured) return <div className="app-status-screen"><CloudOff size={32} /><h1>Authentication is not configured</h1><p>Add the Supabase project URL and publishable key to the deployment environment.</p></div>
-  if (session === undefined) return <div className="app-status-screen"><BrandLogo surface="auto" className="status-brand-wordmark" /><h1>Checking your session…</h1></div>
-  return session ? <PortfolioApp user={session.user} accessToken={session.access_token} /> : <AuthScreen />
+  if (session === null) return <AuthScreen />
+
+  // Keep one loader mounted while the session resolves and the private portfolio hydrates.
+  // PortfolioApp renders nothing during hydration; the loading animation never restarts.
+  return <>
+    {session && <PortfolioApp key={session.user.id} user={session.user} accessToken={session.access_token} onReady={handlePortfolioReady} />}
+    {(session === undefined || portfolioReadyUserId !== session.user.id) && <BrandLoadingScreen />}
+  </>
 }
