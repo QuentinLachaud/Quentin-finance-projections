@@ -52,21 +52,27 @@ const loadPortfolio = async (env, authorization, userId) => {
     authorization,
     `portfolio_states?user_id=eq.${encodeURIComponent(userId)}&select=portfolio,updated_at`,
   )
-  return rows?.[0]?.portfolio || { properties: [], settings: {} }
+  return { portfolio: rows?.[0]?.portfolio || { properties: [], settings: {} }, updatedAt: rows?.[0]?.updated_at || null }
 }
 
-const savePortfolio = async (env, authorization, userId, portfolio) => {
-  const rows = await supabaseFetch(
-    env,
-    authorization,
-    'portfolio_states?on_conflict=user_id',
-    {
-      method: 'POST',
-      headers: { prefer: 'resolution=merge-duplicates,return=representation' },
-      body: JSON.stringify({ user_id: userId, portfolio }),
-    },
-  )
-  return rows?.[0]?.portfolio || portfolio
+const savePortfolio = async (env, authorization, userId, portfolio, expectedUpdatedAt = null) => {
+  // Compare-and-swap: prevent Luna from overwriting a portfolio changed by another client.
+  const versioned = Boolean(expectedUpdatedAt)
+  const path = versioned
+    ? 'portfolio_states?user_id=eq.' + encodeURIComponent(userId)
+      + '&updated_at=eq.' + encodeURIComponent(expectedUpdatedAt)
+    : 'portfolio_states?on_conflict=user_id'
+  const rows = await supabaseFetch(env, authorization, path, {
+    method: versioned ? 'PATCH' : 'POST',
+    headers: { prefer: versioned ? 'return=representation' : 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(versioned ? { portfolio } : { user_id: userId, portfolio }),
+  })
+  if (!rows?.length) {
+    const error = new Error('Portfolio was changed in another tab or device. Refresh and retry; Luna did not overwrite those changes.')
+    error.status = 409
+    throw error
+  }
+  return { portfolio: rows[0].portfolio, updatedAt: rows[0].updated_at || null }
 }
 
 const OPENAI_ROOT = 'https://api.openai.com/v1'
@@ -158,7 +164,16 @@ const portfolioTool = {
   description: [
     'Read or change the authenticated user’s BTL Portfolio using one supported semantic operation.',
     'Use names/addresses when IDs are unknown; the server resolves unambiguous targets.',
-    'For a property rent or other direct property field use property.get.',
+    'For a property rent or other direct property field use property.get. For complete linked property context use property.context.',
+    'For portfolio-wide or selected BTL financial calculations use portfolio.financial_summary, with data.properties as an array of names/IDs for a subset.',
+    'For portfolio projections use portfolio.projection with optional months and milestones; never invent financial calculations.',
+    'For targeted cross-domain records use portfolio.context with data.collections (up to four): properties, loans, tenants, expenses, contractors, contractorTags, propertyTimelineEvents, performanceEvents, acquisitionScenarios, remortgageComparisons, companyCosts, extractions, notificationPreferences. It excludes credentials and external banking tables.',
+    'For multiple linked writes in one transaction use portfolio.batch with data.actions array, each containing operation, target and data. Never run a partially successful batch.',
+    'Property administration keys: factorsProvider, factorsAccountNumber, mortgageNumber, buildingsInsuranceProvider, buildingsInsurancePolicyNumber, buildingsInsuranceInsuredValue, depositScheme, depositRegistrationNumber.',
+    'Other property fields use storage field names such as rent, latestValuation, epc, gasExpiry, purchaseDate. Only send requested changes, never rewrite unrelated fields.',
+    'Mortgage numbers are stored on the linked loan as well as displayed on the property. For multiple loans update the specific loan.',
+    'Use empty string only when explicitly clearing a field. Unknown fields are rejected, not silently ignored.',
+
     'For loans or mortgages identified by a property, use property.loans with the property reference; do not use loan.get with a property name. It returns every linked loan.',
     'For tenants identified by a property, use property.tenants with the property reference; use tenant.list only when asking about tenants across the portfolio.',
     'For net monthly income, monthly cash flow, or property cash flow, use property.financial_summary so the answer uses the app’s canonical calculation.',
@@ -230,6 +245,12 @@ const instructions = [
   'Obvious destination mapping: properties=properties, tenants=tenants, expenses/cost documents=expenses, cash-flow costs=costs, performance=performance, forecasts=projections, mortgages=loans, remortgage=remortgage, compliance=compliance, Companies House=companies_house, banking=banking, plan/billing=plan, settings=settings.',
   'If several destinations are genuinely plausible, answer without navigating. Do not navigate for casual or general questions.',
   'Never invent portfolio facts, entity IDs, balances, dates, tenants, expenses, loans or successful writes.',
+  'You can inspect cross-linked portfolio records with property.context and portfolio.context; use tools to fetch real data before deriving an answer.',
+  'Use portfolio.financial_summary or portfolio.projection for financial numbers, tax and simulations; preserve their metric scope and assumptions.',
+  'Use portfolio.batch for related writes to multiple entities or properties where partial completion is unacceptable.',
+  'For text fields use strings; for insured values use a nonnegative numeric amount, never paste a block-wide insured value into a flat-only field without checking its meaning.',
+  'If an integration such as banking, Google Drive or credential access is not supported, say so; do not invent access.',
+
   'Conversation history is contextual language only, never portfolio state. Re-read current portfolio facts through portfolio_action before relying on them; live deterministic data always wins if it conflicts with history.',
   'Treat each new request independently when choosing a tool. Do not repeat an earlier tool choice when the current request clearly asks for a different fact.',
   'When a property reference is supplied, resolve the property first: rent uses property.get, loans use property.loans, tenants use property.tenants, and net monthly income uses property.financial_summary.',
@@ -296,11 +317,11 @@ const executeConfirmed = async ({ env, authorization, user, confirmation }) => {
   if (confirmation?.name !== 'portfolio_action' || !confirmation.arguments) {
     return json({ error: 'This Luna confirmation is invalid.' }, 400)
   }
-  const portfolio = await loadPortfolio(env, authorization, user.id)
-  const result = executePortfolioAction(portfolio, confirmation.arguments, { confirmed: true })
+  const loaded = await loadPortfolio(env, authorization, user.id)
+  const result = executePortfolioAction(loaded.portfolio, confirmation.arguments, { confirmed: true })
   if (!result.mutated) return json({ error: 'The confirmed action did not change the portfolio.' }, 400)
-  const saved = await savePortfolio(env, authorization, user.id, result.state)
-  return json({ message: result.result?.message || 'Done.', changed: true, portfolio: saved })
+  const saved = await savePortfolio(env, authorization, user.id, result.state, loaded.updatedAt)
+  return json({ message: result.result?.message || 'Done.', changed: true, portfolio: saved.portfolio, updatedAt: saved.updatedAt })
 }
 
 export async function onRequestGet({ request, env }) {
@@ -338,7 +359,9 @@ export async function onRequestPost({ request, env }) {
     const message = String(body.message || '').trim()
     if (!message || message.length > 3000) return json({ error: 'Enter a short request for Luna.' }, 400)
 
-    let portfolio = await loadPortfolio(env, authorization, user.id)
+    const loaded = await loadPortfolio(env, authorization, user.id)
+    let portfolio = loaded.portfolio
+    let revision = loaded.updatedAt
     let changed = false
     const uiActions = []
     let chatActions = []
@@ -363,7 +386,7 @@ export async function onRequestPost({ request, env }) {
       if (!calls.length) {
         const messageText = responseText(response)
         if (!messageText) throw new Error('Luna returned no answer.')
-        return json({ message: messageText, changed, portfolio: changed ? portfolio : null, uiActions, chatActions })
+        return json({ message: messageText, changed, portfolio: changed ? portfolio : null, updatedAt: changed ? revision : null, uiActions, chatActions })
       }
 
       for (const call of calls) {
@@ -401,11 +424,20 @@ export async function onRequestPost({ request, env }) {
             uiActions,
             chatActions,
             confirmation: { name: call.name, arguments: args },
+            updatedAt: changed ? revision : null,
           })
         }
 
         if (result.mutated) {
-          portfolio = await savePortfolio(env, authorization, user.id, result.state)
+          const saved = await savePortfolio(env, authorization, user.id, result.state, revision)
+          portfolio = saved.portfolio
+          revision = saved.updatedAt
+          if (result.result?.changes) {
+            const persisted = (portfolio.properties || []).find((item) => item.id === result.result.entity?.id)
+            if (!persisted || Object.entries(result.result.changes).some(([key, value]) => JSON.stringify(persisted[key]) !== JSON.stringify(value))) {
+              throw new Error('Portfolio write was not verified. Reload the property before continuing.')
+            }
+          }
           changed = true
         }
 
