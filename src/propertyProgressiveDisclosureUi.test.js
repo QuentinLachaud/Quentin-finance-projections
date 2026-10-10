@@ -7,14 +7,14 @@ const data = readFileSync(new URL('./data.js', import.meta.url), 'utf8')
 const calculations = readFileSync(new URL('./calculations.js', import.meta.url), 'utf8')
 
 describe('progressive property disclosure UI', () => {
-  it('renders five always-visible Essentials and five optional native disclosures from canonical field metadata', () => {
+  it('renders five always-visible Essentials and six optional native disclosures from canonical field metadata', () => {
     expect(app).toContain('editableFieldIndex = new Map(editableSections.flatMap')
     expect(app).toContain('editableFieldsFor(PROPERTY_EDITOR_CORE_KEYS)')
     expect(app).toContain('PROPERTY_EDITOR_OPTIONAL_SECTIONS.map')
     expect(app).toContain('<h3>Essentials</h3>')
     expect(app).toContain('<h3>Add more details</h3>')
     expect(app).toContain('<details className="property-editor-disclosure"')
-    for (const title of ['Purchase & property details', 'Financing', 'Running costs', 'Tenancy', 'Compliance']) {
+    for (const title of ['Purchase & property details', 'Financing', 'Running costs', 'Property administration', 'Tenancy', 'Compliance']) {
       expect(app).toContain('section.title')
       expect(readFileSync(new URL('./propertyDisclosure.js', import.meta.url), 'utf8')).toContain(`title: '${title}'`)
     }

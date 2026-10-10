@@ -75,7 +75,7 @@ describe('optional property and compliance dates', () => {
   })
 
   it('renders the explicit optional-date UX and uses shared parsing in the Compliance diary', () => {
-    expect(app).toContain('const renderField = ([key, label, type, optional = false]) =>')
+    expect(app).toContain('const renderField = ([key, label, type, optional = false, placeholder = \'\']) =>')
     expect(app).toContain('{section.fields.map(renderField)}')
     expect(app).toContain("type === 'date' ? dateInputValue(draft[key])")
     expect(app).toContain('aria-label={`Clear ${label}`}')

@@ -11,6 +11,12 @@ const tenantPropertyFields = {
   depositHeld: 'depositHeld',
 }
 
+// Deposit registration remains canonical on the property, never the tenant.
+export const stripPropertyDepositFields = (tenant = {}) => {
+  const { depositScheme, depositRegistrationNumber, ...otherFields } = tenant || {}
+  return otherFields
+}
+
 const propertyTenantValues = (property) => Object.fromEntries(
   Object.entries(tenantPropertyFields).map(([tenantKey, propertyKey]) => [tenantKey, property[propertyKey] || '']),
 )
@@ -31,6 +37,17 @@ export const createTenant = (propertyId = '') => ({
   importedFromProperty: false,
 })
 
+export const tenantDepositDetails = (tenant, properties = []) => {
+  const property = (Array.isArray(properties) ? properties : [])
+    .find((candidate) => candidate.id === tenant?.propertyId)
+  return {
+    propertyId: property?.id || tenant?.propertyId || '',
+    propertyName: property?.name || 'Unknown BTL',
+    scheme: property?.depositScheme || '',
+    registrationNumber: property?.depositRegistrationNumber || '',
+  }
+}
+
 export const tenantBelongsToProperty = (tenant, properties) => Boolean(tenant.propertyId)
   && properties.some((property) => property.id === tenant.propertyId)
 
@@ -49,7 +66,7 @@ export const importPropertyTenants = (properties, tenants = []) => {
   const propertyIds = new Set(properties.map((property) => property.id))
   const next = Array.isArray(tenants) ? tenants
     .filter((tenant) => propertyIds.has(tenant.propertyId))
-    .map((tenant) => ({ ...createTenant(), ...tenant, rentPaymentDay: requestedLegacyRentPaymentDay(tenant) })) : []
+    .map((tenant) => ({ ...createTenant(), ...stripPropertyDepositFields(tenant), rentPaymentDay: requestedLegacyRentPaymentDay(tenant) })) : []
   for (const property of properties) {
     if (!hasPropertyTenant(property)) continue
     const linked = next.find((tenant) => tenant.id === property.tenantId)
@@ -83,7 +100,7 @@ export const syncPropertyTenant = (property, tenants) => {
     && !property.tenantMoveOut
     && property.tenantMoveIn !== existingTenant.moveIn
   const tenant = {
-    ...(existingTenant && !startsReplacementTenancy ? existingTenant : createTenant(property.id)),
+    ...stripPropertyDepositFields(existingTenant && !startsReplacementTenancy ? existingTenant : createTenant(property.id)),
     ...propertyTenantValues(property),
     propertyId: property.id,
     importedFromProperty: true,
