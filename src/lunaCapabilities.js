@@ -28,6 +28,7 @@ import { complianceDiaryItems } from './notifications.js'
 import { normalizeDocumentMeta } from './documents.js'
 import { createAcquisition, nextAcquisitionName, reorderAcquisitions } from './acquisition.js'
 import { createRemortgageComparison, duplicateRemortgageComparison, updateRemortgageScenario, compareRemortgageScenarios } from './remortgage.js'
+import { createPerformanceEvent, normalizePerformanceEvent, PERFORMANCE_EVENT_TYPES } from './performance.js'
 
 const clean = (value) => String(value ?? '').trim()
 const lower = (value) => clean(value).toLowerCase()
@@ -75,6 +76,9 @@ export const LUNA_PHASE_ONE_OPERATIONS = [
   'extraction.list',
   'timeline.list',
   'performance_event.list',
+  'performance_event.create',
+  'performance_event.update',
+  'performance_event.delete',
   'acquisition.list',
   'acquisition.create',
   'acquisition.update',
@@ -130,7 +134,7 @@ export const LUNA_DESTRUCTIVE_OPERATIONS = new Set([
   'company_cost.delete',
   'extraction.delete',
   'timeline.delete',
-  'acquisition.delete', 'remortgage.delete',
+  'acquisition.delete', 'remortgage.delete', 'performance_event.delete',
 ])
 
 const PROPERTY_FIELDS = new Set([
@@ -373,6 +377,25 @@ const updatedComparison = (current, raw) => {
   return updated
 }
 
+
+const PERFORMANCE_EVENT_FIELDS = new Set(['property', 'propertyId', 'occurredAt', 'date', 'type', 'title', 'amount', 'notes'])
+const updatedPerformanceEvent = (source, raw, state) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Performance event fields must be an object.')
+  const unknown = Object.keys(raw).filter((key) => !PERFORMANCE_EVENT_FIELDS.has(key))
+  if (unknown.length) throw new Error('Unsupported performance event field(s): ' + unknown.join(', '))
+  const { property, date, ...fields } = raw
+  const propertyReference = property || fields.propertyId
+  const propertyId = propertyReference ? propertyIdFrom(state, propertyReference) : source.propertyId
+  const event = { ...source, ...fields, propertyId, occurredAt: raw.occurredAt || date || source.occurredAt }
+  if (!PERFORMANCE_EVENT_TYPES.some((kind) => kind.value === event.type)) throw new Error('Invalid performance event type.')
+  if (hasOwn(fields, 'amount') && (typeof fields.amount === 'boolean' || !Number.isFinite(Number(fields.amount)))) {
+    throw new Error('Invalid performance event amount.')
+  }
+  const normalized = normalizePerformanceEvent(event)
+  if (!normalized) throw new Error('Invalid performance event date; expected YYYY-MM-DD.')
+  return normalized
+}
+
 const linkedExpenses = (state, property) => state.expenses.filter((entry) => {
   const document = normalizeDocumentMeta(entry.document)
   if (document?.association?.kind === 'property') return document.association.id === property.id
@@ -570,7 +593,7 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
     const actions = data.actions
     if (!Array.isArray(actions) || actions.length < 1 || actions.length > 12) throw new Error('Batch must contain 1 to 12 actions.')
     if (actions.some((action) => !action || typeof action !== 'object' || action.operation === 'portfolio.batch'
-      || !LUNA_PHASE_ONE_OPERATIONS.includes(action.operation) || !/^(property|tenant|loan|expense|contractor|contractor_tag|settings|company_cost|extraction|timeline|acquisition|remortgage)\.(create|update|delete|set_active|clone|duplicate|reorder)$/.test(action.operation))) {
+      || !LUNA_PHASE_ONE_OPERATIONS.includes(action.operation) || !/^(property|tenant|loan|expense|contractor|contractor_tag|settings|company_cost|extraction|timeline|acquisition|remortgage|performance_event)\.(create|update|delete|set_active|clone|duplicate|reorder)$/.test(action.operation))) {
       throw new Error('Unsupported operation in portfolio batch.')
     }
     if (!confirmed && actions.some((action) => LUNA_DESTRUCTIVE_OPERATIONS.has(action.operation))) {
@@ -692,6 +715,28 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
     if (pending) return pending
     state.remortgageComparisons = state.remortgageComparisons.filter((item) => item.id !== before.id)
     return writeResult(state, 'Deleted remortgage comparison ' + before.name + '.')
+  }
+
+
+  if (operation === 'performance_event.create') {
+    const property = target || data?.property || data?.propertyId
+    const propertyId = property ? propertyIdFrom(state, property) : ''
+    const event = updatedPerformanceEvent(createPerformanceEvent(propertyId), data, state)
+    state.performanceEvents.push(event)
+    return writeResult(state, 'Created performance event ' + (event.title || event.id) + '.', { entity: event })
+  }
+  if (operation === 'performance_event.update') {
+    const before = requireEntity(state.performanceEvents, target, 'Performance event', ['title'])
+    const event = updatedPerformanceEvent(before, data, state)
+    state.performanceEvents = state.performanceEvents.map((candidate) => candidate.id === event.id ? event : candidate)
+    return writeResult(state, 'Updated performance event ' + (event.title || event.id) + '.', { entity: event })
+  }
+  if (operation === 'performance_event.delete') {
+    const before = requireEntity(state.performanceEvents, target, 'Performance event', ['title'])
+    const pending = requiresConfirmation(operation, confirmed, state, 'delete performance event ' + (before.title || before.id))
+    if (pending) return pending
+    state.performanceEvents = state.performanceEvents.filter((candidate) => candidate.id !== before.id)
+    return writeResult(state, 'Deleted performance event ' + (before.title || before.id) + '.')
   }
 
   if (operation === 'property.create') {
