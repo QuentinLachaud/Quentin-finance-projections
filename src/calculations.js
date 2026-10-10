@@ -1,6 +1,6 @@
 import { calculateCorporationTax, calculatePrivateLandlordTax, taxYearForDate } from './tax.js'
 import { calendarDate } from './dateUtils.js'
-import { projectPropertyLoans, summarizePropertyLoans } from './loans.js'
+import { projectPropertyLoanBalance, projectPropertyLoans, summarizePropertyLoans } from './loans.js'
 export { shortDate } from './dateUtils.js'
 
 const MS_YEAR = 365.2425 * 24 * 60 * 60 * 1000
@@ -234,7 +234,8 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
       - extractionTotal
     const bankCashflow = bankCashBeforeTax - tax
     const cashflow = isCompany ? bankCashflow + extractionTotal : bankCashflow
-    const totalGain = cashflow + appreciation
+    // Mortgage principal is a transfer from cash to property equity, not an expense.
+    const totalGain = cashflow + appreciation + sum('principalPayment')
 
     return {
       id: index + 1,
@@ -327,7 +328,8 @@ export const propertiesWithProjectedLoanEvents = (properties = [], loanEvents = 
   return (Array.isArray(properties) ? properties : []).map((property) => {
     if (Array.isArray(property.financeLoans)) return projectPropertyLoans(property, currentMonth, rateShock, loanEvents)
     const delta = deltas.get(String(property?.id ?? '')) || 0
-    return delta ? { ...property, loanAmount: finiteNumber(property?.loanAmount) + delta } : property
+    if (property?.mortgageInterestOnly !== false && !delta) return property
+    return { ...property, loanAmount: projectedPropertyLoanBalance(property, currentMonth, rateShock) + delta }
   })
 }
 
@@ -370,11 +372,14 @@ export function projectPortfolio(properties, settings, months = settings.project
 
     if (month > 0) {
       const appreciation = basePortfolio.totalValue * monthlyAppreciationRate * ((1 + monthlyAppreciationRate) ** (month - 1))
+      // Debt amortised during the preceding month increases equity without
+      // generating cash; include it in total economic gain, not the cash pot.
+      const principalRepaid = previousPortfolio.selected.reduce((total, property) => total + property.principalPayment, 0)
       monthlyPortfolio.scenarios.forEach((scenario, index) => {
         accumulators[index].cashPot += scenario.bankCashflow
         accumulators[index].cashflow += scenario.cashflow
         accumulators[index].appreciation += appreciation
-        accumulators[index].totalGain += scenario.cashflow + appreciation
+        accumulators[index].totalGain += scenario.cashflow + appreciation + principalRepaid
       })
     }
 
