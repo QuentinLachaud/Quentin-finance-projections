@@ -6,7 +6,7 @@ import {
   syncPropertyTenant,
   tenantBelongsToProperty,
 } from './tenants.js'
-import { createExpense, summarizeExpenses } from './expenses.js'
+import { createExpense, summarizeExpenses, filterExpenses } from './expenses.js'
 import {
   applyLoanToPortfolio,
   createBlankLoan,
@@ -20,7 +20,7 @@ import {
   normalizeContractor,
   normalizeContractorTags,
 } from './contractors.js'
-import { normalizeTimelineEvent, propertyChangeEvents } from './propertyTimeline.js'
+import { normalizeTimelineEvent, propertyChangeEvents, buildPropertyTimeline } from './propertyTimeline.js'
 import { calculateProperty, calculatePortfolio, projectPortfolio } from './calculations.js'
 import { withPropertyLoans, summarizePropertyLoans } from './loans.js'
 import { propertyOperatingCashflow } from './portfolioFields.js'
@@ -58,6 +58,8 @@ export const LUNA_PHASE_ONE_OPERATIONS = [
   'portfolio.projection',
   'portfolio.batch',
   'property.context',
+  'expense.filtered',
+  'timeline.view',
   'property.list',
   'property.get',
   'property.loans',
@@ -608,6 +610,32 @@ export function executePortfolioAction(rawState, rawArgs = {}, { confirmed = fal
   if (operation === 'portfolio.financial_summary') return readResult(financialSummary(state, data))
   if (operation === 'portfolio.projection') return readResult(portfolioProjection(state, data))
   if (operation === 'property.context') return readResult(linkedContext(state, resolveProperty(state, target)))
+
+  if (operation === 'expense.filtered') {
+    const filters = data || {}
+    const allowed = new Set(['property', 'category', 'recurrence', 'type', 'from', 'to', 'query', 'limit'])
+    const invalid = Object.keys(filters).filter((key) => !allowed.has(key))
+    if (invalid.length) throw new Error('Unsupported expense filter(s): ' + invalid.join(', '))
+    const property = target || filters.property ? resolveProperty(state, target || filters.property) : null
+    const maxItems = filters.limit === undefined ? 100 : Number(filters.limit)
+    if (!Number.isInteger(maxItems) || maxItems < 1 || maxItems > 200) throw new Error('Expense limit must be 1 to 200.')
+    const scoped = property ? linkedExpenses(state, property) : state.expenses
+    const items = filterExpenses(scoped, { ...filters, property: '' })
+    return readResult({
+      scope: property ? propertyIdentity(property) : 'all properties',
+      total: items.length, summary: summarizeExpenses(items), items: items.slice(0, maxItems),
+      truncated: items.length > maxItems,
+    })
+  }
+  if (operation === 'timeline.view') {
+    const property = resolveProperty(state, target)
+    return readResult(buildPropertyTimeline({
+      property: withPropertyLoans([property], state.loans)[0],
+      loans: state.loans, tenants: state.tenants, contractors: state.contractors,
+      expenses: state.expenses, timelineEvents: state.propertyTimelineEvents,
+    }))
+  }
+
   if (operation === 'portfolio.batch') {
     const actions = data.actions
     if (!Array.isArray(actions) || actions.length < 1 || actions.length > 12) throw new Error('Batch must contain 1 to 12 actions.')
