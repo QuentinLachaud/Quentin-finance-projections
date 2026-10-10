@@ -132,6 +132,9 @@ describe('Luna capability parity: atomic writes and portfolio context', () => {
     expect(context.expenses.map((x) => x.id)).toEqual(['expense-one'])
     const catalog = execute(state, 'portfolio.context', 'BTL1', { collections: ['properties', 'loans', 'tenants', 'expenses'] }).result
     expect(catalog.collections.properties.total).toBe(1)
+    const paginated = execute(state, 'portfolio.context', null, { collections: ['properties'], limit: 1, offset: 1 }).result
+    expect(paginated.collections.properties.items.map((item) => item.name)).toEqual(['BTL2'])
+    expect(paginated.collections.properties.nextOffset).toBeNull()
     expect(catalog.collections.expenses.total).toBe(1)
     expect(JSON.stringify(catalog)).not.toContain('DO_NOT_EXPOSE')
     expect(() => execute(state, 'portfolio.context', null, { collections: ['credentials'] })).toThrow()
