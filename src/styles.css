@@ -17715,3 +17715,36 @@ button.contractor-tag-chip { cursor: pointer; }
   .prank-action:active { transform: none; }
 }
 
+
+
+/* Brain Drain 2026-10-10 11:02 BST — full-page single-property editor */
+.property-single-workspace { display: grid; gap: 14px; min-width: 0; }
+.property-single-picker { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-weight: 700; font-size: 13px; }
+.property-single-picker select { min-width: min(100%, 280px); max-width: 100%; min-height: 42px; border: 1px solid var(--ui-line); border-radius: 10px; padding: 8px 12px; background: var(--ui-surface); color: inherit; }
+.property-single-editor { min-width: 0; overflow: visible; padding: 0; }
+.property-single-editor > header { position: sticky; top: 64px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--ui-line); background: var(--ui-surface); }
+.property-single-editor > header h2 { margin: 2px 0 0; }
+.property-single-save-hint { font-size: 12px; color: var(--ui-text-muted, var(--muted)); }
+.property-single-editor .drawer-body { overflow: visible; max-height: none; padding: 18px 20px 24px; display: grid; gap: 18px; }
+.property-single-editor .property-editor-more { display: grid; gap: 12px; }
+.property-single-editor .property-editor-disclosure { display: block; border: 1px solid var(--ui-line); border-radius: 12px; overflow: visible; }
+.property-single-editor .property-editor-disclosure > summary { cursor: default; pointer-events: none; }
+.property-single-editor .property-editor-disclosure > summary svg { display: none; }
+.property-single-editor .property-editor-essentials, .property-single-editor .property-editor-more { min-width: 0; }
+.property-single-editor .property-loan-heading-static { cursor: default; }
+.property-single-editor > footer { display: flex; align-items: center; gap: 10px; position: sticky; bottom: 0; z-index: 5; background: var(--ui-surface); border-top: 1px solid var(--ui-line); padding: 12px 20px; }
+.property-single-editor > footer > span { flex: 1; }
+.property-single-editor input:focus-visible, .property-single-editor select:focus-visible, .property-single-picker select:focus-visible { outline: 2px solid var(--ui-accent, currentColor); outline-offset: 2px; }
+.property-single-empty { padding: 24px; }
+@media (max-width: 720px) {
+  .properties-controls-bar.property-single-controls { display: flex; justify-content: stretch; }
+  .properties-controls-bar.property-single-controls .properties-tools { width: 100%; justify-content: stretch; }
+  .properties-controls-bar.property-single-controls .property-workspace-mode { width: 100%; display: flex; }
+  .properties-controls-bar.property-single-controls .property-view-choice { flex: 1 1 0; min-width: 0; padding-inline: 8px; white-space: normal; }
+  .property-single-picker { align-items: stretch; flex-direction: column; }
+  .property-single-picker select { width: 100%; }
+  .property-single-editor > header { top: 0; padding: 12px 14px; }
+  .property-single-editor .drawer-body { padding: 14px; }
+  .property-single-editor > footer { padding: 12px 14px; }
+  .property-single-editor .form-grid { grid-template-columns: minmax(0, 1fr); }
+}
