@@ -17717,6 +17717,23 @@ button.contractor-tag-chip { cursor: pointer; }
 
 
 
+/* Three property workspace views share one compact horizontal control. Keep this
+   separate from the two-column Essentials / Full details selector. */
+.properties-controls-bar .property-workspace-mode {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(max-content, 1.4fr);
+  width: min(360px, 100%);
+  min-width: 0;
+  flex: 0 1 360px;
+  gap: 2px;
+}
+.properties-controls-bar .property-workspace-mode > .property-view-choice {
+  min-width: 0;
+  width: auto;
+  padding-inline: 7px;
+  white-space: nowrap;
+}
+
 /* Brain Drain 2026-10-10 11:02 BST — full-page single-property editor */
 .property-single-workspace { display: grid; gap: 14px; min-width: 0; }
 .property-single-picker { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-weight: 700; font-size: 13px; }
@@ -17740,14 +17757,14 @@ button.contractor-tag-chip { cursor: pointer; }
   /* All three workspace modes must remain reachable on phones. */
   .properties-controls-bar { display: flex; justify-content: stretch; }
   .properties-controls-bar .properties-tools { width: 100%; justify-content: stretch; }
-  .properties-controls-bar .property-workspace-mode { width: 100%; display: flex; }
-  .properties-controls-bar .property-view-choice { flex: 1 1 0; min-width: 0; padding-inline: 8px; white-space: normal; }
+  .properties-controls-bar .property-workspace-mode { width: 100%; display: grid; }
+  .properties-controls-bar .property-view-choice { flex: 1 1 0; min-width: 0; padding-inline: 8px; white-space: nowrap; }
   .properties-controls-bar .properties-tools > .property-view-mode:not(.property-workspace-mode) { display: none; }
   .properties-controls-bar .properties-search { display: none; }
   .properties-controls-bar.property-single-controls { display: flex; justify-content: stretch; }
   .properties-controls-bar.property-single-controls .properties-tools { width: 100%; justify-content: stretch; }
-  .properties-controls-bar.property-single-controls .property-workspace-mode { width: 100%; display: flex; }
-  .properties-controls-bar.property-single-controls .property-view-choice { flex: 1 1 0; min-width: 0; padding-inline: 8px; white-space: normal; }
+  .properties-controls-bar.property-single-controls .property-workspace-mode { width: 100%; display: grid; }
+  .properties-controls-bar.property-single-controls .property-view-choice { flex: 1 1 0; min-width: 0; padding-inline: 8px; white-space: nowrap; }
   .property-single-picker { align-items: stretch; flex-direction: column; }
   .property-single-picker select { width: 100%; }
   .property-single-editor > header { top: 0; padding: 12px 14px; }
