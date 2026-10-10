@@ -133,15 +133,15 @@ const readBankRecords = async (env, authorization, user, portfolio, args) => {
   if (accountRef && matches.length !== 1) throw new Error('Bank account not found or ambiguous: ' + accountRef)
   const propertyRef = opts.property || opts.propertyId
   const property = propertyRef ? resolveLunaProperty(portfolio, String(propertyRef)) : null
-  const query = (raw, op) => raw == null || raw === '' ? '' : '&' + op + '=' + encodeURIComponent(raw)
+  const query = (raw, op, comparator = 'eq') => raw == null || raw === '' ? '' : '&' + op + '=' + comparator + '.' + encodeURIComponent(raw)
   const params = 'bank_transactions?user_id=eq.' + encodeURIComponent(user.id)
     + '&select=id,account_id,booked_at,value_at,amount,currency,description,counterparty,status,category,is_transfer,category_overridden,property_id,performance_treatment,exclude_from_performance,source_type'
     + '&order=booked_at.desc&limit=' + opts.limit
     + query(matches?.[0]?.id, 'account_id')
     + query(property?.id, 'property_id')
     + query(opts.category, 'category')
-    + query(opts.from, 'booked_at=gte')
-    + query(opts.to, 'booked_at=lte')
+    + query(opts.from, 'booked_at', 'gte')
+    + query(opts.to, 'booked_at', 'lte')
   const rows = await supabaseFetch(env, authorization, params)
   const names = new Map(accounts.map((item) => [item.id, item.name]))
   const mapped = (rows || []).map((item) => mapStoredBankTransaction(item, names))
@@ -150,7 +150,7 @@ const readBankRecords = async (env, authorization, user, portfolio, args) => {
     .some((value) => String(value).toLowerCase().includes(term))) : mapped
   return {
     count: filtered.length, items: filtered,
-    cappedAt: opts.limit, mayHaveMore: rows.length >= opts.limit,
+    cappedAt: opts.limit, mayHaveMore: (rows || []).length >= opts.limit,
     note: term
       ? 'Text search filters the most recent bounded set; older matches may exist. Dates/bank/property/category filters are applied at source.'
       : 'Cached bank transactions; may include imported bank statements. Consult sourceType and bookedAt for provenance.',
