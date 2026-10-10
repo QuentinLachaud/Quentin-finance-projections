@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { formatOrdinalDay, rentScheduleForMonth } from './rentSchedule.js'
+import { formatRentCycleDate, rentCycleForDate } from './rentProgress.js'
+import './RentMonthDial.css'
 
 const money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })
 const monthName = new Intl.DateTimeFormat('en-GB', { month: 'short' })
@@ -46,8 +48,9 @@ export default function RentMonthDial({ tenants = [], properties = [] }) {
   const schedule = useMemo(() => rentScheduleForMonth(tenants, properties, today), [tenants, properties, today])
   const groups = useMemo(() => dueGroups(schedule.events), [schedule.events])
   const currentDay = Math.min(today.getDate(), schedule.daysInMonth)
-  const handAngle = ((currentDay - 1) / schedule.daysInMonth) * 360
-  const dashGap = Math.max(0.01, schedule.daysInMonth - 0.72)
+  const cycle = useMemo(() => rentCycleForDate(tenants, properties, today), [tenants, properties, today])
+  const circumference = 2 * Math.PI * 50
+  const markerAngle = cycle.progress * Math.PI * 2
   const dueToday = groups.find((group) => group.dueDay === currentDay) || null
   const nextDue = groups.find((group) => group.dueDay > currentDay) || null
   const focusDue = dueToday || nextDue
@@ -55,7 +58,7 @@ export default function RentMonthDial({ tenants = [], properties = [] }) {
     ? groups.map((group) => `${formatOrdinalDay(group.dueDay)} ${money.format(group.amount)} ${propertyNames(group)}`).join(', ')
     : 'no scheduled rent dates'
 
-  return <section className="rent-schedule-card" aria-label={`Expected rent schedule for ${longMonthName.format(today)}: ${accessibleDue}`}>
+  return <section className="rent-schedule-card rent-progress-layout" aria-label={`Expected rent schedule for ${longMonthName.format(today)}: ${accessibleDue}`}>
     <div className="rent-schedule-summary">
       <span className="rent-schedule-eyebrow">Rent schedule</span>
       <div className="rent-schedule-month-line">
@@ -81,29 +84,28 @@ export default function RentMonthDial({ tenants = [], properties = [] }) {
       {schedule.missingTenants.length > 0 && <small className="rent-schedule-warning">{schedule.missingTenants.length} active tenant{schedule.missingTenants.length === 1 ? '' : 's'} still need{schedule.missingTenants.length === 1 ? 's' : ''} a rent payment day.</small>}
     </div>
 
-    <div className="rent-schedule-visual" aria-hidden="true">
-      <svg viewBox="0 0 120 120" focusable="false">
-        <circle className="rent-schedule-track" cx="60" cy="60" r="50" />
-        {Array.from({ length: schedule.daysInMonth }, (_, index) => {
-          const angle = (index / schedule.daysInMonth) * 360
-          const major = index === 0 || (index + 1) % 5 === 0
-          return <line key={index} className={major ? 'rent-schedule-tick major' : 'rent-schedule-tick'} x1="60" y1="8" x2="60" y2={major ? '13' : '10.5'} transform={`rotate(${angle} 60 60)`} />
-        })}
-        {groups.map((group) => <circle
-          key={group.dueDay}
-          className={`rent-schedule-band ${group.dueDay === currentDay ? 'today' : ''}`}
-          cx="60"
-          cy="60"
-          r="50"
-          pathLength={schedule.daysInMonth}
-          strokeDasharray={`0.72 ${dashGap}`}
-          strokeDashoffset={-(group.dueDay - 1)}
-          transform="rotate(-90 60 60)"
-        />)}
-        <line className="rent-schedule-hand" x1="60" y1="60" x2="60" y2="17" transform={`rotate(${handAngle} 60 60)`} />
-        <circle className="rent-schedule-centre-dot" cx="60" cy="60" r="3" />
-      </svg>
-      <span className="rent-schedule-centre"><small>Today</small><strong>{currentDay}</strong><b>{monthName.format(today).toUpperCase()}</b></span>
+    <div className="rent-progress-widget" role="img" aria-label={['Today ' + currentDay + ' ' + monthName.format(today), cycle.daysUntil == null ? 'No upcoming scheduled rent' : cycle.daysUntil === 0 ? 'Rent due today' : cycle.daysUntil + ' days until next scheduled rent', 'Previous scheduled rent ' + formatRentCycleDate(cycle.previousDueDate), 'Next scheduled rent ' + formatRentCycleDate(cycle.nextDueDate)].join('. ')}>
+      <div className="rent-progress-wheel">
+        <svg className="rent-progress-svg" viewBox="0 0 120 120" focusable="false" aria-hidden="true">
+          <circle className="rent-progress-track" cx="60" cy="60" r="50" />
+          {cycle.nextDueDate && <>
+            <circle className="rent-progress-fill" cx="60" cy="60" r="50" strokeDasharray={[cycle.progress * circumference, circumference].join(' ')} />
+            <circle className="rent-progress-marker" cx={60 + 50 * Math.sin(markerAngle)} cy={60 - 50 * Math.cos(markerAngle)} r="3.5" />
+          </>}
+        </svg>
+        <div className="rent-progress-centre">
+          <span className="rent-progress-eyebrow">Today</span>
+          <strong>{currentDay}</strong>
+          <span className="rent-progress-month">{monthName.format(today).toUpperCase()}</span>
+          <span className="rent-progress-divider" />
+          <span className="rent-progress-days">{cycle.daysUntil == null ? '—' : cycle.daysUntil === 0 ? 'Due today' : cycle.daysUntil + ' days'}</span>
+          <span className="rent-progress-subtext">{cycle.daysUntil == null ? 'No rent scheduled' : cycle.daysUntil === 0 ? 'Rent scheduled' : 'to next rent'}</span>
+        </div>
+      </div>
+      <div className="rent-progress-range">
+        <div><strong>{formatRentCycleDate(cycle.previousDueDate)}</strong><span>Last rent</span></div>
+        <div><strong>{formatRentCycleDate(cycle.nextDueDate)}</strong><span>Next rent</span></div>
+      </div>
     </div>
 
     <div className="rent-schedule-agenda">
