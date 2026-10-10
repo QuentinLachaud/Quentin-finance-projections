@@ -69,7 +69,7 @@ describe('Luna RLS-scoped banking read capabilities', () => {
   it('filters transactions by real property ID, category, dates and account without mutating records', async () => {
     const { res, payload, calls } = await run('bank.transactions', {
       property: 'BTL 1', account: 'Tide', from: '2026-10-01', to: '2026-10-10',
-      category: 'repairs', limit: 25,
+      category: 'repairs', limit: 25, offset: 40,
     })
     expect(res.status).toBe(200)
     expect(payload.changed).toBe(false)
@@ -79,6 +79,7 @@ describe('Luna RLS-scoped banking read capabilities', () => {
     expect(url).toContain('booked_at=gte.2026-10-01')
     expect(url).toContain('booked_at=lte.2026-10-10')
     expect(url).toContain('category=eq.repairs')
+    expect(url).toContain('offset=40')
   })
 
   it('rejects banking query options not in its allow-list before accessing account records', async () => {
