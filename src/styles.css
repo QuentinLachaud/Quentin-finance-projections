@@ -17772,3 +17772,14 @@ button.contractor-tag-chip { cursor: pointer; }
   .property-single-editor > footer { padding: 12px 14px; }
   .property-single-editor .form-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Avoid silently hiding stale-tab save conflicts. */
+.portfolio-write-conflict {
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border, #d4d5d8);
+  border-left: 3px solid currentColor;
+  border-radius: 0.65rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
