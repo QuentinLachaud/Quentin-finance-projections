@@ -11,10 +11,10 @@ const nextMarker = start >= 0 ? styles.indexOf('/* Brain Drain ', start + marker
 const css = start >= 0 ? styles.slice(start, nextMarker >= 0 ? nextMarker : undefined) : ''
 
 describe('compact phone Portfolio Overview', () => {
-  it('keeps the approved four-card architecture and rich drill-down implementation', () => {
+  it('consolidates equity and LTV into a single card while retaining rich drill-downs', () => {
     expect(dashboard).toContain("title: 'Monthly Cash Flow'")
-    expect(dashboard).toContain("title: 'Portfolio Position'")
-    expect(dashboard).toContain("title: 'Portfolio LTV'")
+    expect(dashboard).toContain("title: 'Portfolio Position & LTV'")
+    expect(dashboard).not.toContain("title: 'Portfolio LTV'")
     expect(dashboard).toContain("title: 'Safety Buffer'")
     expect(dashboard).toContain('<SummaryRows rows={card.rows} />')
     expect(dashboard).toContain('<BufferRing portfolio={portfolio} />')
@@ -29,13 +29,13 @@ describe('compact phone Portfolio Overview', () => {
     expect(phone).toContain('.overview-summary-card .overview-summary-buffer-body')
   })
 
-  it('shows cash flow above a three-column equity, LTV, buffer row on phones', () => {
+  it('shows cash flow above two compact equity/LTV and buffer cards on phones', () => {
     expect(commandCentre).toContain('@media (max-width: 760px)')
-    expect(commandCentre).toContain('.overview-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr))')
+    expect(commandCentre).toContain('.overview-desktop-summary-row .overview-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr))')
     expect(commandCentre).toContain('.overview-summary-cashflow { grid-column: 1 / -1')
     expect(commandCentre).toContain('.overview-summary-buffer {')
     expect(commandCentre).toContain('grid-column: span 1')
-    expect(commandCentre).toContain('.overview-rent-rail { order: -1')
+    expect(commandCentre).toContain('.overview-desktop-summary-row .overview-rent-rail { order: 1')
   })
 
   it('retains title, value, descriptor, icon and info affordance in the phone card', () => {
