@@ -4,6 +4,7 @@ import App from './App.jsx'
 import './styles.css'
 import './theme.css'
 import './loanPropertyCards.css'
+import './overviewCommandCentre.css'
 
 const touchZoomMedia = typeof window !== 'undefined'
   && typeof window.matchMedia === 'function'
