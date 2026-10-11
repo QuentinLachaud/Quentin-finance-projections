@@ -35,7 +35,7 @@ describe('compact phone Portfolio Overview', () => {
     expect(commandCentre).toContain('.overview-summary-cashflow { grid-column: 1 / -1')
     expect(commandCentre).toContain('.overview-summary-buffer {')
     expect(commandCentre).toContain('grid-column: span 1')
-    expect(commandCentre).toContain('.overview-rent-rail { order: -1')
+    expect(commandCentre).toContain('.overview-rent-rail { order: 0')
   })
 
   it('retains title, value, descriptor, icon and info affordance in the phone card', () => {

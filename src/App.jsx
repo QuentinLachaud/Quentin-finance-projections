@@ -2463,9 +2463,14 @@ function PortfolioApp({ user, accessToken, onReady }) {
           </section>
 
           {section === 'Overview' && <>
-            <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
+            <div className="overview-desktop-summary-row">
+              <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
+              <aside className="overview-rent-rail" aria-label="Rent schedule">
+                <RentMonthDial tenants={state.tenants} properties={state.properties} />
+              </aside>
+            </div>
 
-            <section className="overview-operating-grid" aria-label="Properties and rent schedule">
+            <section className="overview-operating-grid" aria-label="Properties">
               <div className="overview-properties-main">
                 <section className="properties-heading overview-properties-heading">
                   <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
@@ -2481,10 +2486,6 @@ function PortfolioApp({ user, accessToken, onReady }) {
                   </section>
                 </div>
               </div>
-
-              <aside className="overview-rent-rail" aria-label="Rent schedule">
-                <RentMonthDial tenants={state.tenants} properties={state.properties} />
-              </aside>
             </section>
 
             <OverviewScenarioStrip scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} onOpenProjections={() => setSection('Projections')} />
