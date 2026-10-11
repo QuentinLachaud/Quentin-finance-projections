@@ -328,6 +328,9 @@
   transition: background-color .15s ease, border-color .15s ease;
 }
 .overview-scenario-kpi[aria-pressed='true'] { border-color: color-mix(in srgb, var(--green) 55%, var(--ui-line, var(--line))); }
+@media (hover: hover) {
+  .overview-scenario-kpi:hover { border-color: color-mix(in srgb, var(--green) 40%, var(--ui-line, var(--line))); }
+}
 @media (min-width: 1181px) {
   .overview-operating-grid .overview-property-view-stage[data-view='rows'] .overview-property-rows {
     width: 100%;
