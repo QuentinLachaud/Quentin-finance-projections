@@ -50,7 +50,7 @@ export default function RentMonthDial({ tenants = [], properties = [] }) {
         <div className="rent-progress-centre">
           {cycle.daysUntil == null ? <>
             <strong className="rent-progress-count">—</strong>
-            <span className="rent-progress-unit">No rent due</span>
+            <span className="rent-progress-unit">No rent scheduled</span>
           </> : cycle.daysUntil === 0 ? <>
             <strong className="rent-progress-today">Due</strong>
             <span className="rent-progress-unit">today</span>
