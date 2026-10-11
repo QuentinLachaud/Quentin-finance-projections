@@ -35,7 +35,7 @@ export default function RentMonthDial({ tenants = [], properties = [] }) {
 
   return <section className="rent-schedule-card rent-progress-layout" aria-label="Rent clock">
     <div className="rent-progress-widget" role="img" aria-label={[
-      cycle.daysUntil == null ? 'No upcoming scheduled rent' : cycle.daysUntil === 0 ? 'Rent due today' : cycle.daysUntil + ' days until next scheduled rent',
+      cycle.daysUntil == null ? 'No rent due' : cycle.daysUntil === 0 ? 'Rent due today' : cycle.daysUntil + ' days until next scheduled rent',
       'Last scheduled rent ' + formatRentCycleDate(cycle.previousDueDate) + ', expected ' + previousAmountLabel,
       'Next scheduled rent ' + formatRentCycleDate(cycle.nextDueDate) + ', expected ' + nextAmountLabel,
     ].join('. ')}>
