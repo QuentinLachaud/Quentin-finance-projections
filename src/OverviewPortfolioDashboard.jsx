@@ -183,6 +183,8 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
   const portfolioLtv = portfolio.totalValue ? portfolio.totalLoans / portfolio.totalValue : 0
   const bufferShortfall = finite(portfolio.extraCashNeeded)
   const bufferSurplus = Math.max(0, finite(portfolio.cashHeld) - finite(portfolio.safeCashNeeded))
+  const bufferTargetMonths = Math.max(0, finite(settings.bufferMonths))
+  const bufferProgress = clamp(finite(bufferVisualTarget(portfolio.cashHeld, portfolio.safeCashNeeded).progress), 0, 100)
   const cards = useMemo(() => [
     {
       id: 'cashflow',
@@ -201,6 +203,7 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
     {
       id: 'position',
       title: 'Portfolio Position & LTV',
+      mobileTitle: 'Equity & LTV',
       value: currency(portfolio.totalEquity),
       subtitle: 'Total equity',
       icon: Landmark,
@@ -214,6 +217,7 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
     {
       id: 'buffer',
       title: 'Safety Buffer',
+      mobileTitle: 'Safety buffer',
       value: `${finite(portfolio.bufferMonths).toFixed(1)} months`,
       subtitle: 'Cash cover',
       icon: ShieldCheck,
@@ -383,11 +387,16 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
               <span className="overview-summary-icon"><Icon size={18} strokeWidth={1.8} /></span>
               <span className="overview-summary-title">
                 <b>{card.title}</b>
+                {card.mobileTitle && <b className="overview-summary-mobile-title" aria-hidden="true">{card.mobileTitle}</b>}
                 <strong>{card.value}</strong>
                 <small>{card.subtitle}</small>
               </span>
               <span className="overview-summary-info" aria-hidden="true"><CircleHelp size={15} strokeWidth={1.65} /></span>
             </span>
+            {isBuffer && <span className={`overview-buffer-mobile-status ${bufferShortfall > 0 ? 'is-short' : 'is-safe'}`} aria-hidden="true">
+              <span className="overview-buffer-mobile-progress"><span style={{ width: `${bufferProgress}%` }} /></span>
+              <span className="overview-buffer-mobile-caption"><span>{bufferTargetMonths > 0 ? `Target ${bufferTargetMonths.toFixed(1)} mo` : 'No target set'}</span><strong>{bufferTargetMonths === 0 ? 'Not set' : bufferShortfall > 0 ? 'Below target' : 'On target'}</strong></span>
+            </span>}
             {card.id === 'position' && <span className="overview-position-financing" aria-label="Portfolio LTV and weighted mortgage rate">
               <span><small>LTV</small><strong>{percent(portfolioLtv, 1)}</strong></span>
               <span><small>Weighted rate</small><strong>{percent(portfolio.weightedRate, 2)}</strong></span>

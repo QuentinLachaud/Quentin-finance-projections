@@ -202,3 +202,34 @@
 @media (prefers-reduced-motion: reduce) {
   .rent-progress-fill { transition: none; }
 }
+
+/* Keep the countdown, not today's date, at the centre of the rent ring. */
+.rent-progress-centre {
+  inset: 16%;
+  gap: 3px;
+}
+.rent-progress-centre .rent-progress-count {
+  margin: 0;
+  font-size: 48px;
+  line-height: 1;
+  letter-spacing: -.055em;
+}
+.rent-progress-centre .rent-progress-today {
+  margin: 0;
+  font-size: 29px;
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+.rent-progress-unit {
+  color: var(--ui-muted, var(--muted));
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .rent-progress-centre { inset: 14%; gap: 3px; }
+  .rent-progress-centre .rent-progress-count { font-size: clamp(39px, 11vw, 51px); }
+  .rent-progress-centre .rent-progress-today { font-size: 28px; }
+  .rent-progress-unit { font-size: 10px; }
+}
