@@ -39,7 +39,7 @@ describe('compact phone Portfolio Overview', () => {
   })
 
   it('retains title, value, descriptor, icon and info affordance in the phone card', () => {
-    expect(dashboard).toContain('<b>{card.title}</b>')
+    expect(dashboard).toContain('<b>{card.title}{card.id === \'position\'')
     expect(dashboard).toContain('<strong>{card.value}</strong>')
     expect(dashboard).toContain('<small>{card.subtitle}</small>')
     expect(dashboard).toContain('<Icon size={18} strokeWidth={1.8} />')
