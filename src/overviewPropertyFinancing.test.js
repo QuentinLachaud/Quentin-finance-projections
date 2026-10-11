@@ -27,20 +27,21 @@ describe('Overview property financing information hierarchy', () => {
     expect(app).toContain('currency(Math.abs(referenceGap))')
   })
 
-  it('avoids repeating collapsed-row metrics in the expanded detail', () => {
-    expect(row).toContain('label="Rent / mo"')
-    expect(row).toContain('label="Net yield"')
-    expect(row).not.toContain('<span>Rent / mo</span>')
-    expect(row).not.toContain('<span>Net yield</span>')
+  it('puts cash flow and next fix in the compact row and keeps rent and yield on expansion', () => {
+    expect(row).toContain('label="Cash flow / mo"')
+    expect(row).toContain('label="Next fix"')
+    expect(row).toContain('<span>Rent / mo</span>')
+    expect(row).toContain('<span>Net yield</span>')
+    expect(row).not.toContain('<span>Operating cash flow / mo</span>')
   })
 
   it('uses the expanded space for useful operating and financing facts', () => {
     expect(row).toContain('className="overview-property-row-finance-facts"')
-    expect(row).toContain('<span>Operating cash flow / mo</span>')
+    expect(row).toContain('<span>Rent / mo</span>')
     expect(row).toContain('<span>Mortgage / mo</span>')
     expect(row).toContain('<span>Current rate</span>')
     expect(row).toContain('<span>Lender</span>')
-    expect(row).toContain('<span>Next remortgage</span>')
+    expect(row).toContain('label="Next fix"')
     expect(row).toContain('className="overview-property-row-open-action"')
   })
 
