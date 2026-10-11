@@ -804,9 +804,6 @@ function ModelControls({ settings, onChange, compact = false }) {
 
 function OverviewScenarioStrip({ scenarios, count, accountType, onOpenProjections }) {
   const isPrivate = accountType === 'private'
-  const [highlightedScenario, setHighlightedScenario] = useState(0)
-  const selectedScenario = Math.min(highlightedScenario, Math.max(0, scenarios.length - 1))
-
   return <section className="panel overview-scenario-strip" aria-label="Cash flow scenarios">
     <header className="overview-scenario-heading">
       <div>
@@ -814,36 +811,14 @@ function OverviewScenarioStrip({ scenarios, count, accountType, onOpenProjection
         <h2>Cash flow scenarios</h2>
         <p>Compare monthly cash available under different operating assumptions.</p>
       </div>
-      <div className="overview-scenario-actions">
-        <label className="overview-scenario-select">
-          <select
-            aria-label="Highlight cash flow scenario"
-            value={selectedScenario}
-            onChange={(event) => setHighlightedScenario(Number(event.target.value))}
-          >
-            {scenarios.map((scenario, index) => <option key={scenario.id} value={index}>
-              {index === 0 ? 'Base case' : overviewScenarioMeta[index]?.selector || 'Scenario'}
-            </option>)}
-          </select>
-          <ChevronDown size={15} aria-hidden="true" />
-        </label>
-        <button type="button" className="text-button" onClick={onOpenProjections}>Open projections <ArrowUpRight size={15} /></button>
-      </div>
+      <button type="button" className="text-button" onClick={onOpenProjections}>Open projections <ArrowUpRight size={15} /></button>
     </header>
     <div className="overview-scenario-kpis">
-      {scenarios.map((scenario, index) => <button
-        type="button"
-        key={scenario.id}
-        className={index === selectedScenario ? 'overview-scenario-kpi primary' : 'overview-scenario-kpi'}
-        aria-pressed={index === selectedScenario}
-        onClick={() => setHighlightedScenario(index)}
-      >
-        <span>{index === 0 ? 'Base case' : overviewScenarioMeta[index]?.selector || 'Scenario'}</span>
+      {scenarios.map((scenario, index) => <div key={scenario.id} className={index === 0 ? 'overview-scenario-kpi primary' : 'overview-scenario-kpi'}>
+        <span>{overviewScenarioMeta[index]?.selector || 'Scenario'}</span>
         <strong>{currency(scenario.cashflow)}<small>/month</small></strong>
-        <small>{index === 0
-          ? (isPrivate ? 'After estimated property income tax' : 'Before personal tax on extraction')
-          : overviewScenarioMeta[index]?.note}</small>
-      </button>)}
+        {index === 0 && <small>{isPrivate ? 'After estimated property income tax' : 'Before personal tax on extraction'}</small>}
+      </div>)}
     </div>
     <details className="overview-scenario-details" id="overview-scenario-details">
       <summary>Detailed scenarios <ChevronDown size={16} aria-hidden="true" /></summary>
@@ -2506,13 +2481,6 @@ function PortfolioApp({ user, accessToken, onReady }) {
                 </section>
 
                 <div className="overview-property-view-stage" data-view="rows">
-                  <div className="overview-property-columns" aria-hidden="true">
-                    <span>#</span>
-                    <span>Property</span>
-                    <span className="overview-property-columns-key"><span>Value</span><span>LTV</span></span>
-                    <span className="overview-property-columns-quick"><span>Equity</span><span>Cash flow / mo</span><span>Next fix</span></span>
-                    <span />
-                  </div>
                   <section className="overview-property-rows">
                     {calculated.map((p) => <OverviewPropertyRow key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
                   </section>
