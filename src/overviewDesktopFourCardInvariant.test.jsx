@@ -56,4 +56,22 @@ describe('single-row desktop Overview KPI contract', () => {
     expect(dashboard).not.toContain("id: 'financing'")
     expect(css.indexOf('@media (max-width: 760px)',css.indexOf('exactly three financial cards'))).toBeGreaterThan(0)
   })
+  it('shows the mobile-style countdown ring beside vertically stacked rent payments on desktop', () => {
+    const parity = css.slice(css.indexOf('/* Desktop rent clock: match the compact phone countdown and stacked rent details. */'))
+    expect(parity).toContain('@media (min-width: 761px)')
+    expect(parity).toContain('flex-direction: row;')
+    expect(parity).toContain('grid-template-columns: minmax(0, 1fr);')
+    expect(parity).toContain('border-top: 1px solid')
+    expect(parity).toContain('border-left: 0;')
+    expect(parity).toContain('@media (min-width: 1181px)')
+    expect(parity).toContain('width: clamp(96px, 8.2vw, 124px);')
+    expect(parity).toContain('inset: 13%;')
+    // No separate desktop-specific time/date content: both layouts render one shared clock.
+    expect((app.match(/<RentMonthDial /g) || [])).toHaveLength(1)
+    const rent = readFileSync(new URL('./RentMonthDial.jsx', import.meta.url), 'utf8')
+    expect(rent).toContain("cycle.daysUntil === 1 ? 'day to rent' : 'days to rent'")
+    expect(rent).not.toContain('rent-progress-eyebrow')
+    expect(rent).not.toContain('rent-progress-month')
+  })
+
 })
