@@ -252,6 +252,10 @@
 @media (max-width: 370px) {
   .overview-rent-rail .rent-progress-range { padding-inline: 6px; }
   .overview-scenario-kpi > strong { font-size: 14px; }
+  .overview-operating-grid .overview-property-row-quick .overview-property-metric b {
+    font-size: 10px;
+    overflow-wrap: anywhere;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .overview-scenario-details > summary svg { transition: none; }
