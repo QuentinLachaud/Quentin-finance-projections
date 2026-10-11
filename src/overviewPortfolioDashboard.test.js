@@ -39,7 +39,7 @@ describe('iOS-native Portfolio Overview dashboard', () => {
 
     expect(dashboardAt).toBeGreaterThanOrEqual(0)
     expect(propertiesAt).toBeGreaterThan(dashboardAt)
-    expect(clockAt).toBeGreaterThan(propertiesAt)
+    expect(clockAt).toBeLessThan(propertiesAt)
     expect(scenariosAt).toBeGreaterThan(clockAt)
     expect(overview).not.toContain('<section className="panel scenarios-panel overview-cashflow-panel">')
     expect(app).toContain('<details className="overview-scenario-details"')
@@ -48,12 +48,12 @@ describe('iOS-native Portfolio Overview dashboard', () => {
 
   it('shows the four approved summary concepts using existing calculated fields', () => {
     expect(dashboard).toContain("title: 'Monthly Cash Flow'")
-    expect(dashboard).toContain("title: 'Portfolio Position'")
-    expect(dashboard).toContain("title: 'Portfolio LTV'")
+    expect(dashboard).toContain("title: 'Portfolio Position & LTV'")
+    expect(dashboard).not.toContain("title: 'Portfolio LTV'")
     expect(dashboard).toContain("title: 'Safety Buffer'")
     expect(dashboard).toContain('value: currency(scenario.cashflow)')
     expect(dashboard).toContain('value: currency(portfolio.totalEquity)')
-    expect(dashboard).toContain('value: percent(portfolioLtv, 1)')
+    expect(dashboard).toContain('percent(portfolioLtv, 1)')
     expect(dashboard).toContain('`${finite(portfolio.bufferMonths).toFixed(1)} months`')
   })
 
@@ -112,10 +112,10 @@ describe('iOS-native Portfolio Overview dashboard', () => {
   it('uses compact responsive command-centre metrics while retaining accessible sheets', () => {
     expect(cssStart).toBeGreaterThanOrEqual(0)
     expect(css).toContain('font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif')
-    expect(commandCentre).toContain('grid-template-columns: repeat(5, minmax(0, 1fr))')
-    expect(commandCentre).toContain('.overview-summary-cashflow { grid-column: span 2;')
+    expect(commandCentre).toContain('.overview-desktop-summary-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))')
+    expect(commandCentre).toContain('.overview-desktop-summary-row .overview-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr))')
     expect(commandCentre).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))')
-    expect(commandCentre).toContain('.overview-rent-rail { order: -1; width: 100%; }')
+    expect(commandCentre).toContain('.overview-desktop-summary-row .overview-rent-rail { order: 1; width: 100%; }')
     expect(css).toContain('place-items: end center')
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
     expect(commandCentre).toContain('@media (prefers-reduced-motion: reduce)')

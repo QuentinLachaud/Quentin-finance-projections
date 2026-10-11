@@ -260,3 +260,56 @@
 @media (prefers-reduced-motion: reduce) {
   .overview-scenario-details > summary svg { transition: none; }
 }
+
+/* Brain Drain 2026-10-11 — exactly three financial cards and one Rent Clock in a desktop row.
+   Card count is defined by React, never by a display:none workaround. */
+.overview-position-financing { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; width: 100%; border-top: 1px solid var(--ui-line, var(--line)); padding-top: 10px; font-variant-numeric: tabular-nums; }
+.overview-position-financing > span { display: grid; justify-items: center; gap: 5px; min-width: 0; }
+.overview-position-financing > span + span { border-left: 1px solid var(--ui-line, var(--line)); }
+.overview-position-financing small { color: var(--ui-muted, var(--muted)); font-size: 11px; }
+.overview-position-financing strong { font-size: 14px; color: var(--ui-text, var(--ink)); }
+@media (min-width: 1181px) {
+  .overview-desktop-summary-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: stretch; gap: 11px; margin-bottom: 22px; }
+  .overview-desktop-summary-row .overview-summary-dashboard { grid-column: span 3; min-width: 0; margin: 0; }
+  .overview-desktop-summary-row .overview-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; height: 100%; }
+  .overview-desktop-summary-row .overview-summary-card { grid-column: span 1; min-height: 230px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 14px 12px; }
+  .overview-desktop-summary-row .overview-summary-card-head { display: flex; flex-direction: column; align-items: center; gap: 7px; width: 100%; }
+  .overview-desktop-summary-row .overview-summary-title { justify-items: center; }
+  .overview-desktop-summary-row .overview-summary-icon { width: 42px; height: 42px; flex: 0 0 auto; }
+  .overview-desktop-summary-row .overview-summary-icon svg { width: 18px; height: 18px; }
+  .overview-desktop-summary-row .overview-summary-title > b { font-size: 14px; }
+  .overview-desktop-summary-row .overview-summary-title > strong { font-size: clamp(23px, 2.05vw, 34px); }
+  .overview-desktop-summary-row .overview-summary-title > small { font-size: 11px; }
+  .overview-desktop-summary-row .overview-summary-cashflow .overview-summary-rows { width: 100%; }
+  .overview-desktop-summary-row .overview-summary-cashflow .overview-summary-rows > div:first-child { display: flex; flex-direction: column; align-items: center; gap: 4px; border-top: 1px solid var(--ui-line, var(--line)); padding-top: 10px; }
+  .overview-desktop-summary-row .overview-rent-rail { grid-column: 4; grid-row: 1; min-width: 0; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-schedule-card.rent-progress-layout { min-height: 230px; height: 100%; padding: 10px 12px; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-widget { max-width: none; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range { width: 100%; }
+  .overview-operating-grid { display: block; }
+  .overview-operating-grid .overview-property-view-stage { min-width: 0; }
+  .overview-operating-grid .overview-property-row-toggle { grid-template-columns: 28px minmax(145px, 1.1fr) minmax(120px, .8fr) minmax(320px, 2.5fr) 18px; min-height: 74px; }
+}
+@media (min-width: 761px) and (max-width: 1180px) {
+  .overview-desktop-summary-row { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+  .overview-desktop-summary-row .overview-summary-dashboard { margin: 0; }
+  .overview-desktop-summary-row .overview-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .overview-desktop-summary-row .overview-summary-cashflow { grid-column: span 1; min-height: 154px; }
+  .overview-desktop-summary-row .overview-summary-card { grid-column: span 1; min-height: 154px; }
+  .overview-operating-grid { display: block; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-widget { flex-direction: row; max-width: none; }
+}
+@media (max-width: 760px) {
+  .overview-desktop-summary-row { display: flex; flex-direction: column; gap: 13px; margin-bottom: 20px; }
+  .overview-desktop-summary-row .overview-summary-dashboard { margin: 0; }
+  .overview-desktop-summary-row .overview-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview-desktop-summary-row .overview-summary-cashflow { grid-column: 1 / -1; }
+  .overview-desktop-summary-row .overview-summary-position,
+  .overview-desktop-summary-row .overview-summary-buffer { grid-column: span 1; }
+  .overview-desktop-summary-row .overview-summary-position { min-height: 118px; }
+  .overview-position-financing { padding-top: 7px; margin-top: 5px; }
+  .overview-position-financing small { font-size: 9px; }
+  .overview-position-financing strong { font-size: 12px; }
+  .overview-desktop-summary-row .overview-rent-rail { order: 1; width: 100%; }
+  .overview-operating-grid { display: block; }
+}

@@ -5,7 +5,6 @@ import {
   CircleHelp,
   Landmark,
   ShieldCheck,
-  TrendingUp,
   X,
 } from 'lucide-react'
 import { currency, percent } from './calculations.js'
@@ -101,6 +100,7 @@ function PositionDetail({ portfolio }) {
       <LedgerRow label="Outstanding loans" value={currency(portfolio.totalLoans)} />
       <LedgerRow total label="Total equity" value={currency(portfolio.totalEquity)} tone="positive" />
       <LedgerRow label="Portfolio LTV" value={percent(ltv, 1)} />
+      <LedgerRow label="Weighted mortgage rate" value={percent(portfolio.weightedRate, 2)} />
     </div>
     <div className="overview-insight-property-list" aria-label="Property equity breakdown">
       {(portfolio.selected || []).map((property) => <div key={property.id || property.name}>
@@ -181,13 +181,6 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
   const fixedExpenses = finite(portfolio.propertyFixedCosts) + finite(portfolio.companyCosts)
   const variableAllowance = finite(scenario.voidLoss) + finite(scenario.problemBudget) + finite(scenario.management)
   const portfolioLtv = portfolio.totalValue ? portfolio.totalLoans / portfolio.totalValue : 0
-  const selected = portfolio.selected || []
-  const ratePreview = selected.length <= 3
-    ? selected.map((property) => [property.name, percent(property.currentRate, 2)])
-    : [
-      ...selected.slice(0, 2).map((property) => [property.name, percent(property.currentRate, 2)]),
-      [`+${selected.length - 2} more`, `${selected.length} active loans`],
-    ]
   const bufferShortfall = finite(portfolio.extraCashNeeded)
   const bufferSurplus = Math.max(0, finite(portfolio.cashHeld) - finite(portfolio.safeCashNeeded))
   const cards = useMemo(() => [
@@ -207,7 +200,7 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
     },
     {
       id: 'position',
-      title: 'Portfolio Position',
+      title: 'Portfolio Position & LTV',
       value: currency(portfolio.totalEquity),
       subtitle: 'Total equity',
       icon: Landmark,
@@ -217,15 +210,6 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
         ['Loans', currency(portfolio.totalLoans)],
         ['Portfolio LTV', percent(portfolioLtv, 1)],
       ],
-    },
-    {
-      id: 'financing',
-      title: 'Portfolio LTV',
-      value: percent(portfolioLtv, 1),
-      subtitle: percent(portfolio.weightedRate, 2) + ' weighted rate',
-      icon: TrendingUp,
-      tone: 'financing',
-      rows: ratePreview.length ? ratePreview : [['Active loans', 'None']],
     },
     {
       id: 'buffer',
@@ -254,7 +238,6 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
     portfolio.totalValue,
     portfolio.weightedRate,
     portfolioLtv,
-    ratePreview,
     scenario.cashflow,
     scenario.tax,
     settings.bufferMonths,
@@ -405,6 +388,10 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
               </span>
               <span className="overview-summary-info" aria-hidden="true"><CircleHelp size={15} strokeWidth={1.65} /></span>
             </span>
+            {card.id === 'position' && <span className="overview-position-financing" aria-label="Portfolio LTV and weighted mortgage rate">
+              <span><small>LTV</small><strong>{percent(portfolioLtv, 1)}</strong></span>
+              <span><small>Weighted rate</small><strong>{percent(portfolio.weightedRate, 2)}</strong></span>
+            </span>}
             {isBuffer
               ? <div className="overview-summary-buffer-body"><BufferRing portfolio={portfolio} /><SummaryRows rows={card.rows} /></div>
               : <SummaryRows rows={card.rows} />}
