@@ -1,0 +1,262 @@
+/* Brain Drain 2026-10-11 — isolated, reversible Overview command-centre redesign.
+   All overrides are limited to Overview-specific classes. */
+
+/* One dashboard line: cash flow leads; equity, LTV and cash buffer follow. */
+.overview-summary-dashboard { margin: 0 0 18px; }
+.overview-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 11px;
+}
+.overview-summary-cashflow { grid-column: span 2; }
+.overview-summary-position,
+.overview-summary-financing,
+.overview-summary-buffer { grid-column: span 1; }
+.overview-summary-card {
+  min-width: 0;
+  min-height: 154px;
+  padding: 15px;
+  gap: 9px;
+  box-shadow: 0 1px 8px rgba(18, 32, 26, .035);
+}
+.overview-summary-cashflow {
+  background: color-mix(in srgb, var(--green) 7%, var(--ui-surface, #fff));
+  border-color: color-mix(in srgb, var(--green) 22%, var(--ui-line, var(--line)));
+}
+.overview-summary-card .overview-summary-title > strong {
+  font-size: clamp(23px, 2vw, 30px);
+}
+.overview-summary-card .overview-summary-title > small {
+  font-size: 10px;
+  line-height: 1.3;
+}
+.overview-summary-position .overview-summary-card-head,
+.overview-summary-financing .overview-summary-card-head,
+.overview-summary-buffer .overview-summary-card-head {
+  display: flex;
+  gap: 7px;
+}
+.overview-summary-position .overview-summary-icon,
+.overview-summary-financing .overview-summary-icon,
+.overview-summary-buffer .overview-summary-icon {
+  flex: 0 0 auto;
+  width: 27px;
+  height: 27px;
+}
+.overview-summary-position .overview-summary-icon svg,
+.overview-summary-financing .overview-summary-icon svg,
+.overview-summary-buffer .overview-summary-icon svg { width: 14px; height: 14px; }
+.overview-summary-position .overview-summary-title > strong,
+.overview-summary-financing .overview-summary-title > strong,
+.overview-summary-buffer .overview-summary-title > strong { font-size: clamp(18px, 1.65vw, 25px); }
+.overview-summary-position .overview-summary-info,
+.overview-summary-financing .overview-summary-info,
+.overview-summary-buffer .overview-summary-info { display: none; }
+.overview-summary-card:not(.overview-summary-cashflow) .overview-summary-rows,
+.overview-summary-card:not(.overview-summary-cashflow) .overview-summary-buffer-body,
+.overview-summary-cashflow .overview-summary-rows > div:not(:first-child) { display: none; }
+
+/* Directly useful property rows and the rent clock share one desktop band. */
+.overview-operating-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3.15fr) minmax(225px, .9fr);
+  align-items: start;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.overview-properties-main { min-width: 0; }
+.overview-operating-grid .overview-properties-heading { margin-top: 0; }
+.overview-operating-grid .overview-property-view-stage {
+  min-width: 0;
+  margin-bottom: 0;
+}
+.overview-operating-grid .overview-property-row-toggle {
+  grid-template-columns: 28px minmax(85px, 1fr) minmax(95px, .78fr) minmax(165px, 1.25fr) 18px;
+  min-height: 83px;
+  gap: 9px;
+  padding: 10px 45px 10px 11px;
+}
+.overview-operating-grid .overview-property-row-key,
+.overview-operating-grid .overview-property-row-quick { gap: 7px; }
+.overview-operating-grid .overview-property-row .overview-property-metric b {
+  font-variant-numeric: tabular-nums;
+}
+.overview-operating-grid .overview-property-row-quick .overview-property-metric:last-child b { white-space: nowrap; }
+
+.overview-rent-rail { min-width: 0; }
+.overview-rent-rail .rent-schedule-card.rent-progress-layout {
+  margin: 0;
+  padding: 14px 10px 15px;
+  border: 1px solid var(--ui-line, var(--line));
+  border-radius: 18px;
+  background: var(--ui-surface, #fff);
+}
+.overview-rent-rail .rent-progress-widget { gap: 11px; }
+.overview-rent-rail .rent-progress-wheel { width: 142px; }
+.overview-rent-rail .rent-progress-centre strong { font-size: 32px; }
+.overview-rent-rail .rent-progress-divider { margin: 5px 0; }
+.overview-rent-rail .rent-progress-days { font-size: 13px; }
+.overview-rent-rail .rent-progress-range { padding: 9px 6px; }
+.overview-rent-rail .rent-progress-range-details { gap: 2px 5px; }
+.overview-rent-rail .rent-progress-range-details strong,
+.overview-rent-rail .rent-progress-range-details b { font-size: 12px; }
+
+/* A scenario comparison strip, with the existing detailed comparison on demand. */
+.overview-scenario-strip { margin-top: 0; }
+.overview-scenario-heading {
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 13px;
+}
+.overview-scenario-heading > div { min-width: 0; }
+.overview-scenario-heading p { margin: 5px 0 0; font-size: 12px; color: var(--ui-muted, var(--muted)); }
+.overview-scenario-heading .text-button { flex: 0 0 auto; }
+.overview-scenario-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.overview-scenario-kpi {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 13px 14px;
+  border: 1px solid var(--ui-line, var(--line));
+  border-radius: 15px;
+  background: var(--ui-surface, #fff);
+}
+.overview-scenario-kpi.primary {
+  background: color-mix(in srgb, var(--green) 6%, var(--ui-surface, #fff));
+  border-color: color-mix(in srgb, var(--green) 28%, var(--ui-line, var(--line)));
+}
+.overview-scenario-kpi > span { font-size: 11px; font-weight: 650; color: var(--ui-muted, var(--muted)); }
+.overview-scenario-kpi > strong {
+  font-size: clamp(20px, 1.9vw, 26px);
+  line-height: 1.1;
+  letter-spacing: -.025em;
+  font-variant-numeric: tabular-nums;
+}
+.overview-scenario-kpi > strong small { margin-left: 5px; font-size: 11px; font-weight: 500; color: var(--ui-muted, var(--muted)); }
+.overview-scenario-kpi > small { color: var(--ui-muted, var(--muted)); font-size: 10px; }
+.overview-scenario-details { margin-top: 13px; }
+.overview-scenario-details > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 5px 2px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+.overview-scenario-details > summary::-webkit-details-marker { display: none; }
+.overview-scenario-details[open] > summary svg { transform: rotate(180deg); }
+.overview-scenario-details .overview-cashflow-scenarios {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-line, var(--line));
+}
+.overview-scenario-details > summary:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; border-radius: 4px; }
+
+/* At intermediate viewport widths the rent widget moves above the property list. */
+@media (min-width: 761px) and (max-width: 1340px) {
+  .overview-operating-grid { grid-template-columns: minmax(0, 1fr); }
+  .overview-rent-rail { grid-row: 1; }
+  .overview-rent-rail .rent-schedule-card.rent-progress-layout { padding: 9px 16px; }
+  .overview-rent-rail .rent-progress-widget { flex-direction: row; max-width: none; }
+  .overview-rent-rail .rent-progress-range { width: min(350px, 100%); }
+  .overview-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .overview-summary-cashflow { grid-column: 1 / -1; min-height: 112px; }
+  .overview-operating-grid .overview-property-row-toggle {
+    grid-template-columns: 34px minmax(150px, 1.05fr) minmax(145px, .75fr) minmax(220px, 1.2fr) 20px;
+  }
+}
+
+/* Mobile: one primary card, three compact figures, clock and properties. */
+@media (max-width: 760px) {
+  .overview-summary-dashboard { margin-bottom: 13px; }
+  .overview-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  .overview-summary-cashflow { grid-column: 1 / -1; min-height: 86px; }
+  .overview-summary-position,
+  .overview-summary-financing,
+  .overview-summary-buffer {
+    grid-column: span 1;
+    min-height: 72px;
+    padding: 10px 8px;
+  }
+  .overview-summary-card { min-height: 0; }
+  .overview-summary-cashflow .overview-summary-rows { display: none; }
+  .overview-summary-position .overview-summary-card-head,
+  .overview-summary-financing .overview-summary-card-head,
+  .overview-summary-buffer .overview-summary-card-head { display: block; min-height: 0; }
+  .overview-summary-position .overview-summary-icon,
+  .overview-summary-financing .overview-summary-icon,
+  .overview-summary-buffer .overview-summary-icon { display: none; }
+  .overview-summary-position .overview-summary-title > b,
+  .overview-summary-financing .overview-summary-title > b,
+  .overview-summary-buffer .overview-summary-title > b { font-size: 9px; line-height: 1.2; }
+  .overview-summary-position .overview-summary-title > strong,
+  .overview-summary-financing .overview-summary-title > strong,
+  .overview-summary-buffer .overview-summary-title > strong {
+    font-size: clamp(15px, 4vw, 19px);
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+  .overview-summary-position .overview-summary-title > small,
+  .overview-summary-financing .overview-summary-title > small,
+  .overview-summary-buffer .overview-summary-title > small { display: none; }
+
+  .overview-operating-grid { display: flex; flex-direction: column; gap: 14px; }
+  .overview-properties-main { width: 100%; }
+  .overview-rent-rail { order: -1; width: 100%; }
+  .overview-rent-rail .rent-schedule-card.rent-progress-layout { padding: 8px 11px; }
+  .overview-rent-rail .rent-progress-widget { flex-direction: row; max-width: none; }
+  .overview-rent-rail .rent-progress-wheel { width: clamp(110px, 32vw, 130px); }
+  .overview-rent-rail .rent-progress-range {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 250px;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 3px 10px;
+  }
+  .overview-rent-rail .rent-progress-range-item { align-items: stretch; padding: 8px 0; }
+  .overview-rent-rail .rent-progress-range-item + .rent-progress-range-item {
+    border-left: 0;
+    border-top: 1px solid var(--ui-line, var(--line));
+  }
+  .overview-rent-rail .rent-progress-range-details { justify-content: space-between; }
+  .overview-operating-grid .overview-property-row-toggle {
+    min-height: 112px;
+    padding: 11px 46px 11px 11px;
+    grid-template-columns: 30px minmax(0, 1fr) 18px;
+    grid-template-areas: "index identity chevron" ". key key" ". quick quick";
+    gap: 8px;
+  }
+  .overview-operating-grid .overview-property-row-key { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview-operating-grid .overview-property-row-quick { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .overview-scenario-strip { padding: 14px; }
+  .overview-scenario-heading p { display: none; }
+  .overview-scenario-heading .text-button { font-size: 11px; }
+  .overview-scenario-kpis { gap: 6px; }
+  .overview-scenario-kpi { padding: 10px 7px; gap: 5px; }
+  .overview-scenario-kpi > span { font-size: 9px; }
+  .overview-scenario-kpi > strong { font-size: clamp(15px, 4vw, 19px); }
+  .overview-scenario-kpi > strong small { display: block; margin: 2px 0 0; font-size: 9px; }
+  .overview-scenario-kpi > small { display: none; }
+}
+@media (max-width: 370px) {
+  .overview-rent-rail .rent-progress-range { padding-inline: 6px; }
+  .overview-scenario-kpi > strong { font-size: 14px; }
+  .overview-operating-grid .overview-property-row-quick .overview-property-metric b {
+    font-size: 10px;
+    overflow-wrap: anywhere;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overview-scenario-details > summary svg { transition: none; }
+}

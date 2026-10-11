@@ -116,11 +116,11 @@ function PositionDetail({ portfolio }) {
 
 function FinancingDetail({ portfolio, settings }) {
   return <>
-    <p className="overview-insight-explainer">Weighted average interest rate across active loans, weighted by each property's outstanding loan balance.</p>
+    <p className="overview-insight-explainer">Portfolio loan-to-value is outstanding property loans divided by total property value. Weighted average interest rate is calculated using active loan balances.</p>
     <div className="overview-financing-hero">
-      <span>Weighted rate</span>
-      <strong>{percent(portfolio.weightedRate, 2)}</strong>
-      <small>{percent(settings.rateShock, 2)} model rate shock included</small>
+      <span>Portfolio loan-to-value</span>
+      <strong>{percent(portfolio.totalValue ? portfolio.totalLoans / portfolio.totalValue : 0, 1)}</strong>
+      <small>Weighted loan rate {percent(portfolio.weightedRate, 2)} · {percent(settings.rateShock, 2)} model rate shock included</small>
     </div>
     <div className="overview-insight-property-list financing" aria-label="Property financing breakdown">
       {(portfolio.selected || []).map((property) => <div key={property.id || property.name}>
@@ -220,9 +220,9 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
     },
     {
       id: 'financing',
-      title: 'Financing',
-      value: percent(portfolio.weightedRate, 2),
-      subtitle: 'Weighted rate',
+      title: 'Portfolio LTV',
+      value: percent(portfolioLtv, 1),
+      subtitle: percent(portfolio.weightedRate, 2) + ' weighted rate',
       icon: TrendingUp,
       tone: 'financing',
       rows: ratePreview.length ? ratePreview : [['Active loans', 'None']],
