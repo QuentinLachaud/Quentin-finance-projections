@@ -534,8 +534,8 @@ function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
         </span>
         <span className="overview-property-row-quick">
           <OverviewPropertyMetric label="Equity" value={currency(property.equity)} emphasis supported={propertyMetricSupported(property, 'equity')} />
-          <OverviewPropertyMetric label="Rent / mo" value={currency(property.rent)} supported={propertyMetricSupported(property, 'rent')} />
-          <OverviewPropertyMetric label="Net yield" value={percent(property.netYield, 1)} supported={propertyMetricSupported(property, 'netYield')} />
+          <OverviewPropertyMetric label="Cash flow / mo" value={currency(property.operatingCashflow)} emphasis supported={propertyMetricSupported(property, 'operatingCashflow')} />
+          <OverviewPropertyMetric label="Next fix" value={shortDate(property.nextRemortgage)} supported={propertyMetricSupported(property, 'nextRemortgage')} />
         </span>
         <span className="overview-property-row-chevron" aria-hidden="true">
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -548,11 +548,12 @@ function OverviewPropertyRow({ property, onEdit, onClone, onToggle }) {
       <div className="overview-property-row-inner">
         {(propertyMetricSupported(property, 'currentValue') || propertyHasMortgageForOverview(property)) && <PropertyFinancingSummary property={property} variant="row" />}
         <div className="overview-property-row-finance-facts">
-          {propertyMetricSupported(property, 'operatingCashflow') && <div><span>Operating cash flow / mo</span><b className={property.operatingCashflow >= 0 ? 'positive' : 'negative'}>{currency(property.operatingCashflow)}</b></div>}
+          {propertyMetricSupported(property, 'rent') && <div><span>Rent / mo</span><b>{currency(property.rent)}</b></div>}
+          {propertyMetricSupported(property, 'netYield') && <div><span>Net yield</span><b>{percent(property.netYield, 1)}</b></div>}
           {propertyMetricSupported(property, 'mortgagePayment') && <div><span>Mortgage / mo</span><b>{currency(property.monthlyPayment, 0)}</b></div>}
           {propertyMetricSupported(property, 'interestRate') && <div><span>Current rate</span><b>{percent(property.currentRate, 2)}</b></div>}
           {propertyMetricSupported(property, 'lender') && <div><span>Lender</span><b>{property.lender}</b></div>}
-          {propertyMetricSupported(property, 'nextRemortgage') && <div><span>Next remortgage</span><b>{shortDate(property.nextRemortgage)}</b></div>}
+          
         </div>
         <div className="overview-property-row-open-action">
           <button type="button" onClick={() => onEdit(property.id)}>Open property <ArrowUpRight size={15} /></button>
@@ -799,6 +800,31 @@ function ModelControls({ settings, onChange, compact = false }) {
       {controls.map(([key, label, disabled, help]) => <label key={key} className={`${settings[key] ? 'selected' : ''} ${disabled ? 'not-applicable' : ''}`} title={help}><BrainDrainNumericInput disabled={disabled} type="checkbox" checked={Boolean(settings[key])} onChange={(event) => onChange(key, event.target.checked)} /><i><Check size={12} /></i><span>{label}</span><span className="model-help" data-tooltip={help} aria-hidden="true"><CircleHelp size={13} /></span></label>)}
     </div>
   )
+}
+
+function OverviewScenarioStrip({ scenarios, count, accountType }) {
+  const isPrivate = accountType === 'private'
+  return <section className="panel overview-scenario-strip" aria-label="Cash flow scenarios">
+    <header className="overview-scenario-heading">
+      <div>
+        <span className="kicker">OPERATING ASSUMPTIONS</span>
+        <h2>Cash flow scenarios</h2>
+        <p>Compare monthly cash available under different operating assumptions.</p>
+      </div>
+      <button type="button" className="text-button" onClick={() => document.getElementById('overview-scenario-details')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}>See full breakdown <ArrowUpRight size={15} /></button>
+    </header>
+    <div className="overview-scenario-kpis">
+      {scenarios.map((scenario, index) => <div key={scenario.id} className={index === 0 ? 'overview-scenario-kpi primary' : 'overview-scenario-kpi'}>
+        <span>{overviewScenarioMeta[index]?.selector || 'Scenario'}</span>
+        <strong>{currency(scenario.cashflow)}<small>/month</small></strong>
+        {index === 0 && <small>{isPrivate ? 'After estimated property income tax' : 'Before personal tax on extraction'}</small>}
+      </div>)}
+    </div>
+    <details className="overview-scenario-details" id="overview-scenario-details">
+      <summary>Detailed scenarios <ChevronDown size={16} aria-hidden="true" /></summary>
+      <ScenarioTable scenarios={scenarios} count={count} accountType={accountType} variant="overview" />
+    </details>
+  </section>
 }
 
 function ScenarioTable({ scenarios, count, accountType = 'company', variant = 'default' }) {
@@ -2439,32 +2465,29 @@ function PortfolioApp({ user, accessToken, onReady }) {
           {section === 'Overview' && <>
             <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
 
-            <section className="panel scenarios-panel overview-cashflow-panel">
-              <header>
-                <div>
-                  <span className="kicker">CURRENT CASH POSITION</span>
-                  <h2>Cash flow scenarios</h2>
-                  <p>Compare monthly cash available under different operating assumptions.</p>
+            <section className="overview-operating-grid" aria-label="Properties and rent schedule">
+              <div className="overview-properties-main">
+                <section className="properties-heading overview-properties-heading">
+                  <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
+                  <div className="overview-properties-heading-actions">
+                    <button type="button" className="primary-button overview-add-btl-button" onClick={addProperty}><Plus size={16} /> Add BTL</button>
+                    <button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button>
+                  </div>
+                </section>
+
+                <div className="overview-property-view-stage" data-view="rows">
+                  <section className="overview-property-rows">
+                    {calculated.map((p) => <OverviewPropertyRow key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
+                  </section>
                 </div>
-              </header>
-              <RentMonthDial tenants={state.tenants} properties={state.properties} />
-              <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
-            </section>
-
-            <section className="properties-heading overview-properties-heading">
-              <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
-              <div className="overview-properties-heading-actions">
-                <button type="button" className="primary-button overview-add-btl-button" onClick={addProperty}><Plus size={16} /> Add BTL</button>
-                <button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button>
               </div>
+
+              <aside className="overview-rent-rail" aria-label="Rent schedule">
+                <RentMonthDial tenants={state.tenants} properties={state.properties} />
+              </aside>
             </section>
 
-            <div className="overview-property-view-stage" data-view="rows">
-              <section className="overview-property-rows">
-                {calculated.map((p) => <OverviewPropertyRow key={p.id} property={p} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
-                {/* Add BTL remains available from the Overview header; no duplicate footer action here. */}
-              </section>
-            </div>
+            <OverviewScenarioStrip scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />
           </>}
 
           {section === 'Properties' && <>
