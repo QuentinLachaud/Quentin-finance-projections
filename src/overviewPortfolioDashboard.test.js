@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 const app = readFileSync(fileURLToPath(new URL('./App.jsx', import.meta.url)), 'utf8')
 const dashboard = readFileSync(fileURLToPath(new URL('./OverviewPortfolioDashboard.jsx', import.meta.url)), 'utf8')
 const styles = readFileSync(fileURLToPath(new URL('./styles.css', import.meta.url)), 'utf8')
+const commandCentre = readFileSync(fileURLToPath(new URL('./overviewCommandCentre.css', import.meta.url)), 'utf8')
 
 const cssMarker = '/* Brain Drain 2026-08-26 19:42 BST — iOS-native Portfolio Overview dashboard */'
 const cssStart = styles.indexOf(cssMarker)
@@ -28,28 +29,31 @@ describe('iOS-native Portfolio Overview dashboard', () => {
     expect(propertiesHeading).toBeGreaterThan(overviewStart)
   })
 
-  it('orders Overview as summary dashboard, cash flow scenarios, then Properties', () => {
-    const overviewEnd = app.indexOf("          </>}", overviewStart)
-    const overview = overviewEnd >= 0 ? app.slice(overviewStart, overviewEnd) : ''
+  it('orders the command centre as KPIs, property/clock operations, then scenarios', () => {
+    const overviewEnd = app.indexOf("{section === 'Properties' && <>", overviewStart)
+    const overview = app.slice(overviewStart, overviewEnd)
     const dashboardAt = overview.indexOf('<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />')
-    const cashflowAt = overview.indexOf('<section className="panel scenarios-panel overview-cashflow-panel">')
-    const propertiesAt = overview.indexOf('<section className="properties-heading overview-properties-heading">')
+    const propertiesAt = overview.indexOf('className="overview-operating-grid"')
+    const clockAt = overview.indexOf('<aside className="overview-rent-rail"')
+    const scenariosAt = overview.indexOf('<OverviewScenarioStrip scenarios={portfolio.scenarios}')
 
     expect(dashboardAt).toBeGreaterThanOrEqual(0)
-    expect(cashflowAt).toBeGreaterThan(dashboardAt)
-    expect(propertiesAt).toBeGreaterThan(cashflowAt)
-    expect(overview.slice(dashboardAt + '<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />'.length, cashflowAt).trim()).toBe('')
-    expect(overview.slice(propertiesAt)).not.toContain('<section className="panel scenarios-panel overview-cashflow-panel">')
+    expect(propertiesAt).toBeGreaterThan(dashboardAt)
+    expect(clockAt).toBeGreaterThan(propertiesAt)
+    expect(scenariosAt).toBeGreaterThan(clockAt)
+    expect(overview).not.toContain('<section className="panel scenarios-panel overview-cashflow-panel">')
+    expect(app).toContain('<details className="overview-scenario-details"')
+    expect(app).toContain('onOpenProjections={() => setSection(\'Projections\')}')
   })
 
   it('shows the four approved summary concepts using existing calculated fields', () => {
     expect(dashboard).toContain("title: 'Monthly Cash Flow'")
     expect(dashboard).toContain("title: 'Portfolio Position'")
-    expect(dashboard).toContain("title: 'Financing'")
+    expect(dashboard).toContain("title: 'Portfolio LTV'")
     expect(dashboard).toContain("title: 'Safety Buffer'")
     expect(dashboard).toContain('value: currency(scenario.cashflow)')
     expect(dashboard).toContain('value: currency(portfolio.totalEquity)')
-    expect(dashboard).toContain('value: percent(portfolio.weightedRate, 2)')
+    expect(dashboard).toContain('value: percent(portfolioLtv, 1)')
     expect(dashboard).toContain('`${finite(portfolio.bufferMonths).toFixed(1)} months`')
   })
 
@@ -105,15 +109,16 @@ describe('iOS-native Portfolio Overview dashboard', () => {
     expect(dashboard).toContain('prefersReducedMotion()')
   })
 
-  it('uses the intended responsive iOS hierarchy', () => {
+  it('uses compact responsive command-centre metrics while retaining accessible sheets', () => {
     expect(cssStart).toBeGreaterThanOrEqual(0)
     expect(css).toContain('font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif')
-    expect(css).toMatch(/\.overview-summary-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/)
-    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.overview-summary-cashflow,[\s\S]*?\.overview-summary-position\s*\{[\s\S]*?grid-column:\s*1 \/ -1/)
-    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.overview-summary-grid\s*\{[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/)
-    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.overview-insight-overlay\s*\{[\s\S]*?place-items:\s*end center/)
-    expect(css).toContain('@media (max-width: 420px)')
+    expect(commandCentre).toContain('grid-template-columns: repeat(5, minmax(0, 1fr))')
+    expect(commandCentre).toContain('.overview-summary-cashflow { grid-column: span 2;')
+    expect(commandCentre).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))')
+    expect(commandCentre).toContain('.overview-rent-rail { order: -1; width: 100%; }')
+    expect(css).toContain('place-items: end center')
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
+    expect(commandCentre).toContain('@media (prefers-reduced-motion: reduce)')
   })
 
 
