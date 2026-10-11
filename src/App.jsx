@@ -802,7 +802,7 @@ function ModelControls({ settings, onChange, compact = false }) {
   )
 }
 
-function OverviewScenarioStrip({ scenarios, count, accountType }) {
+function OverviewScenarioStrip({ scenarios, count, accountType, onOpenProjections }) {
   const isPrivate = accountType === 'private'
   return <section className="panel overview-scenario-strip" aria-label="Cash flow scenarios">
     <header className="overview-scenario-heading">
@@ -811,7 +811,7 @@ function OverviewScenarioStrip({ scenarios, count, accountType }) {
         <h2>Cash flow scenarios</h2>
         <p>Compare monthly cash available under different operating assumptions.</p>
       </div>
-      <button type="button" className="text-button" onClick={() => document.getElementById('overview-scenario-details')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}>See full breakdown <ArrowUpRight size={15} /></button>
+      <button type="button" className="text-button" onClick={onOpenProjections}>Open projections <ArrowUpRight size={15} /></button>
     </header>
     <div className="overview-scenario-kpis">
       {scenarios.map((scenario, index) => <div key={scenario.id} className={index === 0 ? 'overview-scenario-kpi primary' : 'overview-scenario-kpi'}>
@@ -2487,7 +2487,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
               </aside>
             </section>
 
-            <OverviewScenarioStrip scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />
+            <OverviewScenarioStrip scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} onOpenProjections={() => setSection('Projections')} />
           </>}
 
           {section === 'Properties' && <>
