@@ -41,7 +41,8 @@ describe('screenshot-driven UI polish', () => {
   it('uses the polished Overview cash-flow variant in both Overview and Projections', () => {
     expect((app.match(/variant="overview"/g) || [])).toHaveLength(2)
     expect(app).toContain('className="panel scenarios-panel overview-cashflow-panel projections-scenarios"')
-    expect((app.match(/CURRENT CASH POSITION/g) || [])).toHaveLength(2)
+    expect((app.match(/CURRENT CASH POSITION/g) || [])).toHaveLength(1)
+    expect((app.match(/OPERATING ASSUMPTIONS/g) || [])).toHaveLength(1)
     expect((app.match(/Compare monthly cash available under different operating assumptions\./g) || [])).toHaveLength(2)
     expect(app).not.toContain('<ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />')
   })
