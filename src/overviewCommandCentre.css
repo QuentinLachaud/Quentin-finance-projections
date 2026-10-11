@@ -297,3 +297,74 @@
 @media (prefers-reduced-motion: reduce) {
   .overview-scenario-details > summary svg { transition: none; }
 }
+
+/* Screenshot-comparison refinement: desktop table headings and scenario picker. */
+.overview-property-columns { display: none; }
+.overview-scenario-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.overview-scenario-select { display: inline-flex; align-items: center; position: relative; min-width: 138px; }
+.overview-scenario-select select {
+  appearance: none;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 31px 7px 13px;
+  border: 1px solid var(--ui-line, var(--line));
+  border-radius: 10px;
+  color: var(--ui-text, var(--ink));
+  background: var(--ui-surface, #fff);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.overview-scenario-select svg { position: absolute; right: 10px; pointer-events: none; color: var(--ui-muted, var(--muted)); }
+.overview-scenario-select select:focus-visible,
+.overview-scenario-kpi:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.overview-scenario-kpi {
+  text-align: left;
+  font: inherit;
+  color: var(--ui-text, var(--ink));
+  cursor: pointer;
+  min-height: 102px;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.overview-scenario-kpi[aria-pressed='true'] { border-color: color-mix(in srgb, var(--green) 55%, var(--ui-line, var(--line))); }
+@media (hover: hover) {
+  .overview-scenario-kpi:hover { border-color: color-mix(in srgb, var(--green) 40%, var(--ui-line, var(--line))); }
+}
+@media (min-width: 1181px) {
+  .overview-operating-grid .overview-property-view-stage[data-view='rows'] .overview-property-rows {
+    width: 100%;
+    max-width: none;
+  }
+  .overview-operating-grid .overview-property-view-stage[data-view='rows'] {
+    border: 1px solid var(--ui-line, var(--line));
+    border-radius: 16px;
+    padding: 9px;
+    background: var(--ui-surface, #fff);
+  }
+  .overview-property-columns {
+    display: grid;
+    grid-template-columns: 28px minmax(145px, 1.1fr) minmax(120px, .8fr) minmax(340px, 2.5fr) 18px;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 45px 10px 11px;
+    color: var(--ui-muted, var(--muted));
+    font-size: 11px;
+    font-weight: 650;
+    border-bottom: 1px solid var(--ui-line, var(--line));
+  }
+  .overview-property-columns-key { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .overview-property-columns-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .overview-operating-grid .overview-property-row-toggle { min-height: 56px; }
+  .overview-operating-grid .overview-property-row-key .overview-property-metric small,
+  .overview-operating-grid .overview-property-row-quick .overview-property-metric small { display: none; }
+}
+@media (max-width: 760px) {
+  .overview-scenario-heading { align-items: stretch; flex-direction: column; }
+  .overview-scenario-actions { justify-content: space-between; gap: 8px; }
+  .overview-scenario-select { min-width: 125px; }
+  .overview-scenario-kpi { min-height: 75px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overview-scenario-kpi { transition: none; }
+}
