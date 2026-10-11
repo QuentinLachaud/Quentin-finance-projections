@@ -313,3 +313,177 @@
   .overview-desktop-summary-row .overview-rent-rail { order: 1; width: 100%; }
   .overview-operating-grid { display: block; }
 }
+
+/* 2026-10-11: mobile-first portfolio overview polish.
+   Desktop four-column arrangement and all financial calculations stay intact. */
+.overview-summary-mobile-title,
+.overview-buffer-mobile-status { display: none; }
+
+@media (max-width: 760px) {
+  .overview-desktop-summary-row { gap: 12px; }
+  .overview-desktop-summary-row .overview-summary-grid { gap: 10px; align-items: stretch; }
+  .overview-desktop-summary-row .overview-summary-card {
+    border-radius: 20px;
+    padding: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .035);
+  }
+  .overview-desktop-summary-row .overview-summary-cashflow {
+    min-height: 98px;
+    padding: 15px 17px;
+  }
+  .overview-desktop-summary-row .overview-summary-cashflow .overview-summary-title > b { font-size: 12px; }
+  .overview-desktop-summary-row .overview-summary-cashflow .overview-summary-title > strong { font-size: 27px; }
+  .overview-desktop-summary-row .overview-summary-position,
+  .overview-desktop-summary-row .overview-summary-buffer {
+    min-height: 162px;
+    padding: 14px 13px;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 11px;
+  }
+  .overview-desktop-summary-row .overview-summary-position .overview-summary-card-head,
+  .overview-desktop-summary-row .overview-summary-buffer .overview-summary-card-head {
+    display: block;
+    min-height: 0;
+  }
+  .overview-desktop-summary-row .overview-summary-position .overview-summary-icon,
+  .overview-desktop-summary-row .overview-summary-buffer .overview-summary-icon,
+  .overview-desktop-summary-row .overview-summary-position .overview-summary-info,
+  .overview-desktop-summary-row .overview-summary-buffer .overview-summary-info {
+    display: none;
+  }
+  .overview-desktop-summary-row .overview-summary-position .overview-summary-title > b:first-child,
+  .overview-desktop-summary-row .overview-summary-buffer .overview-summary-title > b:first-child { display: none; }
+  .overview-desktop-summary-row .overview-summary-title .overview-summary-mobile-title {
+    display: block;
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0;
+    line-height: 1.25;
+    white-space: normal;
+  }
+  .overview-desktop-summary-row .overview-summary-position .overview-summary-title > strong,
+  .overview-desktop-summary-row .overview-summary-buffer .overview-summary-title > strong {
+    margin-top: 7px;
+    font-size: clamp(19px, 5.2vw, 24px);
+    letter-spacing: -.045em;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .overview-desktop-summary-row .overview-summary-position .overview-summary-title > small,
+  .overview-desktop-summary-row .overview-summary-buffer .overview-summary-title > small {
+    margin-top: 5px;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+  .overview-desktop-summary-row .overview-position-financing {
+    margin-top: auto;
+    padding-top: 11px;
+    gap: 0;
+  }
+  .overview-desktop-summary-row .overview-position-financing > span { gap: 5px; }
+  .overview-desktop-summary-row .overview-position-financing small { font-size: 10px; }
+  .overview-desktop-summary-row .overview-position-financing strong { font-size: 13px; }
+  .overview-desktop-summary-row .overview-buffer-mobile-status {
+    display: grid;
+    gap: 9px;
+    width: 100%;
+    margin-top: auto;
+  }
+  .overview-buffer-mobile-progress {
+    display: block;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 100px;
+    background: color-mix(in srgb, var(--ui-muted, var(--muted)) 20%, transparent);
+  }
+  .overview-buffer-mobile-progress > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--green);
+  }
+  .overview-buffer-mobile-status.is-short .overview-buffer-mobile-progress > span { background: #bd7743; }
+  .overview-buffer-mobile-caption {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 3px 6px;
+    color: var(--ui-muted, var(--muted));
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .overview-buffer-mobile-caption strong { color: var(--green); font-size: 10px; font-weight: 650; }
+  .overview-buffer-mobile-status.is-short .overview-buffer-mobile-caption strong { color: #bd7743; }
+
+  .overview-desktop-summary-row .overview-rent-rail .rent-schedule-card.rent-progress-layout {
+    padding: 15px 13px;
+    border-radius: 20px;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-widget {
+    gap: 15px;
+    justify-content: space-between;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-wheel {
+    width: clamp(126px, 35vw, 154px);
+    flex-shrink: 0;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-centre .rent-progress-count {
+    font-size: clamp(39px, 10vw, 50px);
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-centre .rent-progress-today { font-size: 28px; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range {
+    max-width: none;
+    padding: 5px 11px;
+    border-radius: 15px;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-item { padding: 8px 0; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-item > span { font-size: 11px; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-details strong,
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-details b { font-size: 13px; }
+
+  /* Make both property actions reachable without expanding to half-screen-width blocks. */
+  .overview-operating-grid .overview-properties-heading-actions {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 9px;
+  }
+  .overview-operating-grid .overview-add-btl-button {
+    min-height: 42px;
+    flex: 0 0 auto;
+    padding: 0 14px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+  .overview-operating-grid .overview-properties-heading-actions > .text-button {
+    min-height: 42px;
+    flex: 0 0 auto;
+    justify-content: center;
+    padding: 0 12px;
+    border: 1px solid var(--ui-line, var(--line));
+    border-radius: 12px;
+    font-size: 11px;
+    background: var(--ui-surface, #fff);
+  }
+}
+@media (max-width: 360px) {
+  .overview-desktop-summary-row .overview-summary-grid { gap: 8px; }
+  .overview-desktop-summary-row .overview-summary-position,
+  .overview-desktop-summary-row .overview-summary-buffer { padding-inline: 11px; }
+  .overview-desktop-summary-row .overview-position-financing strong { font-size: 12px; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-widget { flex-direction: column; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-wheel { width: 150px; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range {
+    width: 100%;
+    max-width: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-item { padding: 4px 8px; }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-item + .rent-progress-range-item {
+    border-top: 0;
+    border-left: 1px solid var(--ui-line, var(--line));
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-details { flex-direction: column; align-items: flex-start; }
+}

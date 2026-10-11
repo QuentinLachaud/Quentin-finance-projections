@@ -3,7 +3,6 @@ import { formatRentCycleDate, rentCycleForDate, scheduledRentAmountForDate } fro
 import './RentMonthDial.css'
 
 const money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })
-const monthName = new Intl.DateTimeFormat('en-GB', { month: 'short' })
 
 function useLocalToday() {
   const [today, setToday] = useState(() => new Date())
@@ -26,7 +25,6 @@ function useLocalToday() {
 
 export default function RentMonthDial({ tenants = [], properties = [] }) {
   const today = useLocalToday()
-  const currentDay = today.getDate()
   const cycle = useMemo(() => rentCycleForDate(tenants, properties, today), [tenants, properties, today])
   const previousAmount = scheduledRentAmountForDate(tenants, properties, cycle.previousDueDate)
   const nextAmount = scheduledRentAmountForDate(tenants, properties, cycle.nextDueDate)
@@ -37,7 +35,6 @@ export default function RentMonthDial({ tenants = [], properties = [] }) {
 
   return <section className="rent-schedule-card rent-progress-layout" aria-label="Rent clock">
     <div className="rent-progress-widget" role="img" aria-label={[
-      'Today ' + currentDay + ' ' + monthName.format(today),
       cycle.daysUntil == null ? 'No upcoming scheduled rent' : cycle.daysUntil === 0 ? 'Rent due today' : cycle.daysUntil + ' days until next scheduled rent',
       'Last scheduled rent ' + formatRentCycleDate(cycle.previousDueDate) + ', expected ' + previousAmountLabel,
       'Next scheduled rent ' + formatRentCycleDate(cycle.nextDueDate) + ', expected ' + nextAmountLabel,
@@ -51,12 +48,16 @@ export default function RentMonthDial({ tenants = [], properties = [] }) {
           </>}
         </svg>
         <div className="rent-progress-centre">
-          <span className="rent-progress-eyebrow">Today</span>
-          <strong>{currentDay}</strong>
-          <span className="rent-progress-month">{monthName.format(today).toUpperCase()}</span>
-          <span className="rent-progress-divider" />
-          <span className="rent-progress-days">{cycle.daysUntil == null ? '—' : cycle.daysUntil === 0 ? 'Due today' : cycle.daysUntil + ' days'}</span>
-          <span className="rent-progress-subtext">{cycle.daysUntil == null ? 'No rent scheduled' : cycle.daysUntil === 0 ? 'Rent scheduled' : 'to next rent'}</span>
+          {cycle.daysUntil == null ? <>
+            <strong className="rent-progress-count">—</strong>
+            <span className="rent-progress-unit">No rent due</span>
+          </> : cycle.daysUntil === 0 ? <>
+            <strong className="rent-progress-today">Due</strong>
+            <span className="rent-progress-unit">today</span>
+          </> : <>
+            <strong className="rent-progress-count">{cycle.daysUntil}</strong>
+            <span className="rent-progress-unit">{cycle.daysUntil === 1 ? 'day to rent' : 'days to rent'}</span>
+          </>}
         </div>
       </div>
       <div className="rent-progress-range">
