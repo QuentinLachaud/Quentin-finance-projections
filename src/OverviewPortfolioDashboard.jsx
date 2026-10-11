@@ -101,7 +101,6 @@ function PositionDetail({ portfolio }) {
       <LedgerRow label="Outstanding loans" value={currency(portfolio.totalLoans)} />
       <LedgerRow total label="Total equity" value={currency(portfolio.totalEquity)} tone="positive" />
       <LedgerRow label="Portfolio LTV" value={percent(ltv, 1)} />
-      <LedgerRow label="Weighted loan rate" value={percent(portfolio.weightedRate, 2)} />
     </div>
     <div className="overview-insight-property-list" aria-label="Property equity breakdown">
       {(portfolio.selected || []).map((property) => <div key={property.id || property.name}>
@@ -400,16 +399,12 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
             <span className="overview-summary-card-head">
               <span className="overview-summary-icon"><Icon size={18} strokeWidth={1.8} /></span>
               <span className="overview-summary-title">
-                <b>{card.title}{card.id === 'position' && <span className="overview-position-desktop-label"> &amp; LTV</span>}</b>
+                <b>{card.title}</b>
                 <strong>{card.value}</strong>
                 <small>{card.subtitle}</small>
               </span>
               <span className="overview-summary-info" aria-hidden="true"><CircleHelp size={15} strokeWidth={1.65} /></span>
             </span>
-            {card.id === 'position' && <div className="overview-position-financing" aria-label="Portfolio LTV and weighted rate">
-              <div><span>LTV</span><strong>{percent(portfolioLtv, 1)}</strong></div>
-              <div><span>Weighted rate</span><strong>{percent(portfolio.weightedRate, 2)}</strong></div>
-            </div>}
             {isBuffer
               ? <div className="overview-summary-buffer-body"><BufferRing portfolio={portfolio} /><SummaryRows rows={card.rows} /></div>
               : <SummaryRows rows={card.rows} />}
