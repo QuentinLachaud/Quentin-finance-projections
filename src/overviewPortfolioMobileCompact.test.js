@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 const dashboard = readFileSync(fileURLToPath(new URL('./OverviewPortfolioDashboard.jsx', import.meta.url)), 'utf8')
 const styles = readFileSync(fileURLToPath(new URL('./styles.css', import.meta.url)), 'utf8')
+const commandCentre = readFileSync(fileURLToPath(new URL('./overviewCommandCentre.css', import.meta.url)), 'utf8')
 const marker = '/* Brain Drain 2026-08-26 20:40 BST — compact phone Portfolio Overview */'
 const start = styles.indexOf(marker)
 const nextMarker = start >= 0 ? styles.indexOf('/* Brain Drain ', start + marker.length) : -1
@@ -13,7 +14,7 @@ describe('compact phone Portfolio Overview', () => {
   it('keeps the approved four-card architecture and rich drill-down implementation', () => {
     expect(dashboard).toContain("title: 'Monthly Cash Flow'")
     expect(dashboard).toContain("title: 'Portfolio Position'")
-    expect(dashboard).toContain("title: 'Financing'")
+    expect(dashboard).toContain("title: 'Portfolio LTV'")
     expect(dashboard).toContain("title: 'Safety Buffer'")
     expect(dashboard).toContain('<SummaryRows rows={card.rows} />')
     expect(dashboard).toContain('<BufferRing portfolio={portfolio} />')
@@ -28,10 +29,13 @@ describe('compact phone Portfolio Overview', () => {
     expect(phone).toContain('.overview-summary-card .overview-summary-buffer-body')
   })
 
-  it('keeps the phone hierarchy of two full-width cards and two compact half-width cards', () => {
-    expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.overview-summary-cashflow,[\s\S]*?\.overview-summary-position\s*\{[\s\S]*?grid-column:\s*1 \/ -1/)
-    expect(css).toMatch(/\.overview-summary-card\s*\{[\s\S]*?min-height:\s*76px[\s\S]*?padding:\s*10px 12px/)
-    expect(css).toMatch(/\.overview-summary-financing,[\s\S]*?\.overview-summary-buffer\s*\{[\s\S]*?min-height:\s*72px/)
+  it('shows cash flow above a three-column equity, LTV, buffer row on phones', () => {
+    expect(commandCentre).toContain('@media (max-width: 760px)')
+    expect(commandCentre).toContain('.overview-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr))')
+    expect(commandCentre).toContain('.overview-summary-cashflow { grid-column: 1 / -1')
+    expect(commandCentre).toContain('.overview-summary-buffer {')
+    expect(commandCentre).toContain('grid-column: span 1')
+    expect(commandCentre).toContain('.overview-rent-rail { order: -1')
   })
 
   it('retains title, value, descriptor, icon and info affordance in the phone card', () => {
