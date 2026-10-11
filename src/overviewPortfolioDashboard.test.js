@@ -14,6 +14,10 @@ const propertiesHeading = app.indexOf('<section className="properties-heading ov
 const overviewLead = overviewStart >= 0 && propertiesHeading >= 0 ? app.slice(overviewStart, propertiesHeading) : ''
 
 describe('iOS-native Portfolio Overview dashboard', () => {
+  it('keeps the overview summary component available', () => {
+    expect(app).toContain('<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />')
+  })
+
   it('replaces the old lead metrics/buffer area without changing the Properties boundary', () => {
     expect(app).toContain("import OverviewPortfolioDashboard from './OverviewPortfolioDashboard.jsx'")
     expect(overviewLead).toContain('<OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />')
