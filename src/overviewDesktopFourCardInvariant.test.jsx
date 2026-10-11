@@ -29,7 +29,7 @@ describe('single-row desktop Overview KPI contract', () => {
   it('renders exactly three financial cards; second card combines equity, LTV and rate', () => {
     const html = renderToStaticMarkup(<OverviewPortfolioDashboard portfolio={portfolio} settings={{ accountType: 'company', bufferMonths: 6 }} />)
     expect((html.match(/class="overview-summary-card /g) || [])).toHaveLength(3)
-    expect([...html.matchAll(/aria-label="([^"]+)\. Open details\."/g)].map(m => m[1].split(':')[0]))
+    expect([...html.matchAll(/aria-label="([^"]+)\. Open details\."/g)].map(m => m[1].split(':')[0].replaceAll('&amp;', '&')))
       .toEqual(['Monthly Cash Flow', 'Portfolio Position & LTV', 'Safety Buffer'])
     expect(html).not.toContain('overview-summary-financing')
     expect(html).toContain('overview-position-financing')
