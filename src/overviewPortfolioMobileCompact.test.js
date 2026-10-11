@@ -35,11 +35,11 @@ describe('compact phone Portfolio Overview', () => {
     expect(commandCentre).toContain('.overview-summary-cashflow { grid-column: 1 / -1')
     expect(commandCentre).toContain('.overview-summary-buffer {')
     expect(commandCentre).toContain('grid-column: span 1')
-    expect(commandCentre).toContain('.overview-rent-rail { order: -1')
+    expect(commandCentre).toContain('.overview-rent-rail { order: 0')
   })
 
   it('retains title, value, descriptor, icon and info affordance in the phone card', () => {
-    expect(dashboard).toContain('<b>{card.title}</b>')
+    expect(dashboard).toContain('<b>{card.title}{card.id === \'position\'')
     expect(dashboard).toContain('<strong>{card.value}</strong>')
     expect(dashboard).toContain('<small>{card.subtitle}</small>')
     expect(dashboard).toContain('<Icon size={18} strokeWidth={1.8} />')

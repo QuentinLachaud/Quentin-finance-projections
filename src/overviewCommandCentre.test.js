@@ -33,7 +33,8 @@ describe('reversible Overview command centre', () => {
     const scenariosAt = overview.indexOf('<OverviewScenarioStrip ')
     expect(dashboardAt).toBeGreaterThanOrEqual(0)
     expect(propertiesAt).toBeGreaterThan(dashboardAt)
-    expect(clockAt).toBeGreaterThan(propertiesAt)
+    expect(clockAt).toBeGreaterThan(dashboardAt)
+    expect(clockAt).toBeLessThan(propertiesAt)
     expect(scenariosAt).toBeGreaterThan(clockAt)
     expect((app.match(/<RentMonthDial /g) || [])).toHaveLength(1)
     expect(rentClock).toContain('rent-progress-fill')
@@ -64,11 +65,14 @@ describe('reversible Overview command centre', () => {
     expect(overview).not.toContain('className="panel scenarios-panel overview-cashflow-panel"')
   })
 
-  it('uses a desktop side rail and phone-first clock/three compact metrics', () => {
-    expect(css).toContain('grid-template-columns: repeat(5, minmax(0, 1fr))')
-    expect(css).toContain('grid-template-columns: minmax(0, 3.15fr) minmax(225px, .9fr)')
+  it('matches the four equal desktop columns while preserving the phone layout', () => {
+    expect(css).toContain('grid-template-columns: repeat(4, minmax(0, 1fr))')
+    expect(css).toContain('grid-column: span 3')
+    expect(css).toContain('.overview-summary-financing { display: none; }')
+    expect(css).toContain('.overview-position-financing')
+    expect(css).toContain('.overview-operating-grid { display: block;')
     expect(css).toContain('@media (max-width: 760px)')
-    expect(css).toContain('.overview-rent-rail { order: -1; width: 100%; }')
+    expect(css).toContain('.overview-rent-rail { order: 0; width: 100%; }')
     expect(css).toContain('.overview-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr))')
     expect(css).toContain('.overview-rent-rail .rent-progress-widget { flex-direction: row; max-width: none; }')
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
