@@ -487,3 +487,76 @@
   }
   .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-details { flex-direction: column; align-items: flex-start; }
 }
+
+/* Desktop rent clock: match the compact phone countdown and stacked rent details. */
+@media (min-width: 761px) {
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-widget {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 520px;
+    gap: 14px;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-wheel {
+    width: 138px;
+    flex: 0 0 auto;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    max-width: 250px;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 5px 10px;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-item {
+    align-items: stretch;
+    gap: 4px;
+    padding: 9px 0;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-item + .rent-progress-range-item {
+    border-left: 0;
+    border-top: 1px solid var(--ui-line, var(--line));
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-details {
+    justify-content: space-between;
+    gap: 4px 6px;
+  }
+}
+@media (min-width: 1181px) {
+  /* The fourth desktop column is narrower than the full-width mobile card. */
+  .overview-desktop-summary-row .overview-rent-rail .rent-schedule-card.rent-progress-layout {
+    padding-inline: 9px;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-widget {
+    justify-content: space-between;
+    max-width: none;
+    gap: 9px;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-wheel {
+    width: clamp(96px, 8.2vw, 124px);
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-centre {
+    inset: 13%;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-centre .rent-progress-count {
+    font-size: clamp(35px, 3vw, 44px);
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-unit {
+    font-size: 9px;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range {
+    padding: 4px 8px;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-item {
+    padding: 8px 0;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-item > span {
+    font-size: 10px;
+  }
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-details strong,
+  .overview-desktop-summary-row .overview-rent-rail .rent-progress-range-details b {
+    font-size: 11px;
+  }
+}
