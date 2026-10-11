@@ -220,9 +220,9 @@ export default function OverviewPortfolioDashboard({ portfolio, settings }) {
     },
     {
       id: 'financing',
-      title: 'Financing',
-      value: percent(portfolio.weightedRate, 2),
-      subtitle: 'Weighted rate',
+      title: 'Portfolio LTV',
+      value: percent(portfolioLtv, 1),
+      subtitle: percent(portfolio.weightedRate, 2) + ' weighted rate',
       icon: TrendingUp,
       tone: 'financing',
       rows: ratePreview.length ? ratePreview : [['Active loans', 'None']],
