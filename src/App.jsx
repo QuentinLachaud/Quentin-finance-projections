@@ -820,7 +820,7 @@ function OverviewScenarioStrip({ scenarios, count, accountType, onOpenProjection
         {index === 0 && <small>{isPrivate ? 'After estimated property income tax' : 'Before personal tax on extraction'}</small>}
       </div>)}
     </div>
-    <details className="overview-scenario-details" id="overview-scenario-details">
+    <details className="overview-scenario-details" id="overview-scenario-details" open>
       <summary>Detailed scenarios <ChevronDown size={16} aria-hidden="true" /></summary>
       <ScenarioTable scenarios={scenarios} count={count} accountType={accountType} variant="overview" />
     </details>
@@ -2470,6 +2470,8 @@ function PortfolioApp({ user, accessToken, onReady }) {
               </aside>
             </div>
 
+            <OverviewScenarioStrip scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} onOpenProjections={() => setSection('Projections')} />
+
             <section className="overview-operating-grid" aria-label="Properties">
               <div className="overview-properties-main">
                 <section className="properties-heading overview-properties-heading">
@@ -2488,7 +2490,6 @@ function PortfolioApp({ user, accessToken, onReady }) {
               </div>
             </section>
 
-            <OverviewScenarioStrip scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} onOpenProjections={() => setSection('Projections')} />
           </>}
 
           {section === 'Properties' && <>
