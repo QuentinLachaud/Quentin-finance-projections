@@ -26,15 +26,16 @@ describe('reversible Overview command centre', () => {
     expect(app).toContain('const portfolio = calculatePortfolio(propertiesWithLoans, state.settings)')
   })
 
-  it('moves Properties and Rent Clock ahead of scenarios without duplicating the clock', () => {
+  it('orders the four top cards, expanded scenarios, then Properties without duplicating the clock', () => {
     const dashboardAt = overview.indexOf('<OverviewPortfolioDashboard ')
     const propertiesAt = overview.indexOf('className="overview-operating-grid"')
     const clockAt = overview.indexOf('<RentMonthDial ')
     const scenariosAt = overview.indexOf('<OverviewScenarioStrip ')
     expect(dashboardAt).toBeGreaterThanOrEqual(0)
-    expect(propertiesAt).toBeGreaterThan(dashboardAt)
-    expect(clockAt).toBeLessThan(propertiesAt)
+    expect(clockAt).toBeGreaterThan(dashboardAt)
     expect(scenariosAt).toBeGreaterThan(clockAt)
+    expect(propertiesAt).toBeGreaterThan(scenariosAt)
+    expect(overview.indexOf('</aside>')).toBeLessThan(scenariosAt)
     expect((app.match(/<RentMonthDial /g) || [])).toHaveLength(1)
     expect(rentClock).toContain('rent-progress-fill')
     expect(rentClock).toContain('formatRentCycleDate(cycle.previousDueDate)')
@@ -53,11 +54,11 @@ describe('reversible Overview command centre', () => {
     expect(overview).toContain('onToggle={toggleProperty}')
   })
 
-  it('summarises three scenarios with on-demand detail and a projections shortcut', () => {
+  it('summarises three scenarios with detail expanded by default and a projections shortcut', () => {
     expect(app).toContain('function OverviewScenarioStrip(')
     expect(app).toContain('overview-scenario-kpis')
     expect(app).toContain('scenarios.map((scenario, index)')
-    expect(app).toContain('<details className="overview-scenario-details"')
+    expect(app).toContain('<details className="overview-scenario-details" id="overview-scenario-details" open>')
     expect(app).toContain('<ScenarioTable scenarios={scenarios} count={count} accountType={accountType} variant="overview" />')
     expect(overview).toContain("onOpenProjections={() => setSection('Projections')}")
     expect(app).toContain("isPrivate ? 'After estimated property income tax' : 'Before personal tax on extraction'")
