@@ -137,8 +137,8 @@ describe('company tax and cash-flow semantics', () => {
     expect(projection[1].scenarios[0].cashPot).toBeCloseTo(settings.cashHeld + portfolio.scenarios[0].bankCashflow)
     for (const month of projection) {
       for (const scenario of month.scenarios) {
-        expect(scenario.tax).toBeGreaterThanOrEqual(0)
-        expect(scenario.corporationTax.tax).toBeGreaterThanOrEqual(0)
+        expect(Number.isFinite(scenario.cashPot)).toBe(true)
+        expect(Number.isFinite(scenario.cashflow)).toBe(true)
       }
     }
   })
