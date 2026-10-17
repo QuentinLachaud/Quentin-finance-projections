@@ -43,7 +43,7 @@ describe('Overview Corporation Tax presentation', () => {
     const html = renderToStaticMarkup(
       <CashFlowDetail portfolio={portfolio(150)} settings={{ accountType: 'private' }} />,
     )
-    const match = html.match(/Estimated property income tax[\\s\\S]*?<\\/span><strong>(.*?)<\\/strong>/)
+    const match = html.match(/Estimated property income tax[\s\S]*?<\/span><strong>(.*?)<\/strong>/)
     expect(match?.[1]).toBe(currency(-150))
     expect(html).toContain('negative denotes a cash outflow')
   })
