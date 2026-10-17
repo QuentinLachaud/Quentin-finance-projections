@@ -111,6 +111,91 @@ describe('company tax and cash-flow semantics', () => {
     expect(scenario.corporationTax.augmentedProfit).toBeCloseTo(scenario.corporationTax.taxableProfit + 8000)
   })
 
+  it('treats deductible extractions beyond profit as a tax loss, never a tax refund', () => {
+    const settings = {
+      ...companySettings,
+      cashHeld: 12000,
+      extractions: [{ id: 'salary', name: 'Deductible remuneration', amount: 10000, taxDeductible: true, enabled: true }],
+    }
+    const portfolio = calculatePortfolio(testProperties, settings, fixedNow)
+    for (const scenario of portfolio.scenarios) {
+      expect(scenario.taxable).toBeLessThan(0)
+      expect(scenario.corporationTax.taxableProfit).toBe(0)
+      expect(scenario.corporationTax.tax).toBe(0)
+      expect(scenario.tax).toBe(0)
+      const beforeTax = scenario.collectedRent
+        - portfolio.propertyFixedCosts
+        - scenario.management
+        - scenario.problemBudget
+        - portfolio.companyCosts
+        - portfolio.extractionTotal
+      expect(scenario.bankCashflow).toBeCloseTo(beforeTax)
+      expect(scenario.cashflow).toBeCloseTo(beforeTax + portfolio.extractionTotal)
+    }
+
+    const projection = projectPortfolio(testProperties, settings, 12, fixedNow)
+    expect(projection[1].scenarios[0].cashPot).toBeCloseTo(settings.cashHeld + portfolio.scenarios[0].bankCashflow)
+    for (const month of projection) {
+      for (const scenario of month.scenarios) {
+        expect(Number.isFinite(scenario.cashPot)).toBe(true)
+        expect(Number.isFinite(scenario.cashflow)).toBe(true)
+      }
+    }
+  })
+
+  it('has no discontinuity or refundable tax at the exact deductible-profit boundary', () => {
+    const baseline = calculatePortfolio(testProperties, companySettings, fixedNow)
+    const monthlyTaxableProfit = baseline.scenarios[2].taxable
+    expect(monthlyTaxableProfit).toBeGreaterThan(1)
+
+    const withDeduction = (amount) => calculatePortfolio(testProperties, {
+      ...companySettings,
+      extractions: [{ id: 'salary', amount, enabled: true, taxDeductible: true }],
+    }, fixedNow).scenarios[2]
+
+    const justProfitable = withDeduction(monthlyTaxableProfit - 1)
+    const atBreakEven = withDeduction(monthlyTaxableProfit)
+    const lossMaking = withDeduction(monthlyTaxableProfit + 1)
+    expect(justProfitable.taxable).toBeCloseTo(1)
+    expect(justProfitable.tax).toBeCloseTo(0.19)
+    expect(atBreakEven.taxable).toBeCloseTo(0)
+    expect(atBreakEven.tax).toBe(0)
+    expect(lossMaking.taxable).toBeCloseTo(-1)
+    expect(lossMaking.tax).toBe(0)
+  })
+
+  it('deducts positive corporation tax exactly once from cash flow, never adding it as income', () => {
+    const portfolio = calculatePortfolio(testProperties, companySettings, fixedNow)
+    for (const scenario of portfolio.scenarios) {
+      expect(scenario.tax).toBeGreaterThan(0)
+      const cashBeforeTax = scenario.collectedRent
+        - portfolio.propertyFixedCosts
+        - scenario.management
+        - scenario.problemBudget
+        - portfolio.companyCosts
+        - portfolio.extractionTotal
+      expect(cashBeforeTax - scenario.bankCashflow).toBeCloseTo(scenario.tax)
+      expect(scenario.bankCashflow).toBeLessThan(cashBeforeTax)
+      expect(scenario.cashflow).toBeCloseTo(scenario.bankCashflow + portfolio.extractionTotal)
+    }
+  })
+
+  it('does not grant Corporation Tax relief for non-deductible owner withdrawals even above profit', () => {
+    const baseline = calculatePortfolio(testProperties, companySettings, fixedNow)
+    const withdrawn = calculatePortfolio(testProperties, {
+      ...companySettings,
+      extractions: [{ id: 'dividend', name: 'Dividend', amount: 10000, enabled: true, taxDeductible: false }],
+    }, fixedNow)
+    for (let index = 0; index < baseline.scenarios.length; index++) {
+      const without = baseline.scenarios[index]
+      const withWithdrawal = withdrawn.scenarios[index]
+      expect(withWithdrawal.taxable).toBeCloseTo(without.taxable)
+      expect(withWithdrawal.tax).toBeCloseTo(without.tax)
+      expect(withWithdrawal.bankCashflow).toBeCloseTo(without.bankCashflow - 10000)
+      expect(withWithdrawal.cashflow).toBeCloseTo(without.cashflow)
+    }
+  })
+
   it('recalculates Corporation Tax when a temporary deductible company cost expires', () => {
     const settings = {
       ...companySettings,

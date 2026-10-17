@@ -42,6 +42,19 @@ describe('Corporation Tax', () => {
     expect(calculateCorporationTax({ taxableProfit: 300000 })).toMatchObject({ tax: 75000, rateType: 'main' })
   })
 
+  it.each([0, -0.01, -5000, -1000000])('does not turn a £%s taxable profit into a refundable Corporation Tax credit', (taxableProfit) => {
+    const result = calculateCorporationTax({
+      taxableProfit,
+      augmentedProfit: 80000,
+      associatedCompanies: 2,
+      accountingPeriodMonths: 6,
+    })
+    expect(result.taxableProfit).toBe(0)
+    expect(result.tax).toBe(0)
+    expect(result.effectiveRate).toBe(0)
+    expect(result.rateType).toBe('none')
+  })
+
   it('reduces thresholds for associated companies', () => {
     const result = calculateCorporationTax({ taxableProfit: 90000, associatedCompanies: 1 })
     expect(result.lowerLimit).toBe(25000)
