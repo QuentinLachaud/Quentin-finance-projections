@@ -76,7 +76,7 @@ export function CashFlowDetail({ portfolio, settings }) {
       <LedgerRow
         label={isCompany ? 'Estimated corporation tax' : 'Estimated property income tax'}
         note="Tax charge shown as a positive amount; already deducted from monthly cash flow."
-        value={currency(Math.max(0, finite(scenario.tax)))}
+        value={isCompany ? currency(Math.max(0, finite(scenario.tax))) : negativeCurrency(scenario.tax)}
       />
       <LedgerRow
         total
