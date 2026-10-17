@@ -75,7 +75,9 @@ export function CashFlowDetail({ portfolio, settings }) {
       {isCompany && <LedgerRow label="Company costs" note="Enabled recurring company overheads" value={negativeCurrency(portfolio.companyCosts)} />}
       <LedgerRow
         label={isCompany ? 'Estimated corporation tax' : 'Estimated property income tax'}
-        note="Tax charge shown as a positive amount; already deducted from monthly cash flow."
+        note={isCompany
+          ? 'Tax charge shown as a positive amount; already deducted from monthly cash flow.'
+          : 'Current monthly planning estimate; negative denotes a cash outflow.'}
         value={isCompany ? currency(Math.max(0, finite(scenario.tax))) : negativeCurrency(scenario.tax)}
       />
       <LedgerRow
