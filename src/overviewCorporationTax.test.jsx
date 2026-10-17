@@ -39,6 +39,15 @@ describe('Overview Corporation Tax presentation', () => {
     expect(html).toContain(currency(350))
   })
 
+  it('preserves signed outflow semantics for private-landlord tax', () => {
+    const html = renderToStaticMarkup(
+      <CashFlowDetail portfolio={portfolio(150)} settings={{ accountType: 'private' }} />,
+    )
+    const match = html.match(/Estimated property income tax[\\s\\S]*?<\\/span><strong>(.*?)<\\/strong>/)
+    expect(match?.[1]).toBe(currency(-150))
+    expect(html).toContain('negative denotes a cash outflow')
+  })
+
   it('shows a zero charge without suggesting a refundable tax credit', () => {
     const { value, html } = renderedTax(0)
     expect(value).toBe(currency(0))
