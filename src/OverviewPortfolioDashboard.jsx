@@ -57,7 +57,7 @@ function LedgerRow({ label, note, value, total = false, tone = 'default' }) {
   </div>
 }
 
-function CashFlowDetail({ portfolio, settings }) {
+export function CashFlowDetail({ portfolio, settings }) {
   const scenario = portfolio.scenarios?.[0] || {}
   const isCompany = settings.accountType !== 'private'
   return <>
@@ -75,8 +75,8 @@ function CashFlowDetail({ portfolio, settings }) {
       {isCompany && <LedgerRow label="Company costs" note="Enabled recurring company overheads" value={negativeCurrency(portfolio.companyCosts)} />}
       <LedgerRow
         label={isCompany ? 'Estimated corporation tax' : 'Estimated property income tax'}
-        note="Current monthly planning estimate"
-        value={negativeCurrency(scenario.tax)}
+        note="Tax charge shown as a positive amount; already deducted from monthly cash flow."
+        value={currency(Math.max(0, finite(scenario.tax)))}
       />
       <LedgerRow
         total
