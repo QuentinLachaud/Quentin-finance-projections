@@ -224,7 +224,9 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
       accountingPeriodMonths,
       closeInvestmentHoldingCompany: Boolean(settings.closeInvestmentHoldingCompany),
     }) : null
-    const tax = isCompany ? corporationTax.tax / accountingPeriodMonths : privateTax.propertyIncomeTax / 12
+    const tax = isCompany
+      ? Math.max(0, corporationTax.tax / accountingPeriodMonths) // No negative Corporation Tax credits in cash flow.
+      : privateTax.propertyIncomeTax / 12
 
     const bankCashBeforeTax = collectedRent
       - propertyFixedCosts
