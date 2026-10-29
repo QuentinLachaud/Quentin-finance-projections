@@ -2611,6 +2611,47 @@ function PortfolioApp({ user, accessToken, onReady }) {
 
           </>}
 
+          {section === 'Companies' && isCompanyAccount && <>
+            <section className="panel company-directory-intro">
+              <header><div><span className="kicker">LEGAL OWNERSHIP</span><h2>{state.companies.length} {state.companies.length === 1 ? 'company' : 'companies'}</h2>
+                <p>Each BTL has one legal owner. Company toggles control inclusion in combined portfolio figures, not ownership.</p></div>
+                <button className="primary-button" type="button" onClick={addCompany}><Plus size={16} /> Add company</button>
+              </header>
+            </section>
+            {state.companies.map((company) => {
+              const companyOwned = calculated.filter((property) => property.companyId === company.id)
+              const companyPortfolio = calculatePortfolio(
+                propertiesWithLoans.filter((property) => property.companyId === company.id),
+                companySettings(company, state.settings),
+              )
+              return <section key={company.id} className="panel company-directory-card">
+                <header className="company-directory-header">
+                  <div><span className="kicker">LEGAL ENTITY</span><h2>{company.name}</h2><small>{company.companyNumber || 'Companies House not linked'} · {companyOwned.length} BTL{companyOwned.length === 1 ? '' : 's'}</small></div>
+                  <div className="company-directory-actions">
+                    <label><span>Include in portfolio</span><SettingsSwitch checked={company.enabled} label={`Include company ${company.name}`} onChange={() => toggleCompany(company.id)} /></label>
+                    <button className="secondary-button small" onClick={() => { selectCompany(company.id); setSection('Companies House') }}><Landmark size={15} /> Companies House</button>
+                    <button className="secondary-button small" onClick={() => addProperty(company.id)}><Plus size={15} /> Add BTL</button>
+                  </div>
+                </header>
+                <div className="company-directory-fields">
+                  <label><span>Company name</span><BrainDrainNumericInput aria-label={`Legal name for ${company.name}`} value={company.name} onChange={(event) => updateCompany(company.id, 'name', event.target.value)} /></label>
+                  <label><span>Cash held (£)</span><BrainDrainNumericInput aria-label={`Cash held for ${company.name}`} type="number" min="0" value={company.settings.cashHeld || 0} onChange={(event) => updateCompanyFinancial(company.id, 'cashHeld', Math.max(0, Number(event.target.value) || 0))} /></label>
+                </div>
+                <div className="company-directory-metrics" aria-label={`Financial summary for ${company.name}`}>
+                  <span>Value <b>{currency(companyPortfolio.totalValue)}</b></span>
+                  <span>Debt <b>{currency(companyPortfolio.totalLoans)}</b></span>
+                  <span>Rent <b>{currency(companyPortfolio.rent)} /mo</b></span>
+                  <span>Cashflow after tax <b>{currency(companyPortfolio.scenarios[0].cashflow)} /mo</b></span>
+                </div>
+                <div className="overview-property-view-stage"><section className="overview-property-rows">
+                  {companyOwned.map((property) => <OverviewPropertyRow key={property.id} property={property} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
+                  {!companyOwned.length && <p>No properties are assigned to this company yet.</p>}
+                </section></div>
+                {state.companies.length > 1 && !companyOwned.length && <button className="text-button" onClick={() => removeCompany(company.id)}><Trash2 size={14} /> Remove empty company</button>}
+              </section>
+            })}
+          </>}
+
           {section === 'Properties' && <>
             <section className={`properties-controls-bar ${propertyWorkspaceView === 'single' ? 'property-single-controls' : ''}`} aria-label="Property workspace controls">
               <div className="table-tools properties-tools">
