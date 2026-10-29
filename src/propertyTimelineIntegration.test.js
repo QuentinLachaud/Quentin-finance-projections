@@ -16,7 +16,7 @@ describe('property timeline integration', () => {
   })
 
   it('persists only stored manual/change events in the existing portfolio JSON state', () => {
-    expect(app).toContain('propertyTimelineEvents: normalizePropertyTimelineEvents(portfolioState.propertyTimelineEvents, migratedProperties)')
+    expect(app).toContain('propertyTimelineEvents: normalizePropertyTimelineEvents(portfolioState.propertyTimelineEvents, companyProperties)')
     expect(app).toContain('propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges]')
     expect(timeline).toContain('complianceDiaryItems([{ ...property, active: true }])')
     expect(timeline).toContain('normalizeDocumentMeta(entry.document)')
