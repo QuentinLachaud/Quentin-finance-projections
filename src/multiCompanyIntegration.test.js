@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 const app = readFileSync(new URL('./App.jsx', import.meta.url), 'utf8')
 const summary = readFileSync(new URL('./CompanyFinancialSummaryWorkspace.jsx', import.meta.url), 'utf8')
 const companies = readFileSync(new URL('./multiCompany.js', import.meta.url), 'utf8')
+const crashBoundary = readFileSync(new URL('./PortfolioCrashBoundary.jsx', import.meta.url), 'utf8')
 
 describe('company ownership integration contract', () => {
   it('normalizes stored properties before tenant and loan hydration and retains company IDs through reconciliation', () => {
@@ -68,15 +69,26 @@ describe('company ownership integration contract', () => {
 
 describe('portfolio startup failure regression', () => {
   it('shows a recoverable error rather than a blank app after an uncaught React render failure', () => {
-    expect(app).toContain('class PortfolioCrashBoundary extends React.Component')
-    expect(app).toContain('static getDerivedStateFromError(error)')
-    expect(app).toContain('We couldn’t display your portfolio')
+    expect(crashBoundary).toContain('class PortfolioCrashBoundary extends React.Component')
+    expect(crashBoundary).toContain('static getDerivedStateFromError(error)')
+    expect(crashBoundary).toContain('We couldn’t display your portfolio')
+    expect(crashBoundary).toContain('role="alert"')
+    expect(app).toContain('onError={() => handlePortfolioReady(session.user.id)}')
+    expect(crashBoundary).toContain('this.props.onError?.(error)')
+    expect(crashBoundary).toContain('console.error(\'Portfolio render failed\'')
+  })
+
+  it('catches migration and hydration exceptions and does not leave a silent loading loop', () => {
+    expect(app).toContain("console.error('Portfolio hydration failed', loadFailure)")
+    expect(app).toContain('setLoadError(loadFailure?.message')
+    expect(app).toContain('setStartupError(pendingUserId')
+    expect(app).toContain('}, 20000)')
+    expect(app).toContain('BTL Portfolio could not open')
     expect(app).toContain('role="alert"')
-    expect(app).toContain('<PortfolioCrashBoundary key={session.user.id}>')
-    expect(app).toContain('console.error(\'Portfolio render failed\'')
   })
 
   it('falls back to a valid company when a previously saved active company has disappeared', () => {
+    expect(app).toContain('COMPANY_FINANCIAL_KEYS, LEGACY_COMPANY_ID, calculateMultiCompanyPortfolio')
     expect(app).toContain('(state.companies || []).find((company) => company.id === state.settings.activeCompanyId)')
     expect(app).toContain("createPortfolioCompany(LEGACY_COMPANY_ID, state.settings.companyName || 'Company 1')")
   })
