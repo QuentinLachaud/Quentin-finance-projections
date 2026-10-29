@@ -53,6 +53,12 @@ describe('company ownership integration contract', () => {
     expect(summary).toContain('Trailing actual banking transactions are unavailable for this entity')
   })
 
+  it('keeps excluded legal entities visible in their own financial workspaces', () => {
+    expect(app).toContain('A company disabled in the combined portfolio still has its own standalone books')
+    expect(app).toContain('propertiesWithLoans.filter((property) => property.companyId === activeCompany.id && property.active === true)')
+    expect(app).toContain('calculated.filter((property) => property.companyId === activeCompany.id && property.active === true)')
+  })
+
   it('retains private landlord mode without exposing a company directory', () => {
     expect(app).toContain("['Companies', 'Companies House', 'Company Financial Summary'].includes(label)")
     expect(app).toContain("['Companies', 'Companies House', 'Company Financial Summary'].includes(section)")
