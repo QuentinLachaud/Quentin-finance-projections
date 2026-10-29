@@ -2444,7 +2444,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
       </aside>
 
       {modelInputsPopupOpen && <ModelInputsPopup
-        settings={state.settings}
+        settings={effectiveSettings}
         onSettingChange={updateSetting}
         onPercentChange={updatePercentSetting}
         onClose={() => setModelInputsPopupOpen(false)}
@@ -2702,7 +2702,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
                   {calculated.map((property) => <option key={property.id} value={property.id}>{property.name}{property.postcode ? ` · ${property.postcode}` : ''}</option>)}
                 </select>
               </label>
-              {singleProperty ? <EditDrawer key={singleProperty.id} inline property={singleProperty} loans={loansForProperty(state.loans || [], singleProperty.id)} availableLoans={state.loans || []} isNew={false} onDirtyChange={setSinglePropertyDirty} onSave={saveProperty} onClose={() => { if (discardSingleChanges()) { setSinglePropertyDirty(false); setPropertyWorkspaceView('compare') } }} onDelete={removeProperty} />
+              {singleProperty ? <EditDrawer key={singleProperty.id} inline companies={isCompanyAccount ? state.companies : []} property={singleProperty} loans={loansForProperty(state.loans || [], singleProperty.id)} availableLoans={state.loans || []} isNew={false} onDirtyChange={setSinglePropertyDirty} onSave={saveProperty} onClose={() => { if (discardSingleChanges()) { setSinglePropertyDirty(false); setPropertyWorkspaceView('compare') } }} onDelete={removeProperty} />
                 : <section className="panel property-single-empty"><h2>No BTL selected</h2><p>Add a property from Overview to start editing.</p></section>}
             </div> : <>
             <div className="mobile-property-tabs-sticky" aria-label="Choose property">
@@ -2823,12 +2823,12 @@ function PortfolioApp({ user, accessToken, onReady }) {
 
           {section === 'Performance' && <PerformanceWorkspace
             user={user}
-            properties={includedCalculated}
+            properties={focusedCalculated}
             loans={state.loans || []}
             expenses={state.expenses || []}
             timelineEvents={state.propertyTimelineEvents || []}
             performanceEvents={state.performanceEvents || []}
-            settings={state.settings}
+            settings={effectiveSettings}
             onEventsChange={updatePerformanceEvents}
             onTimelineEventDelete={removePropertyTimelineEvent}
             onAssumptionChange={updateSetting}
@@ -2836,9 +2836,9 @@ function PortfolioApp({ user, accessToken, onReady }) {
             selectionRequest={lunaSelectionFor('performance')}
           />}
 
-          {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onPropertyCommit={commitPropertyTimelineField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
+          {section === 'Costs & Cash Flows' && <CostsWorkspace properties={focusedProperties} calculated={focusedCalculated} settings={effectiveSettings} portfolio={focusedPortfolio} onPropertyChange={updatePropertyField} onPropertyCommit={commitPropertyTimelineField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
 
-          {section === 'Documents & Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} contractors={state.contractors || []} contractorTags={state.contractorTags || []} accountType={state.settings.accountType} companyName={state.settings.companyName} captureRequest={documentCaptureRequest} onCaptureRequestConsumed={() => setDocumentCaptureRequest(null)} onChange={updateExpenses} selectionRequest={lunaSelectionFor('expenses')} />}
+          {section === 'Documents & Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} contractors={state.contractors || []} contractorTags={state.contractorTags || []} accountType={state.settings.accountType} companyName={effectiveSettings.companyName} captureRequest={documentCaptureRequest} onCaptureRequestConsumed={() => setDocumentCaptureRequest(null)} onChange={updateExpenses} selectionRequest={lunaSelectionFor('expenses')} />}
 
           {section === 'IDs & Credentials' && <CredentialsWorkspace credentials={state.credentials || []} onChange={updateCredentials} />}
 
@@ -2850,9 +2850,12 @@ function PortfolioApp({ user, accessToken, onReady }) {
 
           {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
 
-          {section === 'Company Financial Summary' && <CompanyFinancialSummaryWorkspace user={user} properties={includedProperties} loans={state.loans || []} tenants={includedTenants} settings={state.settings} />}
+          {section === 'Company Financial Summary' && <CompanyFinancialSummaryWorkspace key={activeCompany.id} user={user} properties={focusedProperties} loans={state.loans || []} tenants={focusedTenants} settings={effectiveSettings} />}
 
-          {section === 'Banking' && <BankWorkspace user={user} properties={includedCalculated} tenants={includedTenants} onCashHeldChange={updateConnectedCashHeld} />}
+          {section === 'Banking' && <>
+            {isCompanyAccount && state.companies.length > 1 && <p className="panel company-bank-warning">Bank connections are account-wide. Accounts are not assigned to companies yet, so automatic bank cash updates are disabled to avoid mixing legal entities.</p>}
+            <BankWorkspace user={user} properties={includedCalculated} tenants={includedTenants} onCashHeldChange={updateConnectedCashHeld} />
+          </>}
 
           {section === 'Projections' && <>
             <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>
@@ -2866,8 +2869,8 @@ function PortfolioApp({ user, accessToken, onReady }) {
               </header>
               <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
             </section>
-            <ProjectionExplorer properties={includedProperties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
-            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
+            <ProjectionExplorer properties={focusedProperties} settings={effectiveSettings} portfolio={focusedPortfolio} onSettingChange={updateSetting} />
+            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={effectiveSettings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
           </>}
 
           {section === 'Acquisition Simulator' && <AcquisitionSimulator
@@ -2875,9 +2878,9 @@ function PortfolioApp({ user, accessToken, onReady }) {
             onChange={updateAcquisitionScenarios}
             defaultJurisdiction={state.settings.taxJurisdiction === 'scotland' ? 'scotland' : 'england-ni'}
             existingPropertyCount={state.properties.length}
-            properties={includedProperties}
-            settings={state.settings}
-            portfolio={portfolio}
+            properties={focusedProperties}
+            settings={effectiveSettings}
+            portfolio={focusedPortfolio}
             plannerPreferences={state.nextBtlPreferences}
             onPlannerPreferencesChange={updateNextBtlPreferences}
             allowRealisticRelease={effectiveEntitlement.isOwner}
@@ -2895,7 +2898,16 @@ function PortfolioApp({ user, accessToken, onReady }) {
 
           {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{complianceDiaryItems(complianceProperties).map((item, index) => <div key={item.key}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.propertyName}</small></p><time>{shortDate(calendarDate(item.displayDate))}</time></div>)}</div></section>}
 
-          {section === 'Companies House' && state.settings.accountType !== 'private' && <CompaniesHouseWorkspace settings={state.settings} onSettingChange={updateSetting} />}
+          {section === 'Companies House' && isCompanyAccount && <section className="company-house-directory">
+            {state.companies.length > 1 && <label className="company-scope-selector">
+              <span>Companies House record</span>
+              <select aria-label="Select Companies House company" value={activeCompany.id} onChange={(event) => selectCompany(event.target.value)}>
+                {state.companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+              </select>
+            </label>}
+            <CompaniesHouseWorkspace key={activeCompany.id} settings={effectiveSettings}
+              onSettingChange={(key, value) => updateCompany(activeCompany.id, key, value)} />
+          </section>}
         </div>
       </main>
 
@@ -2918,7 +2930,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
         <button className={visibleWorkspaceNavigation.slice(4).some(([label]) => label === section) ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
       </nav>
 
-        {editing && <EditDrawer property={editing} loans={loansForProperty(state.loans || [], editing.id)} availableLoans={state.loans || []} isNew={!state.properties.some((p) => p.id === editing.id)} focusField={editingField} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
+        {editing && <EditDrawer companies={isCompanyAccount ? state.companies : []} property={editing} loans={loansForProperty(state.loans || [], editing.id)} availableLoans={state.loans || []} isNew={!state.properties.some((p) => p.id === editing.id)} focusField={editingField} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
         {upgradeOpen && <BillingWorkspace entitlement={effectiveEntitlement} modal onClose={() => setUpgradeOpen(false)} />}
       {!state.settings.onboardingComplete && <AccountSetupModal onComplete={completeAccountSetup} />}
     </div>
