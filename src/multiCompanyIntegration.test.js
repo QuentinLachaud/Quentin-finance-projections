@@ -64,3 +64,20 @@ describe('company ownership integration contract', () => {
     expect(app).toContain("['Companies', 'Companies House', 'Company Financial Summary'].includes(section)")
   })
 })
+
+
+describe('portfolio startup failure regression', () => {
+  it('shows a recoverable error rather than a blank app after an uncaught React render failure', () => {
+    expect(app).toContain('class PortfolioCrashBoundary extends React.Component')
+    expect(app).toContain('static getDerivedStateFromError(error)')
+    expect(app).toContain('We couldn’t display your portfolio')
+    expect(app).toContain('role="alert"')
+    expect(app).toContain('<PortfolioCrashBoundary key={session.user.id}>')
+    expect(app).toContain('console.error(\'Portfolio render failed\'')
+  })
+
+  it('falls back to a valid company when a previously saved active company has disappeared', () => {
+    expect(app).toContain('(state.companies || []).find((company) => company.id === state.settings.activeCompanyId)')
+    expect(app).toContain("createPortfolioCompany(LEGACY_COMPANY_ID, state.settings.companyName || 'Company 1')")
+  })
+})
