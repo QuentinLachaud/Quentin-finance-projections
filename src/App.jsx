@@ -2001,6 +2001,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
     if (!state.properties.some((property) => property.id === draft.id) && !requestPropertySlot()) return
     setState((current) => {
       const previousProperty = current.properties.find((property) => property.id === draft.id) || null
+      if (!current.companies.some((company) => company.id === draft.companyId)) return current
       const synced = syncPropertyTenant(normalizePropertyRecord(draft), current.tenants)
       const intendedLoans = stagedLoans ?? loansForProperty(current.loans || [], draft.id)
       const next = savePropertyLoans(current, synced.property, intendedLoans, removedLoanIds)
@@ -2032,9 +2033,9 @@ function PortfolioApp({ user, accessToken, onReady }) {
     setPendingProperty(clone)
     setEditingId(null)
   }
-  const addProperty = () => {
+  const addProperty = (companyId = activeCompany.id) => {
     if (!requestPropertySlot()) return
-    const next = createBlankProperty(`BTL${state.properties.length + 1}`)
+    const next = { ...createBlankProperty(`BTL${state.properties.length + 1}`), companyId }
     setEditingField('')
     setPendingProperty(next)
     setEditingId(null)
@@ -2047,6 +2048,47 @@ function PortfolioApp({ user, accessToken, onReady }) {
     closeEditor()
   }
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
+  const selectCompany = (id) => setState((current) => current.companies.some((company) => company.id === id)
+    ? { ...current, settings: { ...current.settings, activeCompanyId: id } } : current)
+  const addCompany = () => {
+    const id = crypto.randomUUID()
+    setState((current) => ({
+      ...current,
+      companies: [...current.companies, createPortfolioCompany(id, `Company ${current.companies.length + 1}`)],
+      settings: { ...current.settings, activeCompanyId: id },
+    }))
+  }
+  const updateCompany = (id, key, value) => setState((current) => ({
+    ...current,
+    companies: current.companies.map((company) => company.id === id
+      ? { ...company, [key === 'companyName' ? 'name' : key]: value }
+      : company),
+  }))
+  const updateCompanyFinancial = (id, key, value) => setState((current) => ({
+    ...current,
+    companies: current.companies.map((company) => company.id === id
+      ? { ...company, settings: { ...company.settings, [key]: value } }
+      : company),
+  }))
+  const removeCompany = (id) => {
+    if (!window.confirm('Remove this empty company from your account?')) return
+    setState((current) => {
+      try {
+        const next = removeEmptyCompany(current, id)
+        return { ...next, settings: {
+          ...next.settings,
+          activeCompanyId: next.settings.activeCompanyId === id ? next.companies[0].id : next.settings.activeCompanyId,
+        } }
+      } catch (error) {
+        window.alert(error.message)
+        return current
+      }
+    })
+  }
+  const toggleCompany = (id) => setState((current) => ({
+    ...current,
+    companies: current.companies.map((company) => company.id === id ? { ...company, enabled: !company.enabled } : company),
+  }))
   const updatePropertyField = (id, key, value) => setState((current) => ({
     ...current,
     properties: current.properties.map((property) => {
@@ -2060,14 +2102,20 @@ function PortfolioApp({ user, accessToken, onReady }) {
     const timelineChanges = propertyChangeEvents({ ...property, [key]: beforeValue }, { ...property, [key]: afterValue })
     return timelineChanges.length ? { ...current, propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges] } : current
   })
-  const updateSetting = (key, value) => setState((current) => ({
-    ...current,
-    settings: {
-      ...current.settings,
-      [key]: value,
-      ...(key === 'grossAnnualIncome' ? { privateIncomeConfirmed: true } : {}),
-    },
-  }))
+  const updateSetting = (key, value) => {
+    if (state.settings.accountType !== 'private' && COMPANY_FINANCIAL_KEYS.includes(key)) {
+      updateCompanyFinancial(activeCompany.id, key, value)
+      return
+    }
+    setState((current) => ({
+      ...current,
+      settings: {
+        ...current.settings,
+        [key]: value,
+        ...(key === 'grossAnnualIncome' ? { privateIncomeConfirmed: true } : {}),
+      },
+    }))
+  }
   const requestAccountType = (nextAccountType) => {
     if (nextAccountType === state.settings.accountType) return
     if (nextAccountType === 'private' && !privateIncomeIsKnown(state.settings)) {
@@ -2087,14 +2135,28 @@ function PortfolioApp({ user, accessToken, onReady }) {
     setState((current) => ({ ...current, settings: confirmPrivateIncome(current.settings, grossAnnualIncome) }))
     setPrivateIncomePromptOpen(false)
   }
-  const updateConnectedCashHeld = (value) => setState((current) => Number(current.settings.cashHeld) === Number(value)
-    ? current
-    : ({ ...current, settings: { ...current.settings, cashHeld: value } }))
-  const completeAccountSetup = (profile) => setState((current) => ({ ...current, settings: { ...current.settings, ...profile } }))
+  const updateConnectedCashHeld = (value) => {
+    // Bank balances do not carry a legal-entity key yet; never overwrite
+    // one company’s cash from a pooled multi-company bank balance.
+    if (isCompanyAccount && state.companies.length > 1) return
+    updateSetting('cashHeld', value)
+  }
+  const completeAccountSetup = (profile) => setState((current) => ({
+    ...current,
+    settings: { ...current.settings, ...profile },
+    companies: current.companies.map((company, index) => index === 0 && profile.accountType === 'company'
+      ? { ...company, name: profile.companyName?.trim() || company.name } : company),
+  }))
   const updatePercentSetting = (key, value) => updateSetting(key, Number(value) / 100)
-  const updateLineItem = (collection, id, key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].map((item) => item.id === id ? { ...item, [key]: value } : item) } }))
-  const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, taxDeductible: false, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
-  const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
+  const updateLineItem = (collection, id, key, value) => {
+    const items = effectiveSettings[collection] || []
+    updateSetting(collection, items.map((item) => item.id === id ? { ...item, [key]: value } : item))
+  }
+  const addLineItem = (collection, name) => updateSetting(collection, [
+    ...(effectiveSettings[collection] || []),
+    { id: crypto.randomUUID(), name, amount: 0, enabled: true, taxDeductible: false, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) },
+  ])
+  const removeLineItem = (collection, id) => updateSetting(collection, (effectiveSettings[collection] || []).filter((item) => item.id !== id))
   const updateExpenses = (expenses) => setState((current) => ({ ...current, expenses }))
   const updateCredentials = (credentials) => setState((current) => ({ ...current, credentials }))
   const saveContractor = (contractor) => setState((current) => {
