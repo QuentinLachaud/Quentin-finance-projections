@@ -55,6 +55,11 @@ import { dispatchClientUiActions, LUNA_WORKSPACES } from './lunaUiActions.js'
 import { actionableNotifications, complianceDiaryItems, dismissNotification, normalizeNotificationPreferences, snoozeNotification } from './notifications.js'
 import { disablePushNotifications, enablePushNotifications, syncPushNotifications } from './notificationPush.js'
 import { mergeRemotePortfolio, serverVersionIsNewer } from './portfolioSync.js'
+import {
+  COMPANY_FINANCIAL_KEYS, calculateMultiCompanyPortfolio, companySettings,
+  createPortfolioCompany, includedCompanyProperties, normalizeCompanyPortfolio,
+  removeEmptyCompany,
+} from './multiCompany.js'
 
 const SUPPORT = supportConfig({ enabled: import.meta.env.VITE_SUPPORT_ENABLED, url: import.meta.env.VITE_BUY_ME_A_COFFEE_URL || 'https://buymeacoffee.com/btlportfolio.co.uk' })
 
@@ -153,6 +158,7 @@ const modelInputFields = [
 const workspaceNavigation = [
   ['Overview', 'Overview', Gauge, 'PORTFOLIO'],
   ['Properties', 'Properties', Home, 'PORTFOLIO'],
+  ['Companies', 'Companies', Building2, 'PORTFOLIO'],
   ['Performance', 'Performance', TrendingUp, 'PORTFOLIO'],
   ['Loans', 'Loans', PoundSterling, 'PORTFOLIO'],
   ['Tenants', 'Tenants', Users, 'PORTFOLIO'],
@@ -188,6 +194,11 @@ const sectionMeta = {
     eyebrow: 'PROPERTY DETAILS',
     title: 'Properties',
     description: '',
+  },
+  Companies: {
+    eyebrow: 'LEGAL ENTITIES',
+    title: 'Companies',
+    description: 'Manage legal ownership, financial settings and portfolio inclusion.',
   },
   Performance: {
     eyebrow: 'INVESTMENT RETURN',
@@ -1479,7 +1490,7 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove, selectionRequ
   </div>
 }
 
-function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose, onDelete, isNew, focusField = '', inline = false, onDirtyChange }) {
+function EditDrawer({ property, loans = [], availableLoans = [], companies = [], onSave, onClose, onDelete, isNew, focusField = '', inline = false, onDirtyChange }) {
   const [draft, setDraft] = useState(property)
   const [stagedLoans, setStagedLoans] = useState(() => loans.map((loan) => ({ ...loan })))
   const [removedLoanIds, setRemovedLoanIds] = useState([])
@@ -1556,6 +1567,14 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
     <>
         <header><div><span className="kicker">Portfolio property</span><h2 id="property-editor-title">{isNew ? 'Add a BTL' : `Edit ${draft.name}`}</h2></div>{inline ? <span className="property-single-save-hint">{dirty ? 'Unsaved changes' : 'Edit fields, then save'}</span> : <button className="icon-button" onClick={onClose} aria-label="Close"><X /></button>}</header>
         <div className="drawer-body property-editor-progressive">
+          {companies.length > 0 && <section className="form-section property-editor-ownership">
+            <label><span>Legal owner · company</span>
+              <select aria-label="Property owning company" value={draft.companyId || companies[0].id} onChange={(event) => update('companyId', event.target.value, 'text')}>
+                {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+              </select>
+            </label>
+            <small>Ownership and portfolio visibility are independent. Transferring a BTL retains its linked records.</small>
+          </section>}
           <section className="form-section property-editor-essentials">
             <div className="property-editor-section-heading"><div><span className="kicker">START HERE</span><h3>Essentials</h3></div><p>These are enough to start. Add other details when they are useful to you.</p></div>
             <div className="form-grid">{coreFields.map(renderField)}</div>
@@ -1574,7 +1593,7 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
           {!inline && !isNew && <button className="danger-button" onClick={() => onDelete(draft.id)}><Trash2 size={16} /> Delete</button>}
           <span />
           <button className="secondary-button" onClick={onClose}>Cancel</button>
-          <button className="primary-button" disabled={inline && !dirty} onClick={() => { onSave(draft, stagedLoans, removedLoanIds); setDirty(false) }}><Check size={17} /> Save BTL</button>
+          <button className="primary-button" disabled={inline && !dirty} onClick={() => { if (!isNew && property.companyId !== draft.companyId && !window.confirm('Change the legal owner of this BTL? Entity-level financial reports will change.')) return; onSave(draft, stagedLoans, removedLoanIds); setDirty(false) }}><Check size={17} /> Save BTL</button>
         </footer>
     </>
   )
