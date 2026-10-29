@@ -2870,7 +2870,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
 
           {section === 'Banking' && <>
             {isCompanyAccount && state.companies.length > 1 && <p className="panel company-bank-warning">Bank connections are account-wide. Accounts are not assigned to companies yet, so automatic bank cash updates are disabled to avoid mixing legal entities.</p>}
-            <BankWorkspace user={user} properties={includedCalculated} tenants={includedTenants} onCashHeldChange={updateConnectedCashHeld} />
+            <BankWorkspace user={user} properties={calculated} tenants={state.tenants} onCashHeldChange={updateConnectedCashHeld} />
           </>}
 
           {section === 'Projections' && <>
