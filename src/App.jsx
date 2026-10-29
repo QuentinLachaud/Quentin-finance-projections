@@ -55,6 +55,7 @@ import { dispatchClientUiActions, LUNA_WORKSPACES } from './lunaUiActions.js'
 import { actionableNotifications, complianceDiaryItems, dismissNotification, normalizeNotificationPreferences, snoozeNotification } from './notifications.js'
 import { disablePushNotifications, enablePushNotifications, syncPushNotifications } from './notificationPush.js'
 import { mergeRemotePortfolio, serverVersionIsNewer } from './portfolioSync.js'
+import './multiCompany.css'
 import {
   COMPANY_FINANCIAL_KEYS, calculateMultiCompanyPortfolio, companySettings,
   createPortfolioCompany, includedCompanyProperties, normalizeCompanyPortfolio,
