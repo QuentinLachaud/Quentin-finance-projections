@@ -1784,26 +1784,32 @@ function PortfolioApp({ user, accessToken, onReady }) {
           mortgageOverrideRate: null,
           mortgageOverrideLoanAmount: null,
         }))
-      const companyState = normalizeCompanyPortfolio({
-         ...portfolioState,
-         settings: { ...existingAccountDefaults, ...(portfolioState.settings || {}) },
-         properties: companyProperties,
-       })
-       const companyProperties = companyState.properties
-       const migratedTenants = importPropertyTenants(companyProperties, portfolioState.tenants)
+      let companyState
+      try {
+        companyState = normalizeCompanyPortfolio({
+          ...portfolioState,
+          settings: { ...existingAccountDefaults, ...(portfolioState.settings || {}) },
+          properties: migratedProperties,
+        })
+      } catch (migrationError) {
+        setLoadError(migrationError.message || 'Company ownership could not be verified.')
+        return
+      }
+      const companyProperties = companyState.properties
+      const migratedTenants = importPropertyTenants(companyProperties, portfolioState.tenants)
       const migratedLoans = normalizeLoans(portfolioState.loans, companyProperties)
       const migratedContractorTags = normalizeContractorTags(portfolioState.contractorTags)
       const migratedContractors = normalizeContractors(portfolioState.contractors, companyProperties, migratedContractorTags)
       const migratedRemortgageComparisons = Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : []
       const mortgageMigration = reconcileLoanPortfolio({
-        properties: migratedProperties,
+        properties: companyProperties,
         loans: migratedLoans,
         comparisons: migratedRemortgageComparisons,
       })
       loaded.current = true
       setState({
         properties: mortgageMigration.properties,
-         companies: companyState.companies,
+        companies: companyState.companies,
         loans: mortgageMigration.loans,
         tenants: migratedTenants,
         contractors: migratedContractors,
