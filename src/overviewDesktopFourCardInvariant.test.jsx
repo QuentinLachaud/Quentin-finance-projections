@@ -41,7 +41,7 @@ describe('single-row desktop Overview KPI contract', () => {
     expect(overview).toContain('className="overview-desktop-summary-row"')
     const row = overview.slice(overview.indexOf('className="overview-desktop-summary-row"'),overview.indexOf('className="overview-operating-grid"'))
     expect(row.indexOf('<OverviewPortfolioDashboard')).toBeLessThan(row.indexOf('<aside className="overview-rent-rail"'))
-    expect(row).toContain('<RentMonthDial tenants={state.tenants} properties={state.properties} />')
+    expect(row).toContain('<RentMonthDial tenants={state.tenants} properties={includedProperties} />')
     expect((app.match(/<RentMonthDial /g)||[])).toHaveLength(1)
     expect(overview.indexOf('className="overview-operating-grid"')).toBeGreaterThan(overview.indexOf('</aside>'))
   })
