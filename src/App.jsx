@@ -1745,7 +1745,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
   }, [section, lunaPropertySelection])
 
   useEffect(() => {
-    if (state?.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(section)) setSection('Overview')
+    if (state?.settings.accountType === 'private' && ['Companies', 'Companies House', 'Company Financial Summary'].includes(section)) setSection('Overview')
   }, [state?.settings.accountType, section])
 
   useEffect(() => {
@@ -2287,7 +2287,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
     setSearch('')
   }
   const visibleWorkspaceNavigation = workspaceNavigation.filter(([label]) => {
-    if (state.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(label)) return false
+    if (state.settings.accountType === 'private' && ['Companies', 'Companies House', 'Company Financial Summary'].includes(label)) return false
     return true
   })
   const basePageMeta = sectionMeta[section] || {
@@ -2858,7 +2858,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
 
           {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
 
-          {section === 'Company Financial Summary' && <CompanyFinancialSummaryWorkspace key={activeCompany.id} user={user} properties={focusedProperties} loans={state.loans || []} tenants={focusedTenants} settings={effectiveSettings} />}
+          {section === 'Company Financial Summary' && <CompanyFinancialSummaryWorkspace key={activeCompany.id} bankTransactionsScoped={state.companies.length === 1} user={user} properties={focusedProperties} loans={state.loans || []} tenants={focusedTenants} settings={effectiveSettings} />}
 
           {section === 'Banking' && <>
             {isCompanyAccount && state.companies.length > 1 && <p className="panel company-bank-warning">Bank connections are account-wide. Accounts are not assigned to companies yet, so automatic bank cash updates are disabled to avoid mixing legal entities.</p>}
