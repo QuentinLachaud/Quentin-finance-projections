@@ -1947,19 +1947,40 @@ function PortfolioApp({ user, accessToken, onReady }) {
   if (loadError) return <div className="app-status-screen"><CloudOff size={32} /><h1>We couldn’t load your portfolio</h1><p>{loadError}</p><button className="primary-button" onClick={() => window.location.reload()}>Try again</button></div>
   if (!state) return null
 
+  const isCompanyAccount = state.settings.accountType !== 'private'
+  const activeCompany = state.companies.find((company) => company.id === state.settings.activeCompanyId) || state.companies[0]
+  const effectiveSettings = isCompanyAccount ? companySettings(activeCompany, state.settings) : state.settings
   const propertiesWithLoans = withPropertyLoans(state.properties, state.loans || [])
-  const portfolio = calculatePortfolio(propertiesWithLoans, state.settings)
+  const portfolio = isCompanyAccount
+    ? calculateMultiCompanyPortfolio(propertiesWithLoans, state.companies, state.settings)
+    : calculatePortfolio(propertiesWithLoans, state.settings)
   const calculated = propertiesWithLoans.map((property) => {
-    const calculatedProperty = calculateProperty(property, state.settings)
+    const owner = state.companies.find((company) => company.id === property.companyId)
+    const propertySettings = isCompanyAccount ? companySettings(owner, state.settings) : state.settings
+    const calculatedProperty = calculateProperty(property, propertySettings)
     return {
       ...calculatedProperty,
-      operatingCashflow: propertyOperatingCashflow(calculatedProperty, state.settings),
+      operatingCashflow: propertyOperatingCashflow(calculatedProperty, propertySettings),
       ...propertyVoidHistory(property, state.tenants),
     }
   })
-  const includedProperties = includedPortfolioProperties(propertiesWithLoans)
-  const includedCalculated = includedPortfolioProperties(calculated)
-  const includedTenants = tenantsForIncludedProperties(state.tenants, state.properties)
+  const includedProperties = isCompanyAccount
+    ? includedCompanyProperties(propertiesWithLoans, state.companies)
+    : includedPortfolioProperties(propertiesWithLoans)
+  const includedCalculated = isCompanyAccount
+    ? includedCompanyProperties(calculated, state.companies)
+    : includedPortfolioProperties(calculated)
+  const focusedProperties = isCompanyAccount
+    ? includedProperties.filter((property) => property.companyId === activeCompany.id)
+    : includedProperties
+  const focusedCalculated = isCompanyAccount
+    ? includedCalculated.filter((property) => property.companyId === activeCompany.id)
+    : includedCalculated
+  const focusedPortfolio = isCompanyAccount
+    ? calculatePortfolio(focusedProperties, effectiveSettings)
+    : portfolio
+  const includedTenants = tenantsForIncludedProperties(state.tenants, includedProperties)
+  const focusedTenants = tenantsForIncludedProperties(state.tenants, focusedProperties)
 
   const upcomingNotifications = actionableNotifications({
     properties: includedCalculated,
