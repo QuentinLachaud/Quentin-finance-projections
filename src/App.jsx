@@ -1783,10 +1783,16 @@ function PortfolioApp({ user, accessToken, onReady }) {
           mortgageOverrideRate: null,
           mortgageOverrideLoanAmount: null,
         }))
-      const migratedTenants = importPropertyTenants(migratedProperties, portfolioState.tenants)
-      const migratedLoans = normalizeLoans(portfolioState.loans, migratedProperties)
+      const companyState = normalizeCompanyPortfolio({
+         ...portfolioState,
+         settings: { ...existingAccountDefaults, ...(portfolioState.settings || {}) },
+         properties: companyProperties,
+       })
+       const companyProperties = companyState.properties
+       const migratedTenants = importPropertyTenants(companyProperties, portfolioState.tenants)
+      const migratedLoans = normalizeLoans(portfolioState.loans, companyProperties)
       const migratedContractorTags = normalizeContractorTags(portfolioState.contractorTags)
-      const migratedContractors = normalizeContractors(portfolioState.contractors, migratedProperties, migratedContractorTags)
+      const migratedContractors = normalizeContractors(portfolioState.contractors, companyProperties, migratedContractorTags)
       const migratedRemortgageComparisons = Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : []
       const mortgageMigration = reconcileLoanPortfolio({
         properties: migratedProperties,
@@ -1796,12 +1802,13 @@ function PortfolioApp({ user, accessToken, onReady }) {
       loaded.current = true
       setState({
         properties: mortgageMigration.properties,
+         companies: companyState.companies,
         loans: mortgageMigration.loans,
         tenants: migratedTenants,
         contractors: migratedContractors,
         contractorTags: migratedContractorTags,
-        propertyTimelineEvents: normalizePropertyTimelineEvents(portfolioState.propertyTimelineEvents, migratedProperties),
-        performanceEvents: normalizePerformanceEvents(portfolioState.performanceEvents, migratedProperties),
+        propertyTimelineEvents: normalizePropertyTimelineEvents(portfolioState.propertyTimelineEvents, companyProperties),
+        performanceEvents: normalizePerformanceEvents(portfolioState.performanceEvents, companyProperties),
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
         acquisitionScenarios: Array.isArray(portfolioState.acquisitionScenarios) ? portfolioState.acquisitionScenarios : [],
