@@ -16,6 +16,7 @@ import {
 import AuthScreen from './AuthScreen.jsx'
 import BrandLogo from './BrandLogo.jsx'
 import BrandLoadingScreen from './BrandLoadingScreen.jsx'
+import PortfolioCrashBoundary from './PortfolioCrashBoundary.jsx'
 import BankWorkspace from './BankWorkspace.jsx'
 import CompanyFinancialSummaryWorkspace from './CompanyFinancialSummaryWorkspace.jsx'
 import './companyFinancialSummary.css'
@@ -57,7 +58,7 @@ import { disablePushNotifications, enablePushNotifications, syncPushNotification
 import { mergeRemotePortfolio, serverVersionIsNewer } from './portfolioSync.js'
 import './multiCompany.css'
 import {
-  COMPANY_FINANCIAL_KEYS, calculateMultiCompanyPortfolio, companySettings,
+  COMPANY_FINANCIAL_KEYS, LEGACY_COMPANY_ID, calculateMultiCompanyPortfolio, companySettings,
   createPortfolioCompany, includedCompanyProperties, normalizeCompanyPortfolio,
   removeEmptyCompany,
 } from './multiCompany.js'
@@ -1766,6 +1767,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
     setState(null)
     setLoadError('')
     const loadPortfolio = async () => {
+      try {
       const { data, error } = await supabase.from('portfolio_states').select('portfolio, updated_at').eq('user_id', user.id).maybeSingle()
       if (!active) return
       if (error) {
@@ -1834,6 +1836,12 @@ function PortfolioApp({ user, accessToken, onReady }) {
           extractions: Array.isArray(portfolioState.settings?.extractions) ? portfolioState.settings.extractions.map((item) => ({ ...item, taxDeductible: item.taxDeductible === true })) : [],
         },
       })
+      } catch (loadFailure) {
+        if (active) {
+          console.error('Portfolio hydration failed', loadFailure)
+          setLoadError(loadFailure?.message || 'An unexpected error prevented your portfolio from opening.')
+        }
+      }
     }
     loadPortfolio()
     return () => { active = false }
@@ -2955,35 +2963,11 @@ function PortfolioApp({ user, accessToken, onReady }) {
 }
 
 
-class PortfolioCrashBoundary extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = { error: null }
-  }
-
-  static getDerivedStateFromError(error) {
-    return { error }
-  }
-
-  componentDidCatch(error, info) {
-    console.error('Portfolio render failed', error, info?.componentStack)
-  }
-
-  render() {
-    if (!this.state.error) return this.props.children
-    return <div className="app-status-screen" role="alert">
-      <CloudOff size={32} />
-      <h1>We couldn’t display your portfolio</h1>
-      <p>Your portfolio data has not been deleted. The page encountered an unexpected error.</p>
-      <details><summary>Technical details</summary><code>{String(this.state.error.message || this.state.error)}</code></details>
-      <button className="primary-button" type="button" onClick={() => window.location.reload()}>Try again</button>
-    </div>
-  }
-}
 
 export default function App() {
   const [session, setSession] = useState(undefined)
   const [portfolioReadyUserId, setPortfolioReadyUserId] = useState(null)
+  const [startupError, setStartupError] = useState('')
   const handlePortfolioReady = React.useCallback((userId) => setPortfolioReadyUserId(userId), [])
 
   useEffect(() => {
@@ -2999,13 +2983,28 @@ export default function App() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
+  // A stalled auth request or portfolio fetch must never leave a permanent splash screen.
+  // This only changes the loading UI; it does not sign out, mutate, or overwrite account data.
+  const pendingUserId = session?.user?.id
+  useEffect(() => {
+    setStartupError('')
+    if (session === null || (pendingUserId && portfolioReadyUserId === pendingUserId)) return undefined
+    const timer = window.setTimeout(() => {
+      setStartupError(pendingUserId
+        ? 'Your portfolio could not finish loading. Your data has not been changed.'
+        : 'We could not finish checking your sign-in.')
+    }, 20000)
+    return () => window.clearTimeout(timer)
+  }, [pendingUserId, portfolioReadyUserId, session === undefined])
+
   if (!isSupabaseConfigured) return <div className="app-status-screen"><CloudOff size={32} /><h1>Authentication is not configured</h1><p>Add the Supabase project URL and publishable key to the deployment environment.</p></div>
   if (session === null) return <AuthScreen />
+  if (startupError) return <div className="app-status-screen" role="alert"><CloudOff size={32} /><h1>BTL Portfolio could not open</h1><p>{startupError}</p><button className="primary-button" type="button" onClick={() => window.location.reload()}>Try again</button></div>
 
   // Keep one loader mounted while the session resolves and the private portfolio hydrates.
   // PortfolioApp renders nothing during hydration; the loading animation never restarts.
   return <>
-    {session && <PortfolioCrashBoundary key={session.user.id}><PortfolioApp user={session.user} accessToken={session.access_token} onReady={handlePortfolioReady} /></PortfolioCrashBoundary>}
+    {session && <PortfolioCrashBoundary key={session.user.id} onError={() => handlePortfolioReady(session.user.id)}><PortfolioApp user={session.user} accessToken={session.access_token} onReady={handlePortfolioReady} /></PortfolioCrashBoundary>}
     {(session === undefined || portfolioReadyUserId !== session.user.id) && <BrandLoadingScreen />}
   </>
 }
