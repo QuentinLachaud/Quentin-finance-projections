@@ -23,7 +23,7 @@ describe('reversible Overview command centre', () => {
     expect(dashboard).toContain('percent(portfolioLtv, 1)')
     expect(dashboard).toContain('portfolio.safeCashNeeded')
     expect(dashboard).toContain('portfolio.weightedRate')
-    expect(app).toContain('const portfolio = calculatePortfolio(propertiesWithLoans, state.settings)')
+    expect(app).toContain('? calculateMultiCompanyPortfolio(propertiesWithLoans, state.companies, state.settings)')
   })
 
   it('orders the four top cards, expanded scenarios, then Properties without duplicating the clock', () => {

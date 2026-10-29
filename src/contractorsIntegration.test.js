@@ -13,7 +13,7 @@ describe('Contractors workspace integration', () => {
     expect(app).toContain("['Contractors', 'Contractors', Wrench, 'PORTFOLIO']")
     expect(app).toContain("Contractors: {")
     expect(app).toContain('const migratedContractorTags = normalizeContractorTags(portfolioState.contractorTags)')
-    expect(app).toContain('const migratedContractors = normalizeContractors(portfolioState.contractors, migratedProperties, migratedContractorTags)')
+    expect(app).toContain('const migratedContractors = normalizeContractors(portfolioState.contractors, companyProperties, migratedContractorTags)')
     expect(app).toContain('contractors: migratedContractors,')
     expect(app).toContain('contractorTags: migratedContractorTags,')
     expect(app).toContain('const saveContractor =')

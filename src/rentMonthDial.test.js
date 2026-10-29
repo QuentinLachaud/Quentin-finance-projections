@@ -37,6 +37,6 @@ describe('Overview rent month dial integration', () => {
   it('shows the same rentPaymentDay on tenant cards that feeds the Overview wheel', () => {
     expect(app).toContain("import { formatOrdinalDay } from './rentSchedule.js'")
     expect(app).toContain('<dt>Rent payment date</dt><dd>{formatOrdinalDay(tenant.rentPaymentDay)} monthly</dd>')
-    expect(app).toContain('<RentMonthDial tenants={state.tenants} properties={state.properties} />')
+    expect(app).toContain('<RentMonthDial tenants={state.tenants} properties={includedProperties} />')
   })
 })

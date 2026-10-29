@@ -14,7 +14,7 @@ describe('single BTL inline editor', () => {
     expect(app).toContain('Single property</button>')
     expect(app).toContain("propertyWorkspaceView === 'single' ? <div className=\"property-single-workspace\"")
     expect(app).toContain('aria-label="Select property to edit"')
-    expect(app).toContain('key={singleProperty.id} inline property={singleProperty}')
+    expect(app).toContain('key={singleProperty.id} inline companies={isCompanyAccount ? state.companies : []} property={singleProperty}')
     expect(app).toContain("propertyWorkspaceView === 'timeline' ? <PropertyTimeline")
     expect(app).toContain('property-comparison-table')
   })

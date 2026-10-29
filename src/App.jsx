@@ -55,6 +55,12 @@ import { dispatchClientUiActions, LUNA_WORKSPACES } from './lunaUiActions.js'
 import { actionableNotifications, complianceDiaryItems, dismissNotification, normalizeNotificationPreferences, snoozeNotification } from './notifications.js'
 import { disablePushNotifications, enablePushNotifications, syncPushNotifications } from './notificationPush.js'
 import { mergeRemotePortfolio, serverVersionIsNewer } from './portfolioSync.js'
+import './multiCompany.css'
+import {
+  COMPANY_FINANCIAL_KEYS, calculateMultiCompanyPortfolio, companySettings,
+  createPortfolioCompany, includedCompanyProperties, normalizeCompanyPortfolio,
+  removeEmptyCompany,
+} from './multiCompany.js'
 
 const SUPPORT = supportConfig({ enabled: import.meta.env.VITE_SUPPORT_ENABLED, url: import.meta.env.VITE_BUY_ME_A_COFFEE_URL || 'https://buymeacoffee.com/btlportfolio.co.uk' })
 
@@ -153,6 +159,7 @@ const modelInputFields = [
 const workspaceNavigation = [
   ['Overview', 'Overview', Gauge, 'PORTFOLIO'],
   ['Properties', 'Properties', Home, 'PORTFOLIO'],
+  ['Companies', 'Companies', Building2, 'PORTFOLIO'],
   ['Performance', 'Performance', TrendingUp, 'PORTFOLIO'],
   ['Loans', 'Loans', PoundSterling, 'PORTFOLIO'],
   ['Tenants', 'Tenants', Users, 'PORTFOLIO'],
@@ -188,6 +195,11 @@ const sectionMeta = {
     eyebrow: 'PROPERTY DETAILS',
     title: 'Properties',
     description: '',
+  },
+  Companies: {
+    eyebrow: 'LEGAL ENTITIES',
+    title: 'Companies',
+    description: 'Manage legal ownership, financial settings and portfolio inclusion.',
   },
   Performance: {
     eyebrow: 'INVESTMENT RETURN',
@@ -1264,7 +1276,7 @@ function CostsWorkspace({
   return <div className="costs-workspace">
     <section className="metrics-grid">
       <MetricCard eyebrow="PROPERTY FIXED COSTS" value={currency(portfolio.propertyFixedCosts)} delta="Mortgages, factors & compliance" icon={Home} tone="dark" />
-      <MetricCard eyebrow="PROPERTY VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} />
+      <MetricCard eyebrow="PROPERTY VARIABLE COSTS" value={currency(focusedPortfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} />
       <MetricCard eyebrow="COMPANY COSTS" value={currency(portfolio.companyCosts)} delta={isPrivate ? 'Not used for private landlords' : 'Editable recurring overheads'} icon={Landmark} disabled={isPrivate} />
       <MetricCard eyebrow="OWNER / EMPLOYEE CASH" value={currency(portfolio.extractionTotal)} delta={isPrivate ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} tone="green" disabled={isPrivate} />
     </section>
@@ -1479,7 +1491,7 @@ function TenantsWorkspace({ tenants, properties, onSave, onRemove, selectionRequ
   </div>
 }
 
-function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose, onDelete, isNew, focusField = '', inline = false, onDirtyChange }) {
+function EditDrawer({ property, loans = [], availableLoans = [], companies = [], onSave, onClose, onDelete, isNew, focusField = '', inline = false, onDirtyChange }) {
   const [draft, setDraft] = useState(property)
   const [stagedLoans, setStagedLoans] = useState(() => loans.map((loan) => ({ ...loan })))
   const [removedLoanIds, setRemovedLoanIds] = useState([])
@@ -1556,6 +1568,14 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
     <>
         <header><div><span className="kicker">Portfolio property</span><h2 id="property-editor-title">{isNew ? 'Add a BTL' : `Edit ${draft.name}`}</h2></div>{inline ? <span className="property-single-save-hint">{dirty ? 'Unsaved changes' : 'Edit fields, then save'}</span> : <button className="icon-button" onClick={onClose} aria-label="Close"><X /></button>}</header>
         <div className="drawer-body property-editor-progressive">
+          {companies.length > 0 && <section className="form-section property-editor-ownership">
+            <label><span>Legal owner · company</span>
+              <select aria-label="Property owning company" value={draft.companyId || companies[0].id} onChange={(event) => update('companyId', event.target.value, 'text')}>
+                {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+              </select>
+            </label>
+            <small>Ownership and portfolio visibility are independent. Transferring a BTL retains its linked records.</small>
+          </section>}
           <section className="form-section property-editor-essentials">
             <div className="property-editor-section-heading"><div><span className="kicker">START HERE</span><h3>Essentials</h3></div><p>These are enough to start. Add other details when they are useful to you.</p></div>
             <div className="form-grid">{coreFields.map(renderField)}</div>
@@ -1574,7 +1594,7 @@ function EditDrawer({ property, loans = [], availableLoans = [], onSave, onClose
           {!inline && !isNew && <button className="danger-button" onClick={() => onDelete(draft.id)}><Trash2 size={16} /> Delete</button>}
           <span />
           <button className="secondary-button" onClick={onClose}>Cancel</button>
-          <button className="primary-button" disabled={inline && !dirty} onClick={() => { onSave(draft, stagedLoans, removedLoanIds); setDirty(false) }}><Check size={17} /> Save BTL</button>
+          <button className="primary-button" disabled={inline && !dirty} onClick={() => { if (!isNew && property.companyId !== draft.companyId && !window.confirm('Change the legal owner of this BTL? Entity-level financial reports will change.')) return; onSave(draft, stagedLoans, removedLoanIds); setDirty(false) }}><Check size={17} /> Save BTL</button>
         </footer>
     </>
   )
@@ -1725,7 +1745,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
   }, [section, lunaPropertySelection])
 
   useEffect(() => {
-    if (state?.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(section)) setSection('Overview')
+    if (state?.settings.accountType === 'private' && ['Companies', 'Companies House', 'Company Financial Summary'].includes(section)) setSection('Overview')
   }, [state?.settings.accountType, section])
 
   useEffect(() => {
@@ -1764,25 +1784,38 @@ function PortfolioApp({ user, accessToken, onReady }) {
           mortgageOverrideRate: null,
           mortgageOverrideLoanAmount: null,
         }))
-      const migratedTenants = importPropertyTenants(migratedProperties, portfolioState.tenants)
-      const migratedLoans = normalizeLoans(portfolioState.loans, migratedProperties)
+      let companyState
+      try {
+        companyState = normalizeCompanyPortfolio({
+          ...portfolioState,
+          settings: { ...existingAccountDefaults, ...(portfolioState.settings || {}) },
+          properties: migratedProperties,
+        })
+      } catch (migrationError) {
+        setLoadError(migrationError.message || 'Company ownership could not be verified.')
+        return
+      }
+      const companyProperties = companyState.properties
+      const migratedTenants = importPropertyTenants(companyProperties, portfolioState.tenants)
+      const migratedLoans = normalizeLoans(portfolioState.loans, companyProperties)
       const migratedContractorTags = normalizeContractorTags(portfolioState.contractorTags)
-      const migratedContractors = normalizeContractors(portfolioState.contractors, migratedProperties, migratedContractorTags)
+      const migratedContractors = normalizeContractors(portfolioState.contractors, companyProperties, migratedContractorTags)
       const migratedRemortgageComparisons = Array.isArray(portfolioState.remortgageComparisons) ? portfolioState.remortgageComparisons : []
       const mortgageMigration = reconcileLoanPortfolio({
-        properties: migratedProperties,
+        properties: companyProperties,
         loans: migratedLoans,
         comparisons: migratedRemortgageComparisons,
       })
       loaded.current = true
       setState({
         properties: mortgageMigration.properties,
+        companies: companyState.companies,
         loans: mortgageMigration.loans,
         tenants: migratedTenants,
         contractors: migratedContractors,
         contractorTags: migratedContractorTags,
-        propertyTimelineEvents: normalizePropertyTimelineEvents(portfolioState.propertyTimelineEvents, migratedProperties),
-        performanceEvents: normalizePerformanceEvents(portfolioState.performanceEvents, migratedProperties),
+        propertyTimelineEvents: normalizePropertyTimelineEvents(portfolioState.propertyTimelineEvents, companyProperties),
+        performanceEvents: normalizePerformanceEvents(portfolioState.performanceEvents, companyProperties),
         expenses: Array.isArray(portfolioState.expenses) ? portfolioState.expenses : [],
         credentials: Array.isArray(portfolioState.credentials) ? portfolioState.credentials : [],
         acquisitionScenarios: Array.isArray(portfolioState.acquisitionScenarios) ? portfolioState.acquisitionScenarios : [],
@@ -1921,19 +1954,42 @@ function PortfolioApp({ user, accessToken, onReady }) {
   if (loadError) return <div className="app-status-screen"><CloudOff size={32} /><h1>We couldn’t load your portfolio</h1><p>{loadError}</p><button className="primary-button" onClick={() => window.location.reload()}>Try again</button></div>
   if (!state) return null
 
+  const isCompanyAccount = state.settings.accountType !== 'private'
+  const activeCompany = state.companies.find((company) => company.id === state.settings.activeCompanyId) || state.companies[0]
+  const effectiveSettings = isCompanyAccount ? companySettings(activeCompany, state.settings) : state.settings
   const propertiesWithLoans = withPropertyLoans(state.properties, state.loans || [])
-  const portfolio = calculatePortfolio(propertiesWithLoans, state.settings)
+  const portfolio = isCompanyAccount
+    ? calculateMultiCompanyPortfolio(propertiesWithLoans, state.companies, state.settings)
+    : calculatePortfolio(propertiesWithLoans, state.settings)
   const calculated = propertiesWithLoans.map((property) => {
-    const calculatedProperty = calculateProperty(property, state.settings)
+    const owner = state.companies.find((company) => company.id === property.companyId)
+    const propertySettings = isCompanyAccount ? companySettings(owner, state.settings) : state.settings
+    const calculatedProperty = calculateProperty(property, propertySettings)
     return {
       ...calculatedProperty,
-      operatingCashflow: propertyOperatingCashflow(calculatedProperty, state.settings),
+      operatingCashflow: propertyOperatingCashflow(calculatedProperty, propertySettings),
       ...propertyVoidHistory(property, state.tenants),
     }
   })
-  const includedProperties = includedPortfolioProperties(propertiesWithLoans)
-  const includedCalculated = includedPortfolioProperties(calculated)
-  const includedTenants = tenantsForIncludedProperties(state.tenants, state.properties)
+  const includedProperties = isCompanyAccount
+    ? includedCompanyProperties(propertiesWithLoans, state.companies)
+    : includedPortfolioProperties(propertiesWithLoans)
+  const includedCalculated = isCompanyAccount
+    ? includedCompanyProperties(calculated, state.companies)
+    : includedPortfolioProperties(calculated)
+  // A company disabled in the combined portfolio still has its own standalone books.
+  // Its individual active BTLs remain visible in company-specific workspaces.
+  const focusedProperties = isCompanyAccount
+    ? propertiesWithLoans.filter((property) => property.companyId === activeCompany.id && property.active === true)
+    : includedProperties
+  const focusedCalculated = isCompanyAccount
+    ? calculated.filter((property) => property.companyId === activeCompany.id && property.active === true)
+    : includedCalculated
+  const focusedPortfolio = isCompanyAccount
+    ? calculatePortfolio(focusedProperties, effectiveSettings)
+    : portfolio
+  const includedTenants = tenantsForIncludedProperties(state.tenants, includedProperties)
+  const focusedTenants = tenantsForIncludedProperties(state.tenants, focusedProperties)
 
   const upcomingNotifications = actionableNotifications({
     properties: includedCalculated,
@@ -1954,6 +2010,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
     if (!state.properties.some((property) => property.id === draft.id) && !requestPropertySlot()) return
     setState((current) => {
       const previousProperty = current.properties.find((property) => property.id === draft.id) || null
+      if (!current.companies.some((company) => company.id === draft.companyId)) return current
       const synced = syncPropertyTenant(normalizePropertyRecord(draft), current.tenants)
       const intendedLoans = stagedLoans ?? loansForProperty(current.loans || [], draft.id)
       const next = savePropertyLoans(current, synced.property, intendedLoans, removedLoanIds)
@@ -1985,9 +2042,9 @@ function PortfolioApp({ user, accessToken, onReady }) {
     setPendingProperty(clone)
     setEditingId(null)
   }
-  const addProperty = () => {
+  const addProperty = (companyId = activeCompany.id) => {
     if (!requestPropertySlot()) return
-    const next = createBlankProperty(`BTL${state.properties.length + 1}`)
+    const next = { ...createBlankProperty(`BTL${state.properties.length + 1}`), companyId }
     setEditingField('')
     setPendingProperty(next)
     setEditingId(null)
@@ -2000,6 +2057,47 @@ function PortfolioApp({ user, accessToken, onReady }) {
     closeEditor()
   }
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
+  const selectCompany = (id) => setState((current) => current.companies.some((company) => company.id === id)
+    ? { ...current, settings: { ...current.settings, activeCompanyId: id } } : current)
+  const addCompany = () => {
+    const id = crypto.randomUUID()
+    setState((current) => ({
+      ...current,
+      companies: [...current.companies, createPortfolioCompany(id, `Company ${current.companies.length + 1}`)],
+      settings: { ...current.settings, activeCompanyId: id },
+    }))
+  }
+  const updateCompany = (id, key, value) => setState((current) => ({
+    ...current,
+    companies: current.companies.map((company) => company.id === id
+      ? { ...company, [key === 'companyName' ? 'name' : key]: value }
+      : company),
+  }))
+  const updateCompanyFinancial = (id, key, value) => setState((current) => ({
+    ...current,
+    companies: current.companies.map((company) => company.id === id
+      ? { ...company, settings: { ...company.settings, [key]: value } }
+      : company),
+  }))
+  const removeCompany = (id) => {
+    if (!window.confirm('Remove this empty company from your account?')) return
+    setState((current) => {
+      try {
+        const next = removeEmptyCompany(current, id)
+        return { ...next, settings: {
+          ...next.settings,
+          activeCompanyId: next.settings.activeCompanyId === id ? next.companies[0].id : next.settings.activeCompanyId,
+        } }
+      } catch (error) {
+        window.alert(error.message)
+        return current
+      }
+    })
+  }
+  const toggleCompany = (id) => setState((current) => ({
+    ...current,
+    companies: current.companies.map((company) => company.id === id ? { ...company, enabled: !company.enabled } : company),
+  }))
   const updatePropertyField = (id, key, value) => setState((current) => ({
     ...current,
     properties: current.properties.map((property) => {
@@ -2013,14 +2111,20 @@ function PortfolioApp({ user, accessToken, onReady }) {
     const timelineChanges = propertyChangeEvents({ ...property, [key]: beforeValue }, { ...property, [key]: afterValue })
     return timelineChanges.length ? { ...current, propertyTimelineEvents: [...(current.propertyTimelineEvents || []), ...timelineChanges] } : current
   })
-  const updateSetting = (key, value) => setState((current) => ({
-    ...current,
-    settings: {
-      ...current.settings,
-      [key]: value,
-      ...(key === 'grossAnnualIncome' ? { privateIncomeConfirmed: true } : {}),
-    },
-  }))
+  const updateSetting = (key, value) => {
+    if (state.settings.accountType !== 'private' && COMPANY_FINANCIAL_KEYS.includes(key)) {
+      updateCompanyFinancial(activeCompany.id, key, value)
+      return
+    }
+    setState((current) => ({
+      ...current,
+      settings: {
+        ...current.settings,
+        [key]: value,
+        ...(key === 'grossAnnualIncome' ? { privateIncomeConfirmed: true } : {}),
+      },
+    }))
+  }
   const requestAccountType = (nextAccountType) => {
     if (nextAccountType === state.settings.accountType) return
     if (nextAccountType === 'private' && !privateIncomeIsKnown(state.settings)) {
@@ -2040,14 +2144,28 @@ function PortfolioApp({ user, accessToken, onReady }) {
     setState((current) => ({ ...current, settings: confirmPrivateIncome(current.settings, grossAnnualIncome) }))
     setPrivateIncomePromptOpen(false)
   }
-  const updateConnectedCashHeld = (value) => setState((current) => Number(current.settings.cashHeld) === Number(value)
-    ? current
-    : ({ ...current, settings: { ...current.settings, cashHeld: value } }))
-  const completeAccountSetup = (profile) => setState((current) => ({ ...current, settings: { ...current.settings, ...profile } }))
+  const updateConnectedCashHeld = (value) => {
+    // Bank balances do not carry a legal-entity key yet; never overwrite
+    // one company’s cash from a pooled multi-company bank balance.
+    if (isCompanyAccount && state.companies.length > 1) return
+    updateSetting('cashHeld', value)
+  }
+  const completeAccountSetup = (profile) => setState((current) => ({
+    ...current,
+    settings: { ...current.settings, ...profile },
+    companies: current.companies.map((company, index) => index === 0 && profile.accountType === 'company'
+      ? { ...company, name: profile.companyName?.trim() || company.name } : company),
+  }))
   const updatePercentSetting = (key, value) => updateSetting(key, Number(value) / 100)
-  const updateLineItem = (collection, id, key, value) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].map((item) => item.id === id ? { ...item, [key]: value } : item) } }))
-  const addLineItem = (collection, name) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: [...current.settings[collection], { id: crypto.randomUUID(), name, amount: 0, enabled: true, taxDeductible: false, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) }] } }))
-  const removeLineItem = (collection, id) => setState((current) => ({ ...current, settings: { ...current.settings, [collection]: current.settings[collection].filter((item) => item.id !== id) } }))
+  const updateLineItem = (collection, id, key, value) => {
+    const items = effectiveSettings[collection] || []
+    updateSetting(collection, items.map((item) => item.id === id ? { ...item, [key]: value } : item))
+  }
+  const addLineItem = (collection, name) => updateSetting(collection, [
+    ...(effectiveSettings[collection] || []),
+    { id: crypto.randomUUID(), name, amount: 0, enabled: true, taxDeductible: false, ...(collection === 'companyCosts' ? { monthsRemaining: 0 } : {}) },
+  ])
+  const removeLineItem = (collection, id) => updateSetting(collection, (effectiveSettings[collection] || []).filter((item) => item.id !== id))
   const updateExpenses = (expenses) => setState((current) => ({ ...current, expenses }))
   const updateCredentials = (credentials) => setState((current) => ({ ...current, credentials }))
   const saveContractor = (contractor) => setState((current) => {
@@ -2154,11 +2272,11 @@ function PortfolioApp({ user, accessToken, onReady }) {
   const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Portfolio owner'
   const initials = displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
   const avatarUrl = userAvatarUrl(user)
-  const visibleCompanyName = prankMode ? PRANK_COMPANY_NAME : state.settings.companyName
+  const visibleCompanyName = prankMode ? PRANK_COMPANY_NAME : (isCompanyAccount ? activeCompany.name : state.settings.companyName)
   const visibleAccountName = prankMode ? PRANK_COMPANY_NAME : displayName
   const portfolioName = prankMode
     ? PRANK_COMPANY_NAME
-    : state.settings.accountType === 'private' ? `${displayName}'s portfolio` : state.settings.companyName || 'Property portfolio'
+    : state.settings.accountType === 'private' ? `${displayName}'s portfolio` : activeCompany.name || 'Property portfolio'
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
   const mobileProperty = calculated.find((property) => property.id === mobilePropertyId) || filtered[0] || calculated[0] || null
@@ -2177,7 +2295,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
     setSearch('')
   }
   const visibleWorkspaceNavigation = workspaceNavigation.filter(([label]) => {
-    if (state.settings.accountType === 'private' && ['Companies House', 'Company Financial Summary'].includes(label)) return false
+    if (state.settings.accountType === 'private' && ['Companies', 'Companies House', 'Company Financial Summary'].includes(label)) return false
     return true
   })
   const basePageMeta = sectionMeta[section] || {
@@ -2264,6 +2382,16 @@ function PortfolioApp({ user, accessToken, onReady }) {
                 ><Icon size={18} />{prankWorkspaceLabel(label, prankMode)}</button>)}
               </React.Fragment>
             })}
+            {isCompanyAccount && <>
+              <small>YOUR COMPANIES</small>
+              {state.companies.map((company) => <div key={company.id} className={`property-nav-row ${company.enabled ? 'included' : 'excluded'}`}>
+                <button className="property-nav" onClick={() => { selectCompany(company.id); setSection('Companies'); setMobileNavOpen(false) }}><Building2 size={15} /><span>{company.name}<small>{company.companyNumber || 'Not linked'}</small></span></button>
+                <label className="property-nav-visibility" title={company.enabled ? `Exclude ${company.name} from combined calculations` : `Include ${company.name} in combined calculations`}>
+                  <BrainDrainNumericInput type="checkbox" aria-label={company.enabled ? `Exclude company ${company.name}` : `Include company ${company.name}`} checked={company.enabled} onChange={() => toggleCompany(company.id)} />
+                  <i />
+                </label>
+              </div>)}
+            </>}
             <small>YOUR BTLS</small>
             {calculated.map((p) => <div key={p.id} className={`property-nav-row ${p.active ? 'included' : 'excluded'}`}>
               <button className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name); setMobilePropertyId(p.id); setMobileNavOpen(false) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>
@@ -2288,7 +2416,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
               <ChevronDown className="sidebar-disclosure-chevron" size={16} />
             </summary>
             <div className="sidebar-disclosure-body">
-              <ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
+              <ModelInputFields settings={effectiveSettings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
               <ModelControls settings={state.settings} onChange={updateSetting} compact />
               <PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} compact />
             </div>
@@ -2306,7 +2434,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
             <span><b>Model inputs</b><small>Portfolio assumptions</small></span>
             <Pencil size={15} />
           </button>
-          <AccountProfileEditor settings={state.settings} onChange={updateSetting} />
+          <AccountProfileEditor settings={effectiveSettings} onChange={(key, value) => key === 'companyName' && isCompanyAccount ? updateCompany(activeCompany.id, key, value) : updateSetting(key, value)} />
           <button className={`sidebar-plan ${effectiveEntitlement.isPro ? 'pro' : ''}`} onClick={() => { setSection('Plan & billing'); setMobileNavOpen(false) }}><Sparkles size={17} /><span><b>{effectiveEntitlement.isPro ? 'Pro access' : 'Free · 1 BTL'}</b><small>{effectiveEntitlement.isOwner ? 'Owner account' : effectiveEntitlement.isPro ? 'Unlimited properties' : 'View upgrade options'}</small></span></button>
           {SUPPORT.enabled && showFreeSupport(effectiveEntitlement) && <a className="sidebar-support" href={SUPPORT.url} target="_blank" rel="noreferrer"><Coffee size={17} /><span><b>Buy me a coffee</b><small>Support BTL Portfolio</small></span><ExternalLink size={13} /></a>}
         </div>
@@ -2325,7 +2453,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
       </aside>
 
       {modelInputsPopupOpen && <ModelInputsPopup
-        settings={state.settings}
+        settings={effectiveSettings}
         onSettingChange={updateSetting}
         onPercentChange={updatePercentSetting}
         onClose={() => setModelInputsPopupOpen(false)}
@@ -2462,11 +2590,18 @@ function PortfolioApp({ user, accessToken, onReady }) {
             </div>
           </section>
 
+          {isCompanyAccount && state.companies.length > 1 && ['Performance', 'Costs & Cash Flows', 'Company Financial Summary', 'Projections', 'Acquisition Simulator'].includes(section) && <label className="company-scope-selector">
+            <span>Showing company</span>
+            <select aria-label="Select company for this workspace" value={activeCompany.id} onChange={(event) => selectCompany(event.target.value)}>
+              {state.companies.map((company) => <option key={company.id} value={company.id}>{company.name}{company.enabled ? '' : ' (excluded)'}</option>)}
+            </select>
+          </label>}
+
           {section === 'Overview' && <>
             <div className="overview-desktop-summary-row">
               <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
               <aside className="overview-rent-rail" aria-label="Rent schedule">
-                <RentMonthDial tenants={state.tenants} properties={state.properties} />
+                <RentMonthDial tenants={state.tenants} properties={includedProperties} />
               </aside>
             </div>
 
@@ -2477,7 +2612,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
                 <section className="properties-heading overview-properties-heading">
                   <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
                   <div className="overview-properties-heading-actions">
-                    <button type="button" className="primary-button overview-add-btl-button" onClick={addProperty}><Plus size={16} /> Add BTL</button>
+                    <button type="button" className="primary-button overview-add-btl-button" onClick={() => addProperty()}><Plus size={16} /> Add BTL</button>
                     <button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button>
                   </div>
                 </section>
@@ -2490,6 +2625,47 @@ function PortfolioApp({ user, accessToken, onReady }) {
               </div>
             </section>
 
+          </>}
+
+          {section === 'Companies' && isCompanyAccount && <>
+            <section className="panel company-directory-intro">
+              <header><div><span className="kicker">LEGAL OWNERSHIP</span><h2>{state.companies.length} {state.companies.length === 1 ? 'company' : 'companies'}</h2>
+                <p>Each BTL has one legal owner. Company toggles control inclusion in combined portfolio figures, not ownership.</p></div>
+                <button className="primary-button" type="button" onClick={addCompany}><Plus size={16} /> Add company</button>
+              </header>
+            </section>
+            {state.companies.map((company) => {
+              const companyOwned = calculated.filter((property) => property.companyId === company.id)
+              const companyPortfolio = calculatePortfolio(
+                propertiesWithLoans.filter((property) => property.companyId === company.id),
+                companySettings(company, state.settings),
+              )
+              return <section key={company.id} className="panel company-directory-card">
+                <header className="company-directory-header">
+                  <div><span className="kicker">LEGAL ENTITY</span><h2>{company.name}</h2><small>{company.companyNumber || 'Companies House not linked'} · {companyOwned.length} BTL{companyOwned.length === 1 ? '' : 's'}</small></div>
+                  <div className="company-directory-actions">
+                    <label><span>Include in portfolio</span><SettingsSwitch checked={company.enabled} label={`Include company ${company.name}`} onChange={() => toggleCompany(company.id)} /></label>
+                    <button className="secondary-button small" onClick={() => { selectCompany(company.id); setSection('Companies House') }}><Landmark size={15} /> Companies House</button>
+                    <button className="secondary-button small" onClick={() => addProperty(company.id)}><Plus size={15} /> Add BTL</button>
+                  </div>
+                </header>
+                <div className="company-directory-fields">
+                  <label><span>Company name</span><BrainDrainNumericInput aria-label={`Legal name for ${company.name}`} value={company.name} onChange={(event) => updateCompany(company.id, 'name', event.target.value)} /></label>
+                  <label><span>Cash held (£)</span><BrainDrainNumericInput aria-label={`Cash held for ${company.name}`} type="number" min="0" value={company.settings.cashHeld || 0} onChange={(event) => updateCompanyFinancial(company.id, 'cashHeld', Math.max(0, Number(event.target.value) || 0))} /></label>
+                </div>
+                <div className="company-directory-metrics" aria-label={`Financial summary for ${company.name}`}>
+                  <span>Value <b>{currency(companyPortfolio.totalValue)}</b></span>
+                  <span>Debt <b>{currency(companyPortfolio.totalLoans)}</b></span>
+                  <span>Rent <b>{currency(companyPortfolio.rent)} /mo</b></span>
+                  <span>Cashflow after tax <b>{currency(companyPortfolio.scenarios[0].cashflow)} /mo</b></span>
+                </div>
+                <div className="overview-property-view-stage"><section className="overview-property-rows">
+                  {companyOwned.map((property) => <OverviewPropertyRow key={property.id} property={property} onEdit={setEditingId} onClone={cloneProperty} onToggle={toggleProperty} />)}
+                  {!companyOwned.length && <p>No properties are assigned to this company yet.</p>}
+                </section></div>
+                {state.companies.length > 1 && !companyOwned.length && <button className="text-button" onClick={() => removeCompany(company.id)}><Trash2 size={14} /> Remove empty company</button>}
+              </section>
+            })}
           </>}
 
           {section === 'Properties' && <>
@@ -2542,7 +2718,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
                   {calculated.map((property) => <option key={property.id} value={property.id}>{property.name}{property.postcode ? ` · ${property.postcode}` : ''}</option>)}
                 </select>
               </label>
-              {singleProperty ? <EditDrawer key={singleProperty.id} inline property={singleProperty} loans={loansForProperty(state.loans || [], singleProperty.id)} availableLoans={state.loans || []} isNew={false} onDirtyChange={setSinglePropertyDirty} onSave={saveProperty} onClose={() => { if (discardSingleChanges()) { setSinglePropertyDirty(false); setPropertyWorkspaceView('compare') } }} onDelete={removeProperty} />
+              {singleProperty ? <EditDrawer key={singleProperty.id} inline companies={isCompanyAccount ? state.companies : []} property={singleProperty} loans={loansForProperty(state.loans || [], singleProperty.id)} availableLoans={state.loans || []} isNew={false} onDirtyChange={setSinglePropertyDirty} onSave={saveProperty} onClose={() => { if (discardSingleChanges()) { setSinglePropertyDirty(false); setPropertyWorkspaceView('compare') } }} onDelete={removeProperty} />
                 : <section className="panel property-single-empty"><h2>No BTL selected</h2><p>Add a property from Overview to start editing.</p></section>}
             </div> : <>
             <div className="mobile-property-tabs-sticky" aria-label="Choose property">
@@ -2663,12 +2839,12 @@ function PortfolioApp({ user, accessToken, onReady }) {
 
           {section === 'Performance' && <PerformanceWorkspace
             user={user}
-            properties={includedCalculated}
+            properties={focusedCalculated}
             loans={state.loans || []}
             expenses={state.expenses || []}
             timelineEvents={state.propertyTimelineEvents || []}
             performanceEvents={state.performanceEvents || []}
-            settings={state.settings}
+            settings={effectiveSettings}
             onEventsChange={updatePerformanceEvents}
             onTimelineEventDelete={removePropertyTimelineEvent}
             onAssumptionChange={updateSetting}
@@ -2676,9 +2852,9 @@ function PortfolioApp({ user, accessToken, onReady }) {
             selectionRequest={lunaSelectionFor('performance')}
           />}
 
-          {section === 'Costs & Cash Flows' && <CostsWorkspace properties={includedProperties} calculated={includedCalculated} settings={state.settings} portfolio={portfolio} onPropertyChange={updatePropertyField} onPropertyCommit={commitPropertyTimelineField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
+          {section === 'Costs & Cash Flows' && <CostsWorkspace properties={focusedProperties} calculated={focusedCalculated} settings={effectiveSettings} portfolio={focusedPortfolio} onPropertyChange={updatePropertyField} onPropertyCommit={commitPropertyTimelineField} onLineItemChange={updateLineItem} onLineItemAdd={addLineItem} onLineItemRemove={removeLineItem} entryPeriodPreferences={state.costsCashflowPreferences} onEntryPeriodPreferencesChange={updateCostsCashflowPreferences} />}
 
-          {section === 'Documents & Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} contractors={state.contractors || []} contractorTags={state.contractorTags || []} accountType={state.settings.accountType} companyName={state.settings.companyName} captureRequest={documentCaptureRequest} onCaptureRequestConsumed={() => setDocumentCaptureRequest(null)} onChange={updateExpenses} selectionRequest={lunaSelectionFor('expenses')} />}
+          {section === 'Documents & Expenses' && <ExpensesWorkspace expenses={state.expenses} properties={includedProperties} contractors={state.contractors || []} contractorTags={state.contractorTags || []} accountType={state.settings.accountType} companyName={effectiveSettings.companyName} captureRequest={documentCaptureRequest} onCaptureRequestConsumed={() => setDocumentCaptureRequest(null)} onChange={updateExpenses} selectionRequest={lunaSelectionFor('expenses')} />}
 
           {section === 'IDs & Credentials' && <CredentialsWorkspace credentials={state.credentials || []} onChange={updateCredentials} />}
 
@@ -2690,12 +2866,15 @@ function PortfolioApp({ user, accessToken, onReady }) {
 
           {section === 'Plan & billing' && <><BillingWorkspace entitlement={effectiveEntitlement} onRefresh={refreshEntitlement} />{billingError && <p className="billing-message error billing-load-error">{billingError}</p>}</>}
 
-          {section === 'Company Financial Summary' && <CompanyFinancialSummaryWorkspace user={user} properties={includedProperties} loans={state.loans || []} tenants={includedTenants} settings={state.settings} />}
+          {section === 'Company Financial Summary' && <CompanyFinancialSummaryWorkspace key={activeCompany.id} bankTransactionsScoped={state.companies.length === 1} user={user} properties={focusedProperties} loans={state.loans || []} tenants={focusedTenants} settings={effectiveSettings} />}
 
-          {section === 'Banking' && <BankWorkspace user={user} properties={includedCalculated} tenants={includedTenants} onCashHeldChange={updateConnectedCashHeld} />}
+          {section === 'Banking' && <>
+            {isCompanyAccount && state.companies.length > 1 && <p className="panel company-bank-warning">Bank connections are account-wide. Accounts are not assigned to companies yet, so automatic bank cash updates are disabled to avoid mixing legal entities.</p>}
+            <BankWorkspace user={user} properties={calculated} tenants={state.tenants} onCashHeldChange={updateConnectedCashHeld} />
+          </>}
 
           {section === 'Projections' && <>
-            <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>
+            <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(focusedPortfolio.appreciation)} delta={`${currency(focusedPortfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(focusedPortfolio.fixedCosts)} delta={`${currency(focusedPortfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(focusedPortfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>
             <section className="panel scenarios-panel overview-cashflow-panel projections-scenarios">
               <header>
                 <div>
@@ -2704,10 +2883,10 @@ function PortfolioApp({ user, accessToken, onReady }) {
                   <p>Compare monthly cash available under different operating assumptions.</p>
                 </div>
               </header>
-              <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
+              <ScenarioTable scenarios={focusedPortfolio.scenarios} count={focusedPortfolio.count} accountType={state.settings.accountType} variant="overview" />
             </section>
-            <ProjectionExplorer properties={includedProperties} settings={state.settings} portfolio={portfolio} onSettingChange={updateSetting} />
-            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
+            <ProjectionExplorer properties={focusedProperties} settings={effectiveSettings} portfolio={focusedPortfolio} onSettingChange={updateSetting} />
+            <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={effectiveSettings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
           </>}
 
           {section === 'Acquisition Simulator' && <AcquisitionSimulator
@@ -2715,9 +2894,9 @@ function PortfolioApp({ user, accessToken, onReady }) {
             onChange={updateAcquisitionScenarios}
             defaultJurisdiction={state.settings.taxJurisdiction === 'scotland' ? 'scotland' : 'england-ni'}
             existingPropertyCount={state.properties.length}
-            properties={includedProperties}
-            settings={state.settings}
-            portfolio={portfolio}
+            properties={focusedProperties}
+            settings={effectiveSettings}
+            portfolio={focusedPortfolio}
             plannerPreferences={state.nextBtlPreferences}
             onPlannerPreferencesChange={updateNextBtlPreferences}
             allowRealisticRelease={effectiveEntitlement.isOwner}
@@ -2735,7 +2914,17 @@ function PortfolioApp({ user, accessToken, onReady }) {
 
           {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{complianceDiaryItems(complianceProperties).map((item, index) => <div key={item.key}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.propertyName}</small></p><time>{shortDate(calendarDate(item.displayDate))}</time></div>)}</div></section>}
 
-          {section === 'Companies House' && state.settings.accountType !== 'private' && <CompaniesHouseWorkspace settings={state.settings} onSettingChange={updateSetting} />}
+          {section === 'Companies House' && isCompanyAccount && <section className="company-house-directory">
+            <div className="company-directory-actions"><button className="secondary-button small" onClick={addCompany}><Plus size={15} /> Add company</button></div>
+            {state.companies.length > 1 && <label className="company-scope-selector">
+              <span>Companies House record</span>
+              <select aria-label="Select Companies House company" value={activeCompany.id} onChange={(event) => selectCompany(event.target.value)}>
+                {state.companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+              </select>
+            </label>}
+            <CompaniesHouseWorkspace key={activeCompany.id} settings={effectiveSettings}
+              onSettingChange={(key, value) => updateCompany(activeCompany.id, key, value)} />
+          </section>}
         </div>
       </main>
 
@@ -2758,7 +2947,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
         <button className={visibleWorkspaceNavigation.slice(4).some(([label]) => label === section) ? 'active' : ''} onClick={() => setMobileNavOpen(true)}><Menu size={20} /><span>More</span></button>
       </nav>
 
-        {editing && <EditDrawer property={editing} loans={loansForProperty(state.loans || [], editing.id)} availableLoans={state.loans || []} isNew={!state.properties.some((p) => p.id === editing.id)} focusField={editingField} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
+        {editing && <EditDrawer companies={isCompanyAccount ? state.companies : []} property={editing} loans={loansForProperty(state.loans || [], editing.id)} availableLoans={state.loans || []} isNew={!state.properties.some((p) => p.id === editing.id)} focusField={editingField} onSave={saveProperty} onClose={closeEditor} onDelete={removeProperty} />}
         {upgradeOpen && <BillingWorkspace entitlement={effectiveEntitlement} modal onClose={() => setUpgradeOpen(false)} />}
       {!state.settings.onboardingComplete && <AccountSetupModal onComplete={completeAccountSetup} />}
     </div>

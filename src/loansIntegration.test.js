@@ -13,7 +13,7 @@ describe('Loans workspace integration', () => {
     expect(app).toContain('updatePropertyMortgageInput')
     expect(app).toContain("['Loans', 'Loans', PoundSterling, 'PORTFOLIO']")
     expect(app).toContain("Loans: {")
-    expect(app).toContain('const migratedLoans = normalizeLoans(portfolioState.loans, migratedProperties)')
+    expect(app).toContain('const migratedLoans = normalizeLoans(portfolioState.loans, companyProperties)')
     expect(app).toContain('const mortgageMigration = reconcileLoanPortfolio({')
     expect(app).toContain('properties: mortgageMigration.properties,')
     expect(app).toContain('loans: mortgageMigration.loans,')

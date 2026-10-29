@@ -8,7 +8,7 @@ describe('Banking + Performance integrity integration', () => {
     const app = read('src/App.jsx')
     expect(app).not.toContain('VITE_BANKING_ENABLED')
     expect(app).toContain("params.get('bank_callback') === '1'")
-    expect(app).toContain("section === 'Banking' && <BankWorkspace")
+    expect(app).toContain("section === 'Banking' && <>")
     expect(read('.env.example')).toContain('GOCARDLESS_SECRET_ID=')
     expect(read('.env.example')).toContain('GOCARDLESS_SECRET_KEY=')
   })

@@ -1,0 +1,33 @@
+/* Multi-company directory: reuse overview property rows and existing panel tokens. */
+.company-directory-intro,
+.company-directory-card { margin-bottom: 1rem; }
+.company-directory-intro > header,
+.company-directory-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.company-directory-intro header p { max-width: 58rem; margin: .35rem 0 0; }
+.company-directory-actions { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+.company-directory-actions > label { display: flex; gap: .5rem; align-items: center; font-size: .85rem; }
+.company-directory-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1rem; margin: 1rem 0; }
+.company-directory-fields label { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
+.company-directory-fields input { width: 100%; max-width: 100%; }
+.company-directory-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; margin: .75rem 0 1.2rem; }
+.company-directory-metrics span { display: flex; flex-direction: column; gap: .15rem; min-width: 0; font-size: .78rem; color: var(--text-secondary, #777); }
+.company-directory-metrics b { color: var(--text-primary, inherit); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.company-directory-card .overview-property-rows { margin-bottom: .8rem; }
+.company-directory-card .overview-property-view-stage { width: 100%; min-width: 0; }
+.company-scope-selector { display: inline-flex; align-items: center; gap: .65rem; margin: .2rem 0 1rem; flex-wrap: wrap; }
+.company-scope-selector select { min-width: min(100%, 17rem); }
+.company-bank-warning { padding: .85rem 1rem; margin-bottom: .8rem; font-size: .85rem; }
+.property-editor-ownership { margin-bottom: 1.1rem; }
+.property-editor-ownership label { display: flex; flex-direction: column; gap: .4rem; }
+.property-editor-ownership select { width: 100%; }
+.property-editor-ownership small { display: block; margin-top: .35rem; }
+@media (max-width: 780px) {
+  .company-directory-fields { grid-template-columns: 1fr; }
+  .company-directory-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .company-directory-actions { width: 100%; }
+  .company-directory-actions > button { flex: 1; justify-content: center; }
+}
+@media (max-width: 390px) {
+  .company-directory-metrics { grid-template-columns: 1fr 1fr; }
+  .company-directory-metrics b { font-size: .88rem; }
+}
