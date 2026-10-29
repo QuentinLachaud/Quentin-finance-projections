@@ -10,7 +10,7 @@ const oneYearBefore = (date) => { const d = new Date(`${date}T12:00:00Z`); d.set
 const money = (value) => value == null || !Number.isFinite(Number(value)) ? 'Unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(value)
 const pct = (value) => value == null || !Number.isFinite(Number(value)) ? 'Unavailable' : `${(value * 100).toFixed(1)}%`
 
-export default function CompanyFinancialSummaryWorkspace({ user, properties, loans, tenants, settings }) {
+export default function CompanyFinancialSummaryWorkspace({ user, properties, loans, tenants, settings, bankTransactionsScoped = true }) {
   const [reportingDate, setReportingDate] = useState(today())
   const [periodStart, setPeriodStart] = useState(oneYearBefore(today()))
   const [includeExtractions, setIncludeExtractions] = useState(true)
@@ -21,13 +21,18 @@ export default function CompanyFinancialSummaryWorkspace({ user, properties, loa
 
   useEffect(() => {
     let alive = true
+    if (!bankTransactionsScoped) {
+      setTransactions([])
+      setLoading(false)
+      return () => { alive = false }
+    }
     ;(async () => {
       setLoading(true)
       const { data } = await supabase.from('bank_transactions').select('*').eq('user_id', user.id).order('booked_at', { ascending: true })
       if (alive) { setTransactions(data || []); setLoading(false) }
     })()
     return () => { alive = false }
-  }, [user.id])
+  }, [user.id, bankTransactionsScoped])
 
   useEffect(() => {
     let alive = true
@@ -69,6 +74,7 @@ export default function CompanyFinancialSummaryWorkspace({ user, properties, loa
       <label className="company-summary-check"><BrainDrainNumericInput type="checkbox" checked={includeRateStress} onChange={(e) => setIncludeRateStress(e.target.checked)} /> Include +2% rate stress</label>
       <button className="primary-button" onClick={() => exportCompanyFinancialSummaryPdf(snapshot, `company-financial-summary-${reportingDate}.pdf`)}><Download size={16} /> Export PDF</button>
     </div>
+    {!bankTransactionsScoped && <p className="panel company-bank-warning" role="status">Trailing actual banking transactions are unavailable for this entity. Bank accounts are still account-wide and must first be assigned to legal companies; forecast and property-level figures remain visible.</p>}
     {snapshot.warnings.length > 0 && <div className="company-summary-warnings"><AlertTriangle size={16} /><div><strong>Data quality</strong>{snapshot.warnings.slice(0, 5).map((warning) => <div key={warning}>{warning}</div>)}</div></div>}
     <div className="company-summary-paper" aria-label="A4 Company Financial Summary preview">
       <header><div><h1>Company Financial Summary</h1><h2>{company.registeredName}</h2><p>Company no. {company.companyNumber || 'Unavailable'} · Reporting date {snapshot.reportingDate} · Period {snapshot.periodStart} to {snapshot.reportingDate}</p>{company.ownershipSummary && <p>Ownership / control: {company.ownershipSummary}</p>}</div><span>Private &amp; Confidential</span></header>
