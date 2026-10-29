@@ -2263,11 +2263,11 @@ function PortfolioApp({ user, accessToken, onReady }) {
   const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Portfolio owner'
   const initials = displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
   const avatarUrl = userAvatarUrl(user)
-  const visibleCompanyName = prankMode ? PRANK_COMPANY_NAME : state.settings.companyName
+  const visibleCompanyName = prankMode ? PRANK_COMPANY_NAME : (isCompanyAccount ? activeCompany.name : state.settings.companyName)
   const visibleAccountName = prankMode ? PRANK_COMPANY_NAME : displayName
   const portfolioName = prankMode
     ? PRANK_COMPANY_NAME
-    : state.settings.accountType === 'private' ? `${displayName}'s portfolio` : state.settings.companyName || 'Property portfolio'
+    : state.settings.accountType === 'private' ? `${displayName}'s portfolio` : activeCompany.name || 'Property portfolio'
 
   const filtered = calculated.filter((p) => `${p.name} ${p.address} ${p.postcode}`.toLowerCase().includes(search.toLowerCase()))
   const mobileProperty = calculated.find((property) => property.id === mobilePropertyId) || filtered[0] || calculated[0] || null
@@ -2373,6 +2373,16 @@ function PortfolioApp({ user, accessToken, onReady }) {
                 ><Icon size={18} />{prankWorkspaceLabel(label, prankMode)}</button>)}
               </React.Fragment>
             })}
+            {isCompanyAccount && <>
+              <small>YOUR COMPANIES</small>
+              {state.companies.map((company) => <div key={company.id} className={`property-nav-row ${company.enabled ? 'included' : 'excluded'}`}>
+                <button className="property-nav" onClick={() => { selectCompany(company.id); setSection('Companies'); setMobileNavOpen(false) }}><Building2 size={15} /><span>{company.name}<small>{company.companyNumber || 'Not linked'}</small></span></button>
+                <label className="property-nav-visibility" title={company.enabled ? `Exclude ${company.name} from combined calculations` : `Include ${company.name} in combined calculations`}>
+                  <BrainDrainNumericInput type="checkbox" aria-label={company.enabled ? `Exclude company ${company.name}` : `Include company ${company.name}`} checked={company.enabled} onChange={() => toggleCompany(company.id)} />
+                  <i />
+                </label>
+              </div>)}
+            </>}
             <small>YOUR BTLS</small>
             {calculated.map((p) => <div key={p.id} className={`property-nav-row ${p.active ? 'included' : 'excluded'}`}>
               <button className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name); setMobilePropertyId(p.id); setMobileNavOpen(false) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>
@@ -2397,7 +2407,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
               <ChevronDown className="sidebar-disclosure-chevron" size={16} />
             </summary>
             <div className="sidebar-disclosure-body">
-              <ModelInputFields settings={state.settings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
+              <ModelInputFields settings={effectiveSettings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} compact />
               <ModelControls settings={state.settings} onChange={updateSetting} compact />
               <PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} compact />
             </div>
@@ -2415,7 +2425,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
             <span><b>Model inputs</b><small>Portfolio assumptions</small></span>
             <Pencil size={15} />
           </button>
-          <AccountProfileEditor settings={state.settings} onChange={updateSetting} />
+          <AccountProfileEditor settings={effectiveSettings} onChange={(key, value) => key === 'companyName' && isCompanyAccount ? updateCompany(activeCompany.id, key, value) : updateSetting(key, value)} />
           <button className={`sidebar-plan ${effectiveEntitlement.isPro ? 'pro' : ''}`} onClick={() => { setSection('Plan & billing'); setMobileNavOpen(false) }}><Sparkles size={17} /><span><b>{effectiveEntitlement.isPro ? 'Pro access' : 'Free · 1 BTL'}</b><small>{effectiveEntitlement.isOwner ? 'Owner account' : effectiveEntitlement.isPro ? 'Unlimited properties' : 'View upgrade options'}</small></span></button>
           {SUPPORT.enabled && showFreeSupport(effectiveEntitlement) && <a className="sidebar-support" href={SUPPORT.url} target="_blank" rel="noreferrer"><Coffee size={17} /><span><b>Buy me a coffee</b><small>Support BTL Portfolio</small></span><ExternalLink size={13} /></a>}
         </div>
@@ -2575,7 +2585,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
             <div className="overview-desktop-summary-row">
               <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
               <aside className="overview-rent-rail" aria-label="Rent schedule">
-                <RentMonthDial tenants={state.tenants} properties={state.properties} />
+                <RentMonthDial tenants={state.tenants} properties={includedProperties} />
               </aside>
             </div>
 
@@ -2586,7 +2596,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
                 <section className="properties-heading overview-properties-heading">
                   <div><span className="kicker">THE PORTFOLIO</span><h2>Properties</h2></div>
                   <div className="overview-properties-heading-actions">
-                    <button type="button" className="primary-button overview-add-btl-button" onClick={addProperty}><Plus size={16} /> Add BTL</button>
+                    <button type="button" className="primary-button overview-add-btl-button" onClick={() => addProperty()}><Plus size={16} /> Add BTL</button>
                     <button className="text-button" onClick={() => setSection('Properties')}>View full table <ArrowUpRight size={16} /></button>
                   </div>
                 </section>
