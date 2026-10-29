@@ -1977,11 +1977,13 @@ function PortfolioApp({ user, accessToken, onReady }) {
   const includedCalculated = isCompanyAccount
     ? includedCompanyProperties(calculated, state.companies)
     : includedPortfolioProperties(calculated)
+  // A company disabled in the combined portfolio still has its own standalone books.
+  // Its individual active BTLs remain visible in company-specific workspaces.
   const focusedProperties = isCompanyAccount
-    ? includedProperties.filter((property) => property.companyId === activeCompany.id)
+    ? propertiesWithLoans.filter((property) => property.companyId === activeCompany.id && property.active === true)
     : includedProperties
   const focusedCalculated = isCompanyAccount
-    ? includedCalculated.filter((property) => property.companyId === activeCompany.id)
+    ? calculated.filter((property) => property.companyId === activeCompany.id && property.active === true)
     : includedCalculated
   const focusedPortfolio = isCompanyAccount
     ? calculatePortfolio(focusedProperties, effectiveSettings)
