@@ -1276,7 +1276,7 @@ function CostsWorkspace({
   return <div className="costs-workspace">
     <section className="metrics-grid">
       <MetricCard eyebrow="PROPERTY FIXED COSTS" value={currency(portfolio.propertyFixedCosts)} delta="Mortgages, factors & compliance" icon={Home} tone="dark" />
-      <MetricCard eyebrow="PROPERTY VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} />
+      <MetricCard eyebrow="PROPERTY VARIABLE COSTS" value={currency(focusedPortfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} />
       <MetricCard eyebrow="COMPANY COSTS" value={currency(portfolio.companyCosts)} delta={isPrivate ? 'Not used for private landlords' : 'Editable recurring overheads'} icon={Landmark} disabled={isPrivate} />
       <MetricCard eyebrow="OWNER / EMPLOYEE CASH" value={currency(portfolio.extractionTotal)} delta={isPrivate ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} tone="green" disabled={isPrivate} />
     </section>
@@ -2582,6 +2582,13 @@ function PortfolioApp({ user, accessToken, onReady }) {
             </div>
           </section>
 
+          {isCompanyAccount && state.companies.length > 1 && ['Performance', 'Costs & Cash Flows', 'Company Financial Summary', 'Projections', 'Acquisition Simulator'].includes(section) && <label className="company-scope-selector">
+            <span>Showing company</span>
+            <select aria-label="Select company for this workspace" value={activeCompany.id} onChange={(event) => selectCompany(event.target.value)}>
+              {state.companies.map((company) => <option key={company.id} value={company.id}>{company.name}{company.enabled ? '' : ' (excluded)'}</option>)}
+            </select>
+          </label>}
+
           {section === 'Overview' && <>
             <div className="overview-desktop-summary-row">
               <OverviewPortfolioDashboard portfolio={portfolio} settings={state.settings} />
@@ -2859,7 +2866,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
           </>}
 
           {section === 'Projections' && <>
-            <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(portfolio.appreciation)} delta={`${currency(portfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(portfolio.fixedCosts)} delta={`${currency(portfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(portfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>
+            <section className="metrics-grid"><MetricCard eyebrow="MONTHLY APPRECIATION" value={currency(focusedPortfolio.appreciation)} delta={`${currency(focusedPortfolio.appreciation * 12)} annually`} icon={TrendingUp} tone="green" /><MetricCard eyebrow="FIXED COSTS" value={currency(focusedPortfolio.fixedCosts)} delta={`${currency(focusedPortfolio.fixedCosts * 12)} annually`} icon={Landmark} /><MetricCard eyebrow="VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} /><MetricCard eyebrow="EXTRACTIONS" value={currency(focusedPortfolio.extractionTotal)} delta={state.settings.accountType === 'private' ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} disabled={state.settings.accountType === 'private'} /></section>
             <section className="panel scenarios-panel overview-cashflow-panel projections-scenarios">
               <header>
                 <div>
@@ -2868,7 +2875,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
                   <p>Compare monthly cash available under different operating assumptions.</p>
                 </div>
               </header>
-              <ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} variant="overview" />
+              <ScenarioTable scenarios={focusedPortfolio.scenarios} count={focusedPortfolio.count} accountType={state.settings.accountType} variant="overview" />
             </section>
             <ProjectionExplorer properties={focusedProperties} settings={effectiveSettings} portfolio={focusedPortfolio} onSettingChange={updateSetting} />
             <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={effectiveSettings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>
@@ -2900,6 +2907,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
           {section === 'Compliance' && <section className="panel compliance-panel"><header><div><span className="kicker">RELEVANT DATES</span><h2>Compliance & remortgage diary</h2></div></header><div className="compliance-list">{complianceDiaryItems(complianceProperties).map((item, index) => <div key={item.key}><span className={index < 3 ? 'date-badge urgent' : 'date-badge'}><CalendarClock size={17} /></span><p><b>{item.label}</b><small>{item.propertyName}</small></p><time>{shortDate(calendarDate(item.displayDate))}</time></div>)}</div></section>}
 
           {section === 'Companies House' && isCompanyAccount && <section className="company-house-directory">
+            <div className="company-directory-actions"><button className="secondary-button small" onClick={addCompany}><Plus size={15} /> Add company</button></div>
             {state.companies.length > 1 && <label className="company-scope-selector">
               <span>Companies House record</span>
               <select aria-label="Select Companies House company" value={activeCompany.id} onChange={(event) => selectCompany(event.target.value)}>
