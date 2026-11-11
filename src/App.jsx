@@ -1277,7 +1277,7 @@ function CostsWorkspace({
   return <div className="costs-workspace">
     <section className="metrics-grid">
       <MetricCard eyebrow="PROPERTY FIXED COSTS" value={currency(portfolio.propertyFixedCosts)} delta="Mortgages, factors & compliance" icon={Home} tone="dark" />
-      <MetricCard eyebrow="PROPERTY VARIABLE COSTS" value={currency(focusedPortfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} />
+      <MetricCard eyebrow="PROPERTY VARIABLE COSTS" value={currency(portfolio.variableCosts)} delta="Voids, repairs & appliances" icon={Gauge} />
       <MetricCard eyebrow="COMPANY COSTS" value={currency(portfolio.companyCosts)} delta={isPrivate ? 'Not used for private landlords' : 'Editable recurring overheads'} icon={Landmark} disabled={isPrivate} />
       <MetricCard eyebrow="OWNER / EMPLOYEE CASH" value={currency(portfolio.extractionTotal)} delta={isPrivate ? 'Not used for private landlords' : 'Cash paid out; tax treatment set per line'} icon={WalletCards} tone="green" disabled={isPrivate} />
     </section>

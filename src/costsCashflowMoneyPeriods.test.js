@@ -46,6 +46,17 @@ describe('Costs & Cash Flows monthly / annual entry integration', () => {
     expect(moneyInput).toContain('/ month equivalent')
   })
 
+  it('uses the company-scoped portfolio prop for every Costs & Cash Flows KPI', () => {
+    const workspace = app.split('function CostsWorkspace({')[1]?.split('const tenantRentPaymentDays')[0]
+    expect(workspace).toBeDefined()
+    expect(workspace).toContain('value={currency(portfolio.propertyFixedCosts)}')
+    expect(workspace).toContain('value={currency(portfolio.variableCosts)}')
+    expect(workspace).toContain('value={currency(portfolio.companyCosts)}')
+    expect(workspace).toContain('value={currency(portfolio.extractionTotal)}')
+    expect(workspace).not.toContain('focusedPortfolio')
+    expect(app).toContain('settings={effectiveSettings} portfolio={focusedPortfolio}')
+  })
+
   it('has responsive styling for the wider cadence-aware controls', () => {
     expect(styles).toContain('monthly/annual Costs & Cash Flows entry')
     expect(styles).toMatch(/\.money-period-input select[\s\S]*?min-height:\s*42px/)
