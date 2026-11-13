@@ -40,7 +40,7 @@ describe('Loans workspace integration', () => {
     expect(app).toContain('const next = savePropertyLoans(current, synced.property, intendedLoans, removedLoanIds)')
     expect(app).toContain('loans={stagedLoans}')
     expect(app).toContain('onSave(draft, stagedLoans, removedLoanIds)')
-    expect(app).toContain('const propertiesWithLoans = withPropertyLoans(state.properties, state.loans || [])')
+    expect(app).toContain('applySimulatedVoids(withPropertyLoans(state.properties, state.loans || []), simulatedVoidPropertyIds)')
     expect(loansWorkspace).toContain('export function LoanEditor')
     expect(loansWorkspace).toContain('update({ propertyId: property.id })')
     expect(data).toContain("mortgageFeeMode: 'percent'")
