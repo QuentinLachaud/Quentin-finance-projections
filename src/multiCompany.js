@@ -106,7 +106,7 @@ export function calculateMultiCompanyPortfolio(properties, companies, globalSett
 
   const sum = (key) => perCompany.reduce((total, item) => total + (Number(item.portfolio[key]) || 0), 0)
   const numericFields = [
-    'rent', 'fixedCosts', 'propertyFixedCosts', 'companyCosts', 'deductibleCompanyCosts',
+    'rent', 'simulatedVoidCount', 'fixedCosts', 'propertyFixedCosts', 'companyCosts', 'deductibleCompanyCosts',
     'management', 'variableCosts', 'voids', 'problemBudget', 'complianceBudget',
     'financeAdminBudget', 'factorsCosts', 'financeCosts', 'mortgagePayments',
     'qualifyingFinanceCosts', 'nonFinancePropertyCosts', 'extractionTotal',
@@ -132,6 +132,8 @@ export function calculateMultiCompanyPortfolio(properties, companies, globalSett
     ...totals,
     selected: perCompany.flatMap(({ portfolio }) => portfolio.selected),
     count: perCompany.reduce((total, item) => total + item.portfolio.count, 0),
+    allPropertiesSimulatedVoid: perCompany.some(({ portfolio }) => portfolio.count > 0)
+      && perCompany.every(({ portfolio }) => portfolio.count === 0 || portfolio.allPropertiesSimulatedVoid),
     weightedRate: loans ? perCompany.reduce((total, item) => total + item.portfolio.weightedRate * item.portfolio.totalLoans, 0) / loans : 0,
     scenarios,
     bufferMonths: runningCosts ? totals.cashHeld / runningCosts : 0,
