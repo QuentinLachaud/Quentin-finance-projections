@@ -69,12 +69,17 @@ const qualifyingFinancePayment = (property, settings) => {
 }
 
 export function calculateProperty(property, settings, now = new Date()) {
+  // A simulated void is a temporary modelling input, never a change to contracted rent.
+  const simulatedVoid = property?.simulatedVoid === true
+  const contractualRent = finiteNumber(property?.rent)
   property = {
     ...property,
     loanAmount: finiteNumber(property?.loanAmount),
     latestValuation: finiteNumber(property?.latestValuation),
     homeReportPurchase: finiteNumber(property?.homeReportPurchase),
-    rent: finiteNumber(property?.rent),
+    rent: simulatedVoid ? 0 : contractualRent,
+    contractualRent,
+    simulatedVoid,
     baseRate: finiteNumber(property?.baseRate),
     factorsFees: finiteNumber(property?.factorsFees),
     legionella: finiteNumber(property?.legionella),
@@ -108,7 +113,9 @@ export function calculateProperty(property, settings, now = new Date()) {
   const financeAdminBudget = mortgageAdmin
   const problemBudget = Number(property.repairs) + Number(property.applianceReserve)
   const fixedCosts = monthlyPayment + Number(property.factorsFees) + complianceBudget + financeAdminBudget
-  const voids = property.voidsOverride === '' || property.voidsOverride == null
+  // A known simulated void already removes 100% of this BTL's rent. Never also
+  // subtract its normal estimated vacancy reserve (including manual overrides).
+  const voids = simulatedVoid ? 0 : property.voidsOverride === '' || property.voidsOverride == null
     ? Number(property.rent) / 12
     : Number(property.voidsOverride)
   const variableCosts = voids + problemBudget
@@ -163,6 +170,8 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
   const isCompany = settings.accountType !== 'private'
   const sum = (key) => selected.reduce((total, property) => total + finiteNumber(property[key]), 0)
   const rent = sum('rent')
+  const simulatedVoidCount = selected.filter((property) => property.simulatedVoid).length
+  const allPropertiesSimulatedVoid = selected.length > 0 && simulatedVoidCount === selected.length
   const companyCosts = isCompany ? itemTotal(settings.companyCosts) : 0
   const deductibleCompanyCosts = isCompany ? deductibleItemTotal(settings.companyCosts) : 0
   const extractionTotal = isCompany ? itemTotal(settings.extractions) : 0
@@ -263,6 +272,8 @@ export function calculatePortfolio(properties, settings, now = new Date()) {
   return {
     selected,
     count: selected.length,
+    simulatedVoidCount,
+    allPropertiesSimulatedVoid,
     rent,
     fixedCosts,
     propertyFixedCosts,
