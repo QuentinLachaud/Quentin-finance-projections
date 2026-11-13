@@ -59,7 +59,7 @@ describe('reversible Overview command centre', () => {
     expect(app).toContain('overview-scenario-kpis')
     expect(app).toContain('scenarios.map((scenario, index)')
     expect(app).toContain('<details className="overview-scenario-details" id="overview-scenario-details" open>')
-    expect(app).toContain('<ScenarioTable scenarios={scenarios} count={count} accountType={accountType} variant="overview" />')
+    expect(app).toContain('<ScenarioTable scenarios={scenarios} count={count} accountType={accountType} variant="overview" allVoid={allVoid} />')
     expect(overview).toContain("onOpenProjections={() => setSection('Projections')}")
     expect(app).toContain("isPrivate ? 'After estimated property income tax' : 'Before personal tax on extraction'")
     expect(overview).not.toContain('className="panel scenarios-panel overview-cashflow-panel"')
