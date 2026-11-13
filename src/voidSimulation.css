@@ -1,0 +1,82 @@
+/* Session-only rent void simulation in the sidebar; distinct from BTL inclusion. */
+.sidebar nav .property-nav-row > button.property-nav-void {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-width: 32px;
+  height: 34px;
+  flex: 0 0 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.sidebar nav .property-nav-row > button.property-nav-void svg {
+  box-sizing: border-box;
+  width: 27px;
+  height: 27px;
+  padding: 5px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  transition: background-color .14s ease, color .14s ease;
+}
+.sidebar nav .property-nav-row > button.property-nav-void.is-rented {
+  color: #6bd7a0;
+}
+.sidebar nav .property-nav-row > button.property-nav-void.is-void {
+  color: #f18c89;
+}
+.sidebar nav .property-nav-row > button.property-nav-void.is-rented:hover svg,
+.sidebar nav .property-nav-row > button.property-nav-void.is-rented:focus-visible svg {
+  background: #1f4934;
+}
+.sidebar nav .property-nav-row > button.property-nav-void.is-void:hover svg,
+.sidebar nav .property-nav-row > button.property-nav-void.is-void:focus-visible svg {
+  background: #512b2c;
+}
+.sidebar nav .property-nav-row > button.property-nav-void.is-void::after {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 5px;
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: rotate(-45deg);
+  pointer-events: none;
+}
+.sidebar nav .property-nav-row > button.property-nav-void:focus-visible {
+  outline: 2px solid #f3f9f5;
+  outline-offset: 1px;
+}
+.sidebar nav .property-nav-row > button.property-nav-void:disabled {
+  cursor: not-allowed;
+  opacity: .35;
+}
+.sidebar nav .property-nav-row {
+  gap: 2px;
+}
+.overview-all-void-note {
+  display: block;
+  color: #ad504f;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.3;
+}
+@media (max-width: 720px) {
+  .sidebar nav .property-nav-row > button.property-nav-void {
+    width: 34px;
+    min-width: 34px;
+    height: 40px;
+    flex-basis: 34px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar nav .property-nav-row > button.property-nav-void svg {
+    transition: none;
+  }
+}
