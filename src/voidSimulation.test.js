@@ -55,7 +55,7 @@ describe('per-property simulated rent voids', () => {
     expect(baseline.allPropertiesSimulatedVoid).toBe(false)
   })
 
-  it('excludes precisely one voided rent while retaining mortgage, maintenance, equity and reserves', () => {
+  it('excludes one voided rent, retaining only mortgage and factors expenses while preserving equity', () => {
     const baseline = calc(voided())
     const result = calc(voided('two'))
     expect(result.count).toBe(3)
@@ -69,12 +69,26 @@ describe('per-property simulated rent voids', () => {
     expect(result.scenarios[1].voidLoss).toBe(0)
     expect(result.scenarios[2].voidLoss).toBe(0)
     expect(result.voids).toBeCloseTo((1500 + 1000) / 12)
-    expect(result.propertyFixedCosts).toBeCloseTo(baseline.propertyFixedCosts)
-    expect(result.problemBudget).toBeCloseTo(baseline.problemBudget)
+    const voidedProperty = result.selected.find((p) => p.id === 'two')
+    expect(voidedProperty).toMatchObject({
+      rent: 0, contractualRent: 1100, voids: 0,
+      monthlyPayment: 500, monthlyInterestCost: 500,
+      factorsFees: 95, fixedCosts: 595, variableCosts: 0,
+      complianceBudget: 0, financeAdminBudget: 0, problemBudget: 0,
+    })
+    expect(voidedProperty.repairs).toBe(50) // Saved budget is not changed.
+    expect(voidedProperty.applianceReserve).toBe(15)
+    expect(result.propertyFixedCosts).toBeCloseTo(
+      baseline.propertyFixedCosts - (properties[1].legionella + properties[1].gasCertificate
+        + properties[1].eicr + properties[1].mortgageAdmin),
+    )
+    expect(result.problemBudget).toBeCloseTo(baseline.problemBudget - 65)
+    expect(result.financeCosts).toBeCloseTo(baseline.financeCosts)
     expect(result.totalLoans).toBe(baseline.totalLoans)
     expect(result.totalValue).toBe(baseline.totalValue)
     expect(result.totalEquity).toBe(baseline.totalEquity)
-    expect(result.selected.find((p) => p.id === 'two')).toMatchObject({ rent: 0, voids: 0 })
+    expect(result.companyCosts).toBe(80)
+    expect(result.extractionTotal).toBe(90)
   })
 
   it('applies the normal estimated void allowance to only the single remaining rented BTL', () => {
@@ -103,10 +117,52 @@ describe('per-property simulated rent voids', () => {
       expect(scenario.cashflow).toBeLessThan(0)
     }
     expect(result.scenarios[0].cashflow).toBeCloseTo(result.scenarios[1].cashflow)
-    expect(result.scenarios[2].cashflow).toBeGreaterThan(result.scenarios[0].cashflow)
+    expect(result.scenarios[2].cashflow).toBeCloseTo(result.scenarios[0].cashflow)
+    expect(result.problemBudget).toBe(0)
+    expect(result.complianceBudget).toBe(0)
+    expect(result.financeAdminBudget).toBe(0)
+    expect(result.variableCosts).toBe(0)
+    expect(result.propertyFixedCosts).toBe(3 * (500 + 95))
+    expect(result.fixedCosts).toBe(3 * (500 + 95) + 80)
+    expect(result.safeCashNeeded).toBe((3 * (500 + 95) + 80) * 6)
+    expect(result.scenarios.every((scenario) => scenario.tax === 0)).toBe(true)
     expect(result.scenarios[0].tax).toBe(0)
     expect(result.scenarios[0].taxable).toBeLessThan(0)
     expect(result.propertyFixedCosts).toBeGreaterThan(0)
+  })
+
+  it('suspends all other property budgets without suppressing the remaining rented property costs', () => {
+    const result = calc(voided('one', 'two'))
+    const surviving = result.selected.find((p) => p.id === 'three')
+    expect(surviving).toMatchObject({
+      rent: 1000, complianceBudget: 14, financeAdminBudget: 4,
+      problemBudget: 65, fixedCosts: 613, variableCosts: 1000 / 12 + 65,
+    })
+    expect(result.complianceBudget).toBe(14)
+    expect(result.financeAdminBudget).toBe(4)
+    expect(result.problemBudget).toBe(65)
+    expect(result.propertyFixedCosts).toBe(3 * 595 + 18)
+    expect(result.variableCosts).toBeCloseTo(1000 / 12 + 65)
+    expect(result.scenarios[0].voidLoss).toBeCloseTo(1000 / 12)
+    expect(result.scenarios[1].voidLoss).toBe(0)
+    expect(result.scenarios[2].problemBudget).toBe(0)
+  })
+
+  it('deducts only non-void property budgets for Corporation Tax when budget deductions are enabled', () => {
+    const budgetDeductible = { ...company, budgetedPropertyCostsTaxDeductible: true }
+    const result = calc(voided('one', 'two'), budgetDeductible)
+    for (const scenario of result.scenarios) {
+      const expectedTaxable = scenario.collectedRent
+        - result.financeCosts - result.factorsCosts - scenario.management
+        - result.complianceBudget - result.financeAdminBudget - scenario.problemBudget
+        - result.deductibleCompanyCosts - result.deductibleExtractions
+      expect(scenario.taxable).toBeCloseTo(expectedTaxable)
+      expect(scenario.tax).toBeGreaterThanOrEqual(0)
+    }
+    const allVoid = calc(voided('one', 'two', 'three'), budgetDeductible)
+    expect(allVoid.scenarios.every((scenario) => scenario.tax === 0)).toBe(true)
+    expect(allVoid.scenarios.every((scenario) => scenario.taxable < 0)).toBe(true)
+    expect(allVoid.scenarios.every((scenario) => scenario.cashflow === allVoid.scenarios[0].cashflow)).toBe(true)
   })
 
   it('does not double-count a configured void allowance override once that flat is void', () => {
@@ -162,6 +218,10 @@ describe('per-property simulated rent voids', () => {
         expect(Number.isFinite(scenario.cashflow)).toBe(true)
       }
     }
+    const allVoid = calc(voided('one', 'two', 'three'), privateSettings)
+    expect(allVoid.scenarios.every((scenario) => scenario.tax === 0)).toBe(true)
+    expect(allVoid.scenarios.every((scenario) => scenario.problemBudget === 0)).toBe(true)
+    expect(allVoid.scenarios[0].cashflow).toBeCloseTo(allVoid.scenarios[2].cashflow)
   })
 
   it('does not mistake excluded properties or empty portfolio for all active properties void', () => {
@@ -228,6 +288,12 @@ describe('independent companies with simulated voids', () => {
     expect(all.allPropertiesSimulatedVoid).toBe(true)
     expect(all.simulatedVoidCount).toBe(3)
     expect(all.scenarios.every((s) => s.collectedRent === 0 && s.voidLoss === 0)).toBe(true)
+    expect(all.scenarios.every((s) => s.tax === 0 && s.problemBudget === 0)).toBe(true)
+    expect(all.problemBudget).toBe(0)
+    expect(all.complianceBudget).toBe(0)
+    expect(all.financeAdminBudget).toBe(0)
+    expect(all.propertyFixedCosts).toBe(3 * (500 + 95))
+    expect(all.companyCosts).toBe(160) // Each company retains its operating expenses.
 
     const onlyA = combined(voided('one', 'two'), [companies[0], { ...companies[1], enabled: false }])
     expect(onlyA.allPropertiesSimulatedVoid).toBe(true)

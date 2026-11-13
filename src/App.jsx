@@ -2420,10 +2420,10 @@ function PortfolioApp({ user, accessToken, onReady }) {
                 className={`property-nav-void ${p.simulatedVoid ? 'is-void' : 'is-rented'}`}
                 aria-label={`${p.simulatedVoid ? 'Restore rental income for' : 'Simulate void for'} ${p.name}`}
                 aria-pressed={Boolean(p.simulatedVoid)}
-                title={p.simulatedVoid ? `Restore ${p.name} rental income in projections` : `Exclude ${p.name} rent from projected cash flow without changing the lease`}
+                title={p.simulatedVoid ? `Restore ${p.name} rent and expense budgets in projections` : `Simulate ${p.name} as void: retain mortgage and factors, remove rent and other property budgets`}
                 disabled={!p.active}
                 onClick={() => toggleSimulatedVoid(p.id)}
-              ><PoundSterling size={16} aria-hidden="true" /></button>
+              ><PoundSterling size={18} strokeWidth={2.2} aria-hidden="true" /></button>
               <label
                 className="property-nav-visibility"
                 title={p.active ? `Exclude ${p.name} from portfolio calculations and other workspaces` : `Include ${p.name} in portfolio calculations and other workspaces`}
