@@ -8,6 +8,8 @@ import {
 } from 'lucide-react'
 import { assumptions, createBlankProperty, DEFAULT_DEPOSIT_SCHEME, editableSections, newAccountDefaults, normalizePropertyRecord } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
+import { applySimulatedVoids } from './voidSimulation.js'
+import './voidSimulation.css'
 import { calendarDate, dateInputValue } from './dateUtils.js'
 import {
   activeOfficers, activePsc, companyDeadlines, formatCompanyAddress,
@@ -815,32 +817,33 @@ function ModelControls({ settings, onChange, compact = false }) {
   )
 }
 
-function OverviewScenarioStrip({ scenarios, count, accountType, onOpenProjections }) {
+function OverviewScenarioStrip({ scenarios, count, accountType, allVoid = false, onOpenProjections }) {
   const isPrivate = accountType === 'private'
   return <section className="panel overview-scenario-strip" aria-label="Cash flow scenarios">
     <header className="overview-scenario-heading">
       <div>
         <span className="kicker">OPERATING ASSUMPTIONS</span>
         <h2>Cash flow scenarios</h2>
-        <p>Compare monthly cash available under different operating assumptions.</p>
+        <p>{allVoid ? 'All included BTLs are simulated as void. No further estimated void loss is deducted.' : 'Compare monthly cash available under different operating assumptions.'}</p>
       </div>
       <button type="button" className="text-button" onClick={onOpenProjections}>Open projections <ArrowUpRight size={15} /></button>
     </header>
     <div className="overview-scenario-kpis">
       {scenarios.map((scenario, index) => <div key={scenario.id} className={index === 0 ? 'overview-scenario-kpi primary' : 'overview-scenario-kpi'}>
         <span>{overviewScenarioMeta[index]?.selector || 'Scenario'}</span>
+        {allVoid && <small className="overview-all-void-note">All BTLs void</small>}
         <strong>{currency(scenario.cashflow)}<small>/month</small></strong>
         {index === 0 && <small>{isPrivate ? 'After estimated property income tax' : 'Before personal tax on extraction'}</small>}
       </div>)}
     </div>
     <details className="overview-scenario-details" id="overview-scenario-details" open>
       <summary>Detailed scenarios <ChevronDown size={16} aria-hidden="true" /></summary>
-      <ScenarioTable scenarios={scenarios} count={count} accountType={accountType} variant="overview" />
+      <ScenarioTable scenarios={scenarios} count={count} accountType={accountType} variant="overview" allVoid={allVoid} />
     </details>
   </section>
 }
 
-function ScenarioTable({ scenarios, count, accountType = 'company', variant = 'default' }) {
+function ScenarioTable({ scenarios, count, accountType = 'company', variant = 'default', allVoid = false }) {
   const isPrivate = accountType === 'private'
   const [mobileScenario, setMobileScenario] = useState(0)
   const [desktopScenarios, setDesktopScenarios] = useState(() => new Set([0, 1, 2]))
@@ -902,7 +905,7 @@ if (variant === 'overview') {
               <span className="overview-cashflow-scenario-dot" aria-hidden="true" />
               <span className="overview-cashflow-scenario-copy">
                 <b>{copy.title}</b>
-                <small>{copy.note}</small>
+                <small>{allVoid ? 'All included BTLs are void · no rental income' : copy.note}</small>
               </span>
               <span className="overview-cashflow-scenario-index">Scenario {scenario.id}</span>
             </header>
@@ -1688,6 +1691,8 @@ function PortfolioApp({ user, accessToken, onReady }) {
     () => new Set(propertyGroups.map(({ title }) => title)),
   )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  // Session-only toggle: never replace contractual rents or persist a void scenario.
+  const [simulatedVoidPropertyIds, setSimulatedVoidPropertyIds] = useState(() => new Set())
   const [modelInputsPopupOpen, setModelInputsPopupOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(() => new URLSearchParams(window.location.search).get('notifications') === '1')
@@ -1965,7 +1970,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
   const isCompanyAccount = state.settings.accountType !== 'private'
   const activeCompany = (state.companies || []).find((company) => company.id === state.settings.activeCompanyId) || (state.companies || [])[0] || createPortfolioCompany(LEGACY_COMPANY_ID, state.settings.companyName || 'Company 1')
   const effectiveSettings = isCompanyAccount ? companySettings(activeCompany, state.settings) : state.settings
-  const propertiesWithLoans = withPropertyLoans(state.properties, state.loans || [])
+  const propertiesWithLoans = applySimulatedVoids(withPropertyLoans(state.properties, state.loans || []), simulatedVoidPropertyIds)
   const portfolio = isCompanyAccount
     ? calculateMultiCompanyPortfolio(propertiesWithLoans, state.companies, state.settings)
     : calculatePortfolio(propertiesWithLoans, state.settings)
@@ -2065,6 +2070,13 @@ function PortfolioApp({ user, accessToken, onReady }) {
     closeEditor()
   }
   const toggleProperty = (id) => setState((current) => ({ ...current, properties: current.properties.map((p) => p.id === id ? { ...p, active: !p.active } : p) }))
+  const toggleSimulatedVoid = (id) => setSimulatedVoidPropertyIds((current) => {
+    const next = new Set(current)
+    const key = String(id)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    return next
+  })
   const selectCompany = (id) => setState((current) => current.companies.some((company) => company.id === id)
     ? { ...current, settings: { ...current.settings, activeCompanyId: id } } : current)
   const addCompany = () => {
@@ -2403,6 +2415,15 @@ function PortfolioApp({ user, accessToken, onReady }) {
             <small>YOUR BTLS</small>
             {calculated.map((p) => <div key={p.id} className={`property-nav-row ${p.active ? 'included' : 'excluded'}`}>
               <button className="property-nav" onClick={() => { setSection('Properties'); setSearch(p.name); setMobilePropertyId(p.id); setMobileNavOpen(false) }}><i>{p.name.replace(/\D/g, '')}</i><span>{p.name}<small>{p.postcode}</small></span></button>
+              <button
+                type="button"
+                className={`property-nav-void ${p.simulatedVoid ? 'is-void' : 'is-rented'}`}
+                aria-label={`${p.simulatedVoid ? 'Restore rental income for' : 'Simulate void for'} ${p.name}`}
+                aria-pressed={Boolean(p.simulatedVoid)}
+                title={p.simulatedVoid ? `Restore ${p.name} rental income in projections` : `Exclude ${p.name} rent from projected cash flow without changing the lease`}
+                disabled={!p.active}
+                onClick={() => toggleSimulatedVoid(p.id)}
+              ><PoundSterling size={16} aria-hidden="true" /></button>
               <label
                 className="property-nav-visibility"
                 title={p.active ? `Exclude ${p.name} from portfolio calculations and other workspaces` : `Include ${p.name} in portfolio calculations and other workspaces`}
@@ -2613,7 +2634,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
               </aside>
             </div>
 
-            <OverviewScenarioStrip scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} onOpenProjections={() => setSection('Projections')} />
+            <OverviewScenarioStrip scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} allVoid={portfolio.allPropertiesSimulatedVoid} onOpenProjections={() => setSection('Projections')} />
 
             <section className="overview-operating-grid" aria-label="Properties">
               <div className="overview-properties-main">
@@ -2891,7 +2912,7 @@ function PortfolioApp({ user, accessToken, onReady }) {
                   <p>Compare monthly cash available under different operating assumptions.</p>
                 </div>
               </header>
-              <ScenarioTable scenarios={focusedPortfolio.scenarios} count={focusedPortfolio.count} accountType={state.settings.accountType} variant="overview" />
+              <ScenarioTable scenarios={focusedPortfolio.scenarios} count={focusedPortfolio.count} accountType={state.settings.accountType} variant="overview" allVoid={focusedPortfolio.allPropertiesSimulatedVoid} />
             </section>
             <ProjectionExplorer properties={focusedProperties} settings={effectiveSettings} portfolio={focusedPortfolio} onSettingChange={updateSetting} />
             <section className="panel assumptions-panel"><header><div><span className="kicker">MODEL INPUTS</span><h2>Portfolio assumptions</h2><p>Percentages are entered and displayed as true percentage values.</p></div></header><ModelInputFields settings={effectiveSettings} onSettingChange={updateSetting} onPercentChange={updatePercentSetting} /><PrivateLandlordInputs settings={state.settings} onSettingChange={updateSetting} /></section>

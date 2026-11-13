@@ -6,7 +6,7 @@ const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 
 describe('Overview iOS-native cash-flow scenarios', () => {
   it('uses the polished overview ScenarioTable variant in both Overview and Projections', () => {
-    expect(app).toContain("function ScenarioTable({ scenarios, count, accountType = 'company', variant = 'default' })")
+    expect(app).toContain("function ScenarioTable({ scenarios, count, accountType = 'company', variant = 'default', allVoid = false })")
     expect(app).toContain("if (variant === 'overview')")
     expect((app.match(/variant=\"overview\"/g) || [])).toHaveLength(2)
     expect(app).not.toContain('<ScenarioTable scenarios={portfolio.scenarios} count={portfolio.count} accountType={state.settings.accountType} />')
