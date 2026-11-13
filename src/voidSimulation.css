@@ -1,57 +1,62 @@
-/* Session-only rent void simulation in the sidebar; distinct from BTL inclusion. */
+/* Session-only simulation: one compact, genuinely circular control per BTL. */
 .sidebar nav .property-nav-row > button.property-nav-void {
+  box-sizing: border-box;
   position: relative;
   display: grid;
   place-items: center;
   width: 32px;
   min-width: 32px;
-  height: 34px;
+  height: 32px;
+  min-height: 32px; /* Override the sidebar's 42px button minimum; no oval halo. */
   flex: 0 0 32px;
   margin: 0;
   padding: 0;
-  border: 0;
+  border: 1px solid currentColor;
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
+  transition: background-color .14s ease, border-color .14s ease;
 }
 .sidebar nav .property-nav-row > button.property-nav-void svg {
-  box-sizing: border-box;
-  width: 27px;
-  height: 27px;
-  padding: 5px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  transition: background-color .14s ease, color .14s ease;
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
 }
 .sidebar nav .property-nav-row > button.property-nav-void.is-rented {
   color: #6bd7a0;
+  background: #153428;
+  border-color: #397e5d;
 }
 .sidebar nav .property-nav-row > button.property-nav-void.is-void {
   color: #f18c89;
+  background: #3c2228;
+  border-color: #a9565a;
 }
-.sidebar nav .property-nav-row > button.property-nav-void.is-rented:hover svg,
-.sidebar nav .property-nav-row > button.property-nav-void.is-rented:focus-visible svg {
-  background: #1f4934;
+.sidebar nav .property-nav-row > button.property-nav-void.is-rented:hover {
+  background: #225440;
+  border-color: #6bd7a0;
 }
-.sidebar nav .property-nav-row > button.property-nav-void.is-void:hover svg,
-.sidebar nav .property-nav-row > button.property-nav-void.is-void:focus-visible svg {
-  background: #512b2c;
+.sidebar nav .property-nav-row > button.property-nav-void.is-void:hover {
+  background: #542b32;
+  border-color: #f18c89;
 }
 .sidebar nav .property-nav-row > button.property-nav-void.is-void::after {
   content: '';
   position: absolute;
-  top: 15px;
-  left: 5px;
-  width: 22px;
-  height: 2px;
+  left: 50%;
+  top: 50%;
+  width: 23px;
+  height: 1.75px;
   border-radius: 2px;
   background: currentColor;
-  transform: rotate(-45deg);
+  box-shadow: 0 0 0 1px #3c2228;
+  transform: translate(-50%, -50%) rotate(-45deg);
   pointer-events: none;
 }
 .sidebar nav .property-nav-row > button.property-nav-void:focus-visible {
-  outline: 2px solid #f3f9f5;
-  outline-offset: 1px;
+  outline: 2px solid #a9e6c8;
+  outline-offset: 2px;
 }
 .sidebar nav .property-nav-row > button.property-nav-void:disabled {
   cursor: not-allowed;
@@ -71,12 +76,13 @@
   .sidebar nav .property-nav-row > button.property-nav-void {
     width: 34px;
     min-width: 34px;
-    height: 40px;
+    height: 34px;
+    min-height: 34px;
     flex-basis: 34px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sidebar nav .property-nav-row > button.property-nav-void svg {
+  .sidebar nav .property-nav-row > button.property-nav-void {
     transition: none;
   }
 }

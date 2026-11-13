@@ -109,9 +109,12 @@ export function calculateProperty(property, settings, now = new Date()) {
     ? finance ? finance.loans.reduce((sum, loan) => sum + (loan.fixedRateMonths > 0 ? 13 / loan.fixedRateMonths : 0), 0)
       : 13 / Math.max(1, Number(property.fixedRateMonths))
     : Number(property.mortgageAdmin)
-  const complianceBudget = Number(property.legionella) + Number(property.gasCertificate) + Number(property.eicr)
-  const financeAdminBudget = mortgageAdmin
-  const problemBudget = Number(property.repairs) + Number(property.applianceReserve)
+  // Void scenario assumption: only mortgage and factors costs continue for
+  // this property. Preserve saved budgets; suspend forecast repair, compliance,
+  // appliance and mortgage-admin allowances until rental income is restored.
+  const complianceBudget = simulatedVoid ? 0 : Number(property.legionella) + Number(property.gasCertificate) + Number(property.eicr)
+  const financeAdminBudget = simulatedVoid ? 0 : mortgageAdmin
+  const problemBudget = simulatedVoid ? 0 : Number(property.repairs) + Number(property.applianceReserve)
   const fixedCosts = monthlyPayment + Number(property.factorsFees) + complianceBudget + financeAdminBudget
   // A known simulated void already removes 100% of this BTL's rent. Never also
   // subtract its normal estimated vacancy reserve (including manual overrides).
