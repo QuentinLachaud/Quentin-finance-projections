@@ -9,6 +9,7 @@ import {
 import { assumptions, createBlankProperty, DEFAULT_DEPOSIT_SCHEME, editableSections, newAccountDefaults, normalizePropertyRecord } from './data.js'
 import { calculatePortfolio, calculateProperty, currency, percent, projectPortfolio, shortDate } from './calculations.js'
 import { applySimulatedVoids } from './voidSimulation.js'
+import './voidSimulation.css'
 import { calendarDate, dateInputValue } from './dateUtils.js'
 import {
   activeOfficers, activePsc, companyDeadlines, formatCompanyAddress,
