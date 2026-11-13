@@ -65,9 +65,9 @@ describe('per-property simulated rent voids', () => {
     expect(result.scenarios.map((s) => s.collectedRent)).toEqual([
       2500 - (1500 + 1000) / 12, 2500, 2500,
     ])
-    expect(result.scenarios.map((s) => s.voidLoss)).toEqual([
-      (1500 + 1000) / 12, 0, 0,
-    ])
+    expect(result.scenarios[0].voidLoss).toBeCloseTo((1500 + 1000) / 12)
+    expect(result.scenarios[1].voidLoss).toBe(0)
+    expect(result.scenarios[2].voidLoss).toBe(0)
     expect(result.voids).toBeCloseTo((1500 + 1000) / 12)
     expect(result.propertyFixedCosts).toBeCloseTo(baseline.propertyFixedCosts)
     expect(result.problemBudget).toBeCloseTo(baseline.problemBudget)
